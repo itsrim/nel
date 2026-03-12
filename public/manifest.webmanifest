@@ -1,0 +1,20 @@
+{
+  "name": "nel",
+  "short_name": "nel",
+  "start_url": "/nel/",
+  "display": "standalone",
+  "theme_color": "#00d1b2",
+  "background_color": "#000000",
+  "icons": [
+    {
+      "src": "/nel/icons/pwa-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/nel/icons/pwa-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
