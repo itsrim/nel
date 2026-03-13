@@ -1,33 +1,9 @@
-import { Search, Filter, Gift, Heart, Users } from 'lucide-react';
+import { Search, Filter, Heart } from 'lucide-react';
 import './HomePage.css';
 
 export function HomePage() {
   return (
     <div className="home-page">
-      {/* Header */}
-      <header className="home-header">
-        <div className="status-bar">
-          <span className="time">9:41</span>
-          <div className="status-icons">
-            <span>📶</span>
-            <span>📶</span>
-            <span>🔋</span>
-          </div>
-        </div>
-        <div className="welcome-section">
-          <div className="profile-picture">
-            <div className="avatar">CJ</div>
-          </div>
-          <div className="welcome-text">
-            <span className="welcome-label">Welcome Back</span>
-            <h2 className="user-name">Christian Johnson</h2>
-          </div>
-          <button className="gift-button" aria-label="Gift">
-            <Gift size={24} />
-          </button>
-        </div>
-      </header>
-
       {/* Search Bar */}
       <div className="search-container">
         <div className="search-bar">
@@ -51,20 +27,24 @@ export function HomePage() {
         </div>
         <div className="categories-list">
           <button className="category-item active">
-            <div className="category-icon">🎤</div>
-            <span>Live shows</span>
+            <div className="category-image live-shows"></div>
+            <span className="category-text">Live shows</span>
           </button>
           <button className="category-item">
-            <div className="category-icon">🚶</div>
-            <span>Tourism</span>
+            <div className="category-image tourism"></div>
+            <span className="category-text">Tourism</span>
           </button>
           <button className="category-item">
-            <div className="category-icon">👤</div>
-            <span>Fever Origin</span>
+            <div className="category-image fever-origin"></div>
+            <span className="category-text">Fever Origin</span>
           </button>
           <button className="category-item">
-            <div className="category-icon">🎭</div>
-            <span>Events</span>
+            <div className="category-image events"></div>
+            <span className="category-text">Events</span>
+          </button>
+          <button className="category-item">
+            <div className="category-image concerts"></div>
+            <span className="category-text">Concerts</span>
           </button>
         </div>
       </section>

@@ -23,72 +23,92 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: none;
+  background: transparent;
   border: none;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
-}
-
-/* Bouton Home (jaune avec texte) */
-.nav-item.home-button {
-  background: #ffd700;
   border-radius: 50px;
-  padding: 10px 18px;
+  padding: 10px;
+  min-width: 44px;
+  height: 44px;
   gap: 8px;
-  min-width: 100px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
 }
 
-.nav-item.home-button .nav-icon {
+/* Style pour l'onglet actif (jaune avec texte) */
+.nav-item.active {
+  background: #ffd700;
+  padding: 10px 18px;
+  min-width: 100px;
+  box-shadow: 0 2px 12px rgba(255, 215, 0, 0.4);
+  transform: scale(1.05);
+}
+
+.nav-item.active .nav-icon {
   color: #000000;
   stroke-width: 2.5;
   flex-shrink: 0;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.nav-item.home-button .nav-label {
+.nav-item.active .nav-label {
   color: #000000;
   font-size: 14px;
   font-weight: 700;
   margin: 0;
   white-space: nowrap;
+  opacity: 1;
+  animation: slideInLabel 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Boutons icônes circulaires */
-.nav-item.icon-button {
+/* Style pour les onglets inactifs (icônes circulaires) */
+.nav-item:not(.active) {
   width: 44px;
   height: 44px;
-  border-radius: 50%;
-  background: transparent;
   padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: 50%;
+  transform: scale(1);
 }
 
-.nav-item.icon-button .nav-icon {
+.nav-item:not(.active) .nav-icon {
   color: #ffffff;
   stroke-width: 1.5;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.nav-item.icon-button:hover {
+.nav-item:not(.active):hover {
   background: rgba(255, 255, 255, 0.08);
-}
-
-.nav-item.icon-button.active {
-  background: rgba(255, 255, 255, 0.12);
+  transform: scale(1.1);
 }
 
 .nav-icon {
   flex-shrink: 0;
-  transition: all 0.2s ease;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .nav-label {
-  font-weight: 600;
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  transition: opacity 0.3s ease, width 0.3s ease;
+}
+
+.nav-item.active .nav-label {
+  width: auto;
+  overflow: visible;
+}
+
+@keyframes slideInLabel {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+    width: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+    width: auto;
+  }
 }
 
 @media (max-width: 480px) {
@@ -98,21 +118,21 @@
     min-width: 260px;
   }
 
-  .nav-item.home-button {
+  .nav-item.active {
     padding: 8px 16px;
     min-width: 90px;
   }
 
-  .nav-item.home-button .nav-label {
+  .nav-item.active .nav-label {
     font-size: 13px;
   }
 
-  .nav-item.icon-button {
+  .nav-item:not(.active) {
     width: 40px;
     height: 40px;
   }
 
-  .nav-item.icon-button .nav-icon {
+  .nav-item:not(.active) .nav-icon {
     width: 20px;
     height: 20px;
   }

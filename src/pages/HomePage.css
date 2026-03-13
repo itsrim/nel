@@ -5,91 +5,17 @@
   min-height: 100vh;
 }
 
-.home-header {
-  padding: 12px 20px 20px;
-  background: #0a0a0a;
-}
-
-.status-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.status-icons {
-  display: flex;
-  gap: 4px;
-}
-
-.welcome-section {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.profile-picture {
-  flex-shrink: 0;
-}
-
-.avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #4ade80, #22c55e);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 16px;
-  color: #ffffff;
-}
-
-.welcome-text {
-  flex: 1;
-}
-
-.welcome-label {
-  display: block;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-  margin-bottom: 4px;
-}
-
-.user-name {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.gift-button {
-  background: none;
-  border: none;
-  color: #ffffff;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 8px;
-  transition: background 0.2s ease;
-}
-
-.gift-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
 .search-container {
-  padding: 0 20px 24px;
+  padding: 20px 20px 16px;
 }
 
 .search-bar {
   display: flex;
   align-items: center;
   background: #1a1a1a;
-  border-radius: 12px;
-  padding: 12px 16px;
-  gap: 12px;
+  border-radius: 50px;
+  padding: 6px 16px;
+  gap: 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -127,14 +53,14 @@
 
 .categories-section,
 .top-events-section {
-  padding: 0 20px 24px;
+  padding: 0 20px 16px;
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .section-title {
@@ -166,6 +92,7 @@
   overflow-x: auto;
   padding-bottom: 8px;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 .categories-list::-webkit-scrollbar {
@@ -174,36 +101,119 @@
 
 .category-item {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   background: #1a1a1a;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 16px 20px;
-  min-width: 100px;
+  border: none;
+  border-radius: 50px;
+  padding: 8px 16px 8px 8px;
+  min-width: fit-content;
   cursor: pointer;
-  transition: all 0.2s ease;
-  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.3s ease;
+  flex-shrink: 0;
 }
 
 .category-item.active {
   background: #ffd700;
-  color: #000000;
-  border-color: #ffd700;
 }
 
-.category-icon {
-  font-size: 32px;
+.category-image {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background-size: cover;
+  background-position: center;
 }
 
-.category-item span {
-  font-size: 12px;
+.category-image.live-shows {
+  background: linear-gradient(135deg, #10b981, #3b82f6);
+  position: relative;
+}
+
+.category-image.live-shows::before {
+  content: '🎤';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+}
+
+.category-image.tourism {
+  background: linear-gradient(135deg, #1a1a1a, #374151);
+  position: relative;
+}
+
+.category-image.tourism::before {
+  content: '🚴';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+}
+
+.category-image.fever-origin {
+  background: linear-gradient(135deg, #1a1a1a, #4b5563);
+  position: relative;
+}
+
+.category-image.fever-origin::before {
+  content: '👤';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+}
+
+.category-image.events {
+  background: linear-gradient(135deg, #1a1a1a, #374151);
+  position: relative;
+}
+
+.category-image.events::before {
+  content: '🎭';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+}
+
+.category-image.concerts {
+  background: linear-gradient(135deg, #1a1a1a, #374151);
+  position: relative;
+}
+
+.category-image.concerts::before {
+  content: '🎵';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+}
+
+.category-text {
+  font-size: 14px;
   font-weight: 500;
+  white-space: nowrap;
+  transition: color 0.3s ease;
+}
+
+.category-item:not(.active) .category-text {
+  color: #ffffff;
+}
+
+.category-item.active .category-text {
+  color: #000000;
+  font-weight: 600;
 }
 
 .main-event-section {
-  padding: 0 20px 24px;
+  padding: 0 20px 16px;
 }
 
 .main-event-card {

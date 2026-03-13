@@ -5,15 +5,15 @@ import './BottomNavigation.css';
 
 interface NavItem {
   id: TabId;
-  label?: string;
+  label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
 }
 
 const navItems: NavItem[] = [
   { id: 'home', label: 'Home', icon: Home },
-  { id: 'search', icon: Search },
-  { id: 'tickets', icon: TicketIcon },
-  { id: 'profile', icon: User },
+  { id: 'search', label: 'Search', icon: Search },
+  { id: 'tickets', label: 'Event', icon: TicketIcon },
+  { id: 'profile', label: 'Profil', icon: User },
 ];
 
 export function BottomNavigation() {
@@ -24,17 +24,16 @@ export function BottomNavigation() {
       {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = activeTab === item.id;
-        const isHome = item.id === 'home';
 
         return (
           <button
             key={item.id}
-            className={`nav-item ${isActive ? 'active' : ''} ${isHome ? 'home-button' : 'icon-button'}`}
+            className={`nav-item ${isActive ? 'active' : ''}`}
             onClick={() => setActiveTab(item.id)}
-            aria-label={item.label || item.id}
+            aria-label={item.label}
           >
-            <Icon size={isHome ? 20 : 24} className="nav-icon" />
-            {isHome && <span className="nav-label">Home</span>}
+            <Icon size={isActive ? 20 : 24} className="nav-icon" />
+            {isActive && <span className="nav-label">{item.label}</span>}
           </button>
         );
       })}
