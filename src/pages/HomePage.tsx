@@ -1,5 +1,5 @@
-import { ArrowLeft, Filter, Heart, X, MapPin, Clock, Users, ChevronUp, ChevronDown } from 'lucide-react';
-import { useState } from 'react';
+import { Filter, Heart, X, Clock, Users, List } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import './HomePage.css';
 
 interface Event {
@@ -13,6 +13,13 @@ interface Event {
   image: string;
   lat: number;
   lng: number;
+}
+
+interface Cluster {
+  lat: number;
+  lng: number;
+  events: Event[];
+  count: number;
 }
 
 const events: Event[] = [
@@ -78,122 +85,263 @@ const events: Event[] = [
   },
 ];
 
+// Distance de clustering en degrés (environ 200m)
+const CLUSTER_DISTANCE = 0.002;
+
+// Fonction pour calculer la distance entre deux points en degrés
+function getDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const dLat = lat2 - lat1;
+  const dLng = lng2 - lng1;
+  return Math.sqrt(dLat * dLat + dLng * dLng);
+}
+
+// Fonction de clustering
+function clusterEvents(events: Event[]): Cluster[] {
+  const clusters: Cluster[] = [];
+  const processed = new Set<number>();
+
+  events.forEach((event) => {
+    if (processed.has(event.id)) return;
+
+    const cluster: Cluster = {
+      lat: event.lat,
+      lng: event.lng,
+      events: [event],
+      count: 1,
+    };
+    processed.add(event.id);
+
+    // Chercher les événements proches
+    events.forEach((otherEvent) => {
+      if (processed.has(otherEvent.id)) return;
+      
+      const distance = getDistance(event.lat, event.lng, otherEvent.lat, otherEvent.lng);
+      if (distance < CLUSTER_DISTANCE) {
+        cluster.events.push(otherEvent);
+        cluster.count++;
+        processed.add(otherEvent.id);
+        
+        // Recalculer le centre du cluster
+        cluster.lat = cluster.events.reduce((sum, e) => sum + e.lat, 0) / cluster.events.length;
+        cluster.lng = cluster.events.reduce((sum, e) => sum + e.lng, 0) / cluster.events.length;
+      }
+    });
+
+    clusters.push(cluster);
+  });
+
+  return clusters;
+}
+
 export function HomePage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [isListExpanded, setIsListExpanded] = useState(true);
+  const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
+  const [clusterEventIndex, setClusterEventIndex] = useState(0);
+  const [scrollCollapsed, setScrollCollapsed] = useState(false);
 
-  const handleEventClick = (event: Event) => {
+  // Calculer les clusters
+  const clusters = useMemo(() => clusterEvents(events), []);
+
+  const handleClusterClick = (cluster: Cluster) => {
+    setScrollCollapsed(true);
+    if (cluster.count === 1) {
+      setSelectedEvent(cluster.events[0]);
+      setSelectedCluster(null);
+    } else {
+      // Si plusieurs événements, afficher le cluster avec scroll vertical
+      setSelectedCluster(cluster);
+      setSelectedEvent(cluster.events[0]);
+      setClusterEventIndex(0);
+    }
+  };
+
+  const handleEventCardClick = (event: Event) => {
+    setScrollCollapsed(true);
     setSelectedEvent(event);
-    setIsListExpanded(false);
+    setSelectedCluster(null);
+    // Trouver le cluster correspondant
+    const cluster = clusters.find(c => c.events.some(e => e.id === event.id));
+    if (cluster && cluster.count > 1) {
+      setSelectedCluster(cluster);
+      setClusterEventIndex(cluster.events.findIndex(e => e.id === event.id));
+    }
   };
 
   const handleCloseInfo = () => {
     setSelectedEvent(null);
-    setIsListExpanded(true);
+    setSelectedCluster(null);
+    setClusterEventIndex(0);
+    setScrollCollapsed(false);
+  };
+
+  const handleNextClusterEvent = () => {
+    if (selectedCluster && clusterEventIndex < selectedCluster.events.length - 1) {
+      const nextIndex = clusterEventIndex + 1;
+      setClusterEventIndex(nextIndex);
+      setSelectedEvent(selectedCluster.events[nextIndex]);
+    }
+  };
+
+  const handlePrevClusterEvent = () => {
+    if (selectedCluster && clusterEventIndex > 0) {
+      const prevIndex = clusterEventIndex - 1;
+      setClusterEventIndex(prevIndex);
+      setSelectedEvent(selectedCluster.events[prevIndex]);
+    }
+  };
+
+  // Convertir les coordonnées en pourcentage pour le positionnement
+  const getMarkerPosition = (lat: number, lng: number) => {
+    const centerLat = 43.6047;
+    const centerLng = 1.4442;
+    const latRange = 0.01; // Plage de latitude visible
+    const lngRange = 0.01; // Plage de longitude visible
+    
+    const left = 50 + ((lng - centerLng) / lngRange) * 40;
+    const top = 50 + ((centerLat - lat) / latRange) * 40;
+    
+    return { left: `${left}%`, top: `${top}%` };
   };
 
   return (
     <div className="home-page">
-      {/* Header */}
-      <header className="map-header">
-        <div className="search-bar-header">
-          <div className="search-bar-content">
-            <span className="search-location">Toulouse · Événements</span>
-            <span className="search-dates">13-15 mars · 2 personnes</span>
-          </div>
-        </div>
-        <button className="filter-button-header" aria-label="Filter">
-          <Filter size={20} />
-        </button>
-      </header>
-
       {/* Map Container */}
-      <div className={`map-container ${!isListExpanded ? 'map-expanded' : ''}`}>
+      <div className="map-container">
+        {/* Header - Overlay on map */}
+        <header className="map-header">
+          <div className="search-bar-header">
+            <div className="search-bar-content">
+              <span className="search-location">Toulouse · Événements</span>
+              <span className="search-dates">13-15 mars · 2 personnes</span>
+            </div>
+          </div>
+          <button className="filter-button-header" aria-label="Filter">
+            <Filter size={20} />
+          </button>
+        </header>
         <div className="map-placeholder">
-          <div className="map-content">
-            <div className="city-label">Toulouse</div>
-            {events.map((event) => (
-              <div
-                key={event.id}
-                className={`event-marker ${selectedEvent?.id === event.id ? 'selected' : ''}`}
-                style={{
-                  left: `${30 + (event.lng - 1.4440) * 1000}%`,
-                  top: `${50 + (event.lat - 43.6047) * 1000}%`,
-                }}
-                onClick={() => handleEventClick(event)}
-              >
-                <span className="marker-count">{events.filter(e => 
-                  Math.abs(e.lat - event.lat) < 0.001 && 
-                  Math.abs(e.lng - event.lng) < 0.001
-                ).length}</span>
-              </div>
-            ))}
+          <iframe
+            className="map-iframe"
+            src={`https://www.openstreetmap.org/export/embed.html?bbox=${1.4442 - 0.015},${43.6047 - 0.015},${1.4442 + 0.015},${43.6047 + 0.015}&layer=mapnik`}
+            width="100%"
+            height="100%"
+            frameBorder="0"
+            style={{ border: 0 }}
+            allowFullScreen
+          />
+          <div 
+            className="map-click-area" 
+            onClick={() => setScrollCollapsed(true)}
+          />
+          <div className="map-overlay">
+            <div className="map-content">
+              {clusters.map((cluster, index) => {
+                const position = getMarkerPosition(cluster.lat, cluster.lng);
+                const isSelected = selectedEvent && cluster.events.some(e => e.id === selectedEvent.id);
+                return (
+                  <div
+                    key={index}
+                    className={`event-marker ${isSelected ? 'selected' : ''} ${cluster.count > 1 ? 'cluster' : ''}`}
+                    style={position}
+                    onClick={() => handleClusterClick(cluster)}
+                  >
+                    <span className="marker-count">{cluster.count > 1 ? cluster.count : ''}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* Event Info Bubble */}
+        {/* Event Detail Card */}
         {selectedEvent && (
-          <div className="event-info-bubble">
+          <div className="event-detail-card">
             <button className="close-button" onClick={handleCloseInfo} aria-label="Close">
               <X size={18} />
             </button>
-            <div className={`event-image-bubble ${selectedEvent.image}`}></div>
-            <div className="event-info-content">
-              <h3 className="event-info-title">{selectedEvent.title}</h3>
-              <p className="event-info-subtitle">{selectedEvent.location}</p>
-              <div className="event-info-details">
-                <div className="info-detail-item">
-                  <Clock size={14} />
-                  <span>{selectedEvent.time} · {selectedEvent.date}</span>
-                </div>
-                <div className="info-detail-item">
+            {selectedCluster && selectedCluster.count > 1 && (
+              <div className="cluster-navigation">
+                <button 
+                  className="cluster-nav-button prev" 
+                  onClick={handlePrevClusterEvent}
+                  disabled={clusterEventIndex === 0}
+                  aria-label="Previous"
+                >
+                  ←
+                </button>
+                <span className="cluster-counter">
+                  {clusterEventIndex + 1} / {selectedCluster.count}
+                </span>
+                <button 
+                  className="cluster-nav-button next" 
+                  onClick={handleNextClusterEvent}
+                  disabled={clusterEventIndex === selectedCluster.events.length - 1}
+                  aria-label="Next"
+                >
+                  →
+                </button>
+              </div>
+            )}
+            <div className={`event-image-detail ${selectedEvent.image}`}></div>
+            <div className="event-detail-content">
+              <div className="event-detail-header">
+                <h3 className="event-detail-title">{selectedEvent.title}</h3>
+                <div className="event-detail-price">{selectedEvent.price}</div>
+              </div>
+              <p className="event-detail-subtitle">{selectedEvent.location} · {selectedEvent.time} · {selectedEvent.date}</p>
+              <div className="event-detail-info">
+                <div className="detail-info-item">
                   <Users size={14} />
                   <span>{selectedEvent.rating}</span>
                 </div>
               </div>
-              <div className="event-info-price">{selectedEvent.price} au total</div>
+              <div className="event-detail-actions">
+                <button className="action-button secondary">Plus tard</button>
+                <button className="action-button primary">Participer</button>
+              </div>
             </div>
-            <button className="favorite-button-bubble" aria-label="Favorite">
+            <button className="favorite-button-detail" aria-label="Favorite">
               <Heart size={20} />
             </button>
           </div>
         )}
       </div>
 
-      {/* Events List */}
-      <div className={`events-list-container ${isListExpanded ? 'expanded' : 'collapsed'}`}>
-        <div className="list-drag-handle" onClick={() => setIsListExpanded(!isListExpanded)}>
-          {isListExpanded ? (
-            <ChevronDown size={20} className="drag-indicator" />
-          ) : (
-            <ChevronUp size={20} className="drag-indicator" />
-          )}
-        </div>
-        <div className="events-list-header">
-          <h2 className="list-title">Toulouse : Plus de {events.length} événements</h2>
-          <p className="list-subtitle">
-            Classement des résultats
-            <span className="info-icon">ℹ</span>
-          </p>
-        </div>
-        <div className="events-list">
+      {/* Toggle List Button */}
+      {scrollCollapsed && (
+        <button 
+          className="toggle-list-button"
+          onClick={() => setScrollCollapsed(false)}
+          aria-label="Afficher la liste"
+        >
+          <List size={20} />
+        </button>
+      )}
+
+      {/* Events Horizontal Scroll */}
+      <div className={`events-horizontal-container ${scrollCollapsed ? 'collapsed' : ''}`}>
+        <div className="events-horizontal-scroll">
           {events.map((event) => (
             <div
               key={event.id}
-              className={`event-list-item ${selectedEvent?.id === event.id ? 'selected' : ''}`}
-              onClick={() => handleEventClick(event)}
+              className={`event-card ${selectedEvent?.id === event.id ? 'selected' : ''}`}
+              onClick={() => handleEventCardClick(event)}
             >
-              <div className={`event-list-image ${event.image}`}></div>
-              <div className="event-list-content">
-                <h3 className="event-list-title">{event.title}</h3>
-                <p className="event-list-subtitle">{event.location}</p>
-                <div className="event-list-details">
-                  <span className="event-list-time">{event.time} · {event.date}</span>
-                  <span className="event-list-rating">{event.rating}</span>
+              <div className={`event-card-image ${event.image}`}></div>
+              <div className="event-card-content">
+                <div className="event-card-header">
+                  <h3 className="event-card-title">{event.title}</h3>
+                  <div className="event-card-price">{event.price}</div>
                 </div>
-                <div className="event-list-price">{event.price} au total</div>
+                <div className="event-card-meta">
+                  <Clock size={12} />
+                  <span>{event.time} · {event.date}</span>
+                  <Users size={12} />
+                  <span>{event.location}</span>
+                  <span className="event-card-rating">{event.rating}</span>
+                </div>
               </div>
-              <button className="event-list-favorite" aria-label="Favorite">
+              <button className="event-card-favorite" aria-label="Favorite">
                 <Heart size={18} />
               </button>
             </div>
