@@ -1,7 +1,37 @@
+/* Theme Variables */
 .app {
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #1a1a1a;
+  --bg-tertiary: #2a2a2a;
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-tertiary: rgba(255, 255, 255, 0.5);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --card-bg: rgba(26, 26, 26, 0.95);
+  --overlay-bg: rgba(0, 0, 0, 0.7);
+  --accent-color: #ffd700;
+  --accent-purple: #8b5cf6;
+  --accent-pink: #ec4899;
+  --accent-blue: #3b82f6;
+  --accent-green: #10b981;
+  
   min-height: 100vh;
-  background: #0a0a0a;
-  color: #ffffff;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* Light Theme */
+.app.light {
+  --bg-primary: #f5f5f7;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e5e5e7;
+  --text-primary: #1a1a1a;
+  --text-secondary: rgba(0, 0, 0, 0.7);
+  --text-tertiary: rgba(0, 0, 0, 0.5);
+  --border-color: rgba(0, 0, 0, 0.1);
+  --card-bg: rgba(255, 255, 255, 0.95);
+  --overlay-bg: rgba(255, 255, 255, 0.9);
 }
 
 .page-content {
@@ -13,11 +43,11 @@
   font-size: 32px;
   font-weight: 700;
   margin: 0 0 12px 0;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .page-content p {
   font-size: 16px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
   margin: 0;
 }

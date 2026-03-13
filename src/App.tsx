@@ -1,12 +1,15 @@
 import { useNavigationStore } from './store/useNavigationStore'
+import { useThemeStore } from './store/useThemeStore'
 import { BottomNavigation } from './components/BottomNavigation'
 import { HomePage } from './pages/HomePage'
 import { ChatPage } from './pages/ChatPage'
 import { TicketsPage } from './pages/TicketsPage'
+import { ProfilePage } from './pages/ProfilePage'
 import './App.css'
 
 function App() {
   const { activeTab } = useNavigationStore()
+  const { isDarkMode } = useThemeStore()
 
   const renderContent = () => {
     switch (activeTab) {
@@ -17,19 +20,14 @@ function App() {
       case 'tickets':
         return <TicketsPage />
       case 'profile':
-        return (
-          <div className="page-content">
-            <h1>Profile</h1>
-            <p>Profil</p>
-          </div>
-        )
+        return <ProfilePage />
       default:
         return <HomePage />
     }
   }
 
   return (
-    <div className="app">
+    <div className={`app ${isDarkMode ? 'dark' : 'light'}`}>
       {renderContent()}
       <BottomNavigation />
     </div>
