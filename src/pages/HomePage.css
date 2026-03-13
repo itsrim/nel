@@ -3,6 +3,7 @@
   background: #0a0a0a;
   color: #ffffff;
   min-height: 100vh;
+  max-height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -67,7 +68,7 @@
 .map-container {
   flex: 1;
   position: relative;
-  background: #f5f5f5;
+  background: #0a0a0a;
   transition: all 0.3s ease;
   overflow: hidden;
 }
@@ -284,31 +285,38 @@
 }
 
 .events-list-container {
+  position: fixed;
+  bottom: 100px;
+  left: 0;
+  right: 0;
   background: #0a0a0a;
   border-top-left-radius: 24px;
   border-top-right-radius: 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.5);
-  transition: transform 0.3s ease;
   z-index: 15;
-  max-height: 60vh;
+  max-height: calc(100vh - 180px);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .events-list-container.expanded {
   transform: translateY(0);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .events-list-container.collapsed {
-  transform: translateY(calc(100% - 80px));
+  transform: translateY(calc(100% - 60px));
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .list-drag-handle {
-  padding: 12px;
+  padding: 6px 12px;
   cursor: grab;
   display: flex;
   justify-content: center;
+  align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -317,10 +325,13 @@
 }
 
 .drag-indicator {
-  width: 40px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 2px;
+  color: #ffd700;
+  stroke-width: 3;
+  transition: transform 0.2s ease;
+}
+
+.list-drag-handle:hover .drag-indicator {
+  transform: scale(1.1);
 }
 
 .events-list-header {

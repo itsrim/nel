@@ -1,4 +1,4 @@
-import { ArrowLeft, Filter, Heart, X, MapPin, Clock, Users } from 'lucide-react';
+import { ArrowLeft, Filter, Heart, X, MapPin, Clock, Users, ChevronUp, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import './HomePage.css';
 
@@ -96,9 +96,6 @@ export function HomePage() {
     <div className="home-page">
       {/* Header */}
       <header className="map-header">
-        <button className="back-button" aria-label="Back">
-          <ArrowLeft size={20} />
-        </button>
         <div className="search-bar-header">
           <div className="search-bar-content">
             <span className="search-location">Toulouse · Événements</span>
@@ -166,7 +163,11 @@ export function HomePage() {
       {/* Events List */}
       <div className={`events-list-container ${isListExpanded ? 'expanded' : 'collapsed'}`}>
         <div className="list-drag-handle" onClick={() => setIsListExpanded(!isListExpanded)}>
-          <div className="drag-indicator"></div>
+          {isListExpanded ? (
+            <ChevronDown size={20} className="drag-indicator" />
+          ) : (
+            <ChevronUp size={20} className="drag-indicator" />
+          )}
         </div>
         <div className="events-list-header">
           <h2 className="list-title">Toulouse : Plus de {events.length} événements</h2>
