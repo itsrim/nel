@@ -1,4 +1,4 @@
-import { Home, Search, User } from 'lucide-react';
+import { Home, MessageCircle, User } from 'lucide-react';
 import { useNavigationStore, type TabId } from '../store/useNavigationStore';
 import { TicketIcon } from './TicketIcon';
 import './BottomNavigation.css';
@@ -6,12 +6,12 @@ import './BottomNavigation.css';
 interface NavItem {
   id: TabId;
   label: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<any>;
 }
 
 const navItems: NavItem[] = [
   { id: 'home', label: 'Home', icon: Home },
-  { id: 'search', label: 'Search', icon: Search },
+  { id: 'chat', label: 'Chat', icon: MessageCircle },
   { id: 'tickets', label: 'Event', icon: TicketIcon },
   { id: 'profile', label: 'Profil', icon: User },
 ];

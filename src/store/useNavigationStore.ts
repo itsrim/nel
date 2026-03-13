@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type TabId = 'home' | 'search' | 'tickets' | 'profile';
+export type TabId = 'home' | 'chat' | 'tickets' | 'profile' | 'more';
 
 interface NavigationStore {
   activeTab: TabId;

@@ -1,7 +1,7 @@
 import { useNavigationStore } from './store/useNavigationStore'
 import { BottomNavigation } from './components/BottomNavigation'
 import { HomePage } from './pages/HomePage'
-import { SearchPage } from './pages/SearchPage'
+import { ChatPage } from './pages/ChatPage'
 import './App.css'
 
 function App() {
@@ -11,8 +11,8 @@ function App() {
     switch (activeTab) {
       case 'home':
         return <HomePage />
-      case 'search':
-        return <SearchPage />
+      case 'chat':
+        return <ChatPage />
       case 'tickets':
         return (
           <div className="page-content">
