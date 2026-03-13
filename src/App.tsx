@@ -2,6 +2,7 @@ import { useNavigationStore } from './store/useNavigationStore'
 import { BottomNavigation } from './components/BottomNavigation'
 import { HomePage } from './pages/HomePage'
 import { ChatPage } from './pages/ChatPage'
+import { TicketsPage } from './pages/TicketsPage'
 import './App.css'
 
 function App() {
@@ -14,12 +15,7 @@ function App() {
       case 'chat':
         return <ChatPage />
       case 'tickets':
-        return (
-          <div className="page-content">
-            <h1>Tickets</h1>
-            <p>Billets</p>
-          </div>
-        )
+        return <TicketsPage />
       case 'profile':
         return (
           <div className="page-content">
