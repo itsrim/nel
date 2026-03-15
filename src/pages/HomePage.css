@@ -949,6 +949,208 @@
   color: #ec4899;
 }
 
+/* Light mode: fond blanc, texte noir sur la page home */
+.app.light .home-page {
+  background: #ffffff;
+  color: #1a1a1a;
+}
+
+.app.light .home-page .map-header {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.7) 70%, transparent 100%);
+}
+
+.app.light .home-page .back-button,
+.app.light .home-page .filter-button-header {
+  color: #1a1a1a;
+}
+
+.app.light .home-page .back-button:hover,
+.app.light .home-page .filter-button-header:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.app.light .home-page .search-bar-content {
+  background: #f5f5f7;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.app.light .home-page .search-location {
+  color: #1a1a1a;
+}
+
+.app.light .home-page .search-dates {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.app.light .home-page .map-container {
+  background: #ffffff;
+}
+
+.app.light .home-page .map-placeholder {
+  background: linear-gradient(135deg, #f5f5f7 0%, #e5e5e7 100%);
+}
+
+.app.light .home-page .event-marker {
+  background: #ffffff;
+  border-color: #1a1a1a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.app.light .home-page .marker-count {
+  color: #1a1a1a;
+}
+
+.app.light .home-page .event-detail-card {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.12);
+}
+
+.app.light .home-page .event-detail-title,
+.app.light .home-page .event-detail-subtitle,
+.app.light .home-page .event-detail-price {
+  color: #1a1a1a;
+}
+
+.app.light .home-page .event-detail-subtitle,
+.app.light .home-page .detail-info-item,
+.app.light .home-page .detail-info-item svg {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.app.light .home-page .detail-info-item svg {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.app.light .home-page .action-button.secondary {
+  background: rgba(0, 0, 0, 0.08);
+  color: #1a1a1a;
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.app.light .home-page .action-button.secondary:hover {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.app.light .home-page .cluster-navigation {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.app.light .home-page .cluster-nav-button {
+  background: rgba(0, 0, 0, 0.1);
+  color: #1a1a1a;
+}
+
+.app.light .home-page .cluster-nav-button:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.app.light .home-page .cluster-counter {
+  color: #1a1a1a;
+}
+
+.app.light .home-page .event-info-title,
+.app.light .home-page .event-info-price {
+  color: #1a1a1a;
+}
+
+.app.light .home-page .event-info-subtitle,
+.app.light .home-page .info-detail-item {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.app.light .home-page .event-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.app.light .home-page .event-card:hover,
+.app.light .home-page .event-card:active {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.app.light .home-page .event-card-title,
+.app.light .home-page .event-card-price {
+  color: #1a1a1a;
+}
+
+.app.light .home-page .event-card-meta,
+.app.light .home-page .event-card-rating {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.app.light .home-page .list-drag-handle {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+.app.light .home-page .list-title {
+  color: #1a1a1a;
+}
+
+.app.light .home-page .list-subtitle {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.app.light .home-page .info-icon {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.app.light .home-page .event-list-item {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+.app.light .home-page .event-list-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.app.light .home-page .event-list-title,
+.app.light .home-page .event-list-image-info .event-list-price {
+  color: #1a1a1a;
+}
+
+.app.light .home-page .event-list-subtitle,
+.app.light .home-page .event-list-time,
+.app.light .home-page .event-list-image-info .event-list-rating {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.app.light .home-page .event-list-favorite {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.app.light .home-page .events-list-header {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+.app.light .home-page .close-button,
+.app.light .home-page .favorite-button-detail,
+.app.light .home-page .favorite-button-bubble {
+  background: rgba(255, 255, 255, 0.9);
+  color: #1a1a1a;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.app.light .home-page .close-button:hover,
+.app.light .home-page .close-button:active,
+.app.light .home-page .favorite-button-detail:hover,
+.app.light .home-page .favorite-button-detail:active,
+.app.light .home-page .favorite-button-bubble:hover {
+  background: rgba(255, 255, 255, 1);
+}
+
+.app.light .home-page .event-card-favorite {
+  background: rgba(255, 255, 255, 0.9);
+  color: #1a1a1a;
+}
+
+.app.light .home-page .event-card-favorite:hover {
+  background: rgba(255, 255, 255, 1);
+}
+
 @media (max-width: 480px) {
   .event-info-bubble {
     width: 95%;

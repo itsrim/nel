@@ -231,70 +231,36 @@ export function TicketsPage() {
         </div>
       </section>
 
-      {/* Main Event Card */}
-      <section className="main-event-section">
-        <div className="main-event-card">
-          <div className="event-image">
-            <div className="event-date">May 20</div>
-            <button className="heart-button" aria-label="Like">
-              <Heart size={20} />
-            </button>
-            <div className="event-image-placeholder">
-              <div className="stage-lights"></div>
-            </div>
-          </div>
-          <div className="event-content">
-            <h3 className="event-title">Blackpink Concert</h3>
-            <p className="event-location">123 Main Street, New York</p>
-            <div className="event-footer">
-              <div className="event-stats">
-                <span className="views">1.2K</span>
-                <div className="attendees">
-                  <div className="attendee-avatar yellow"></div>
-                  <div className="attendee-avatar blue"></div>
-                  <div className="attendee-avatar red"></div>
-                </div>
-              </div>
-              <div className="event-price">$40.230</div>
-              <button className="join-button">Join now</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Top 10 Section */}
+      {/* Top 10 Section - Carousel */}
       <section className="top-events-section">
         <div className="section-header">
           <h3 className="section-title">Top 10 in London</h3>
           <button className="see-all">See all</button>
         </div>
-        <div className="events-list">
-          <div className="event-card-small">
-            <div className="event-image-small fantasy"></div>
-            <div className="event-info-small">
-              <div className="event-rating">★ 5.0</div>
-              <button className="heart-button-small" aria-label="Like">
-                <Heart size={16} />
-              </button>
-            </div>
-          </div>
-          <div className="event-card-small">
-            <div className="event-image-small dark"></div>
-            <div className="event-info-small">
-              <div className="event-rating">★ 5.0</div>
-              <button className="heart-button-small" aria-label="Like">
-                <Heart size={16} />
-              </button>
-            </div>
-          </div>
-          <div className="event-card-small">
-            <div className="event-image-small fantasy"></div>
-            <div className="event-info-small">
-              <div className="event-rating">★ 5.0</div>
-              <button className="heart-button-small" aria-label="Like">
-                <Heart size={16} />
-              </button>
-            </div>
+        <div className="top10-carousel" role="region" aria-label="Top 10 events carousel">
+          <div className="top10-carousel-scroll">
+            {[
+              'fantasy',
+              'dark',
+              'fantasy',
+              'dark',
+              'fantasy',
+              'dark',
+              'fantasy',
+              'dark',
+              'fantasy',
+              'dark',
+            ].map((img, i) => (
+              <div key={i} className="event-card-small top10-carousel-card">
+                <div className={`event-image-small ${img}`}></div>
+                <div className="event-info-small">
+                  <div className="event-rating">★ {(5 - i * 0.1).toFixed(1)}</div>
+                  <button className="heart-button-small" aria-label="Like">
+                    <Heart size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -310,7 +276,14 @@ export function TicketsPage() {
               {eventsByDate[date].map((event) => (
                 <div key={event.id} className="event-card">
                   <div className="event-image-container">
-                    <div className={`event-image ${event.image}`}></div>
+                    <div
+                      className={`event-image ${event.image}`}
+                      style={{
+                        backgroundImage: `url(https://picsum.photos/seed/${event.id}/600/400)`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }}
+                    />
                     
                     <div className={`status-badge ${event.status}`}>
                       {event.status === 'inscrit' && (
