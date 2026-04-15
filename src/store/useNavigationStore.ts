@@ -3,6 +3,8 @@ import { create } from 'zustand';
 export type TabId = 'home' | 'events' | 'chat' | 'profile';
 export type DetailType = 'chat' | 'event' | 'event_create' | 'profile' | 'chat_settings';
 
+export type EventsHeaderMode = 'calendar' | 'search';
+
 export interface DetailState {
   type: DetailType;
   id: string;
@@ -11,6 +13,9 @@ export interface DetailState {
 interface NavigationStore {
   activeTab: TabId;
   detailStack: DetailState[];
+  /** En-tête Événements : recherche par défaut ; réappliqué à chaque ouverture de l’onglet Événements. */
+  eventsHeaderMode: EventsHeaderMode;
+  setEventsHeaderMode: (mode: EventsHeaderMode) => void;
   setActiveTab: (tab: TabId) => void;
   openDetail: (type: DetailType, id: string) => void;
   closeDetail: () => void;
@@ -20,9 +25,16 @@ interface NavigationStore {
 }
 
 export const useNavigationStore = create<NavigationStore>((set) => ({
-  activeTab: 'chat',
+  activeTab: 'events',
   detailStack: [],
-  setActiveTab: (tab) => set({ activeTab: tab, detailStack: [] }),
+  eventsHeaderMode: 'search',
+  setEventsHeaderMode: (mode) => set({ eventsHeaderMode: mode }),
+  setActiveTab: (tab) =>
+    set({
+      activeTab: tab,
+      detailStack: [],
+      ...(tab === 'events' ? { eventsHeaderMode: 'search' as const } : {}),
+    }),
   openDetail: (type, id) => set((state) => ({ 
     detailStack: [...state.detailStack, { type, id }] 
   })),

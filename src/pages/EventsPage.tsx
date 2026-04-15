@@ -49,10 +49,16 @@ function eventMatchesSearch(e: Event, query: string): boolean {
   return foldSearch(`${e.title} ${e.location} ${e.notes ?? ''}`).includes(q);
 }
 
-function eventMatchesFilterDate(e: Event, dateKey: string): boolean {
-  const d = dateKey.trim();
+/** Clé du jour local (min sur `<input type="date">`, comparaisons). */
+function todayDateKey(): string {
+  return toDateKey(new Date());
+}
+
+/** Filtre « à partir du » : `e.dateKey >= fromKey` ; vide = pas de filtre date. */
+function eventMatchesFilterDate(e: Event, fromDateKey: string): boolean {
+  const d = fromDateKey.trim();
   if (!d) return true;
-  return e.dateKey === d;
+  return e.dateKey >= d;
 }
 
 function eventMatchesFilterLocation(e: Event, q: string): boolean {
@@ -104,7 +110,9 @@ function CalendarWeekStrip({ weekStart, selectedDateKey, onSelectDateKey }: {
 
 /* ── Main ── */
 export function EventsPage() {
-  const { openDetail } = useNavigationStore();
+  const openDetail = useNavigationStore((s) => s.openDetail);
+  const headerMode = useNavigationStore((s) => s.eventsHeaderMode);
+  const setEventsHeaderMode = useNavigationStore((s) => s.setEventsHeaderMode);
   const { events, toggleEventFavorite, nelDemoIsAdmin, moderationHiddenEventIds } = useMessagingStore();
   const [viewportW, setViewportW] = useState(
     () => (typeof window !== 'undefined' ? window.innerWidth : EVENTS_LAYOUT_NARROW_PX),
@@ -119,7 +127,6 @@ export function EventsPage() {
   /** Semaine courante : les nouvelles sorties (date du jour) restent visibles après création. */
   const [weekStartMonday, setWeekStartMonday] = useState(() => startOfWeekMonday(new Date()));
   const [selectedDateKey, setSelectedDateKey] = useState(() => toDateKey(new Date()));
-  const [headerMode, setHeaderMode] = useState<'calendar' | 'search'>('calendar');
   const [searchDraft, setSearchDraft] = useState('');
   const [committedSearch, setCommittedSearch] = useState('');
   const [searchFilterPanelOpen, setSearchFilterPanelOpen] = useState(false);
@@ -217,6 +224,22 @@ export function EventsPage() {
 
   const filterChipsActive = Boolean(filterDate || filterLocation.trim() || filterTag.trim());
 
+  useEffect(() => {
+    if (headerMode !== 'calendar') return;
+    setSearchDraft('');
+    setCommittedSearch('');
+    setFilterDate('');
+    setFilterLocation('');
+    setFilterTag('');
+    setSearchFilterPanelOpen(false);
+  }, [headerMode]);
+
+  useEffect(() => {
+    if (nelDemoIsAdmin) return;
+    const t = todayDateKey();
+    setFilterDate((fd) => (fd && fd < t ? t : fd));
+  }, [nelDemoIsAdmin]);
+
   return (
     <div
       className={`events-page${isNarrowLayout ? ' events-page--narrow' : ' events-page--wide-grid'}`}>
@@ -229,7 +252,7 @@ export function EventsPage() {
             </button>
             <div className="cal-center-cluster">
               <span className="cal-month">{monthTitle}</span>
-              <button className="cal-search-btn" onClick={() => setHeaderMode('search')} aria-label="Rechercher">
+              <button className="cal-search-btn" onClick={() => setEventsHeaderMode('search')} aria-label="Rechercher">
                 <Search size={22} color="#FFD60A" />
               </button>
             </div>
@@ -248,7 +271,7 @@ export function EventsPage() {
               className="search-mode-cal-btn"
               onClick={() => {
                 setSearchFilterPanelOpen(false);
-                setHeaderMode('calendar');
+                setEventsHeaderMode('calendar');
               }}
               aria-label="Calendrier">
               <Calendar size={24} color="#FFD60A" />
@@ -257,14 +280,6 @@ export function EventsPage() {
           <div className="events-search-row">
             <div
               className={`events-search-toolbar${searchFilterPanelOpen ? ' events-search-toolbar--filters' : ''}`}>
-              <button
-                type="button"
-                className={`events-filter-toggle${searchFilterPanelOpen || filterChipsActive ? ' events-filter-toggle--active' : ''}`}
-                onClick={() => setSearchFilterPanelOpen((o) => !o)}
-                aria-expanded={searchFilterPanelOpen}
-                aria-label="Filtres : date, lieu, tag">
-                <ListFilter size={22} color={searchFilterPanelOpen || filterChipsActive ? '#FFD60A' : '#fff'} />
-              </button>
               {!searchFilterPanelOpen ? (
                 <div className="events-search-bar events-search-bar--grow">
                   <Search size={20} color="rgba(255,255,255,0.6)" />
@@ -299,8 +314,16 @@ export function EventsPage() {
                     type="date"
                     className="events-filter-field events-filter-field--date"
                     value={filterDate}
-                    onChange={(e) => setFilterDate(e.target.value)}
-                    aria-label="Filtrer par date"
+                    min={nelDemoIsAdmin ? undefined : todayDateKey()}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v && !nelDemoIsAdmin && v < todayDateKey()) {
+                        setFilterDate(todayDateKey());
+                        return;
+                      }
+                      setFilterDate(v);
+                    }}
+                    aria-label="Filtrer par date (à partir de cette date)"
                   />
                   <input
                     type="text"
@@ -324,6 +347,14 @@ export function EventsPage() {
                   </select>
                 </>
               )}
+              <button
+                type="button"
+                className={`events-filter-toggle${searchFilterPanelOpen || filterChipsActive ? ' events-filter-toggle--active' : ''}`}
+                onClick={() => setSearchFilterPanelOpen((o) => !o)}
+                aria-expanded={searchFilterPanelOpen}
+                aria-label="Filtres : date, lieu, tag">
+                <ListFilter size={22} color={searchFilterPanelOpen || filterChipsActive ? '#FFD60A' : '#fff'} />
+              </button>
             </div>
           </div>
         </div>
