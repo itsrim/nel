@@ -10,10 +10,25 @@ import { OtherProfilePage } from './pages/OtherProfilePage'
 import { ChatSettingsPage } from './pages/ChatSettingsPage'
 import './App.css'
 
+function renderDetailContent(detail: DetailState) {
+  switch (detail.type) {
+    case 'chat':
+      return <ChatRoomPage id={detail.id} />
+    case 'event':
+      return <EventDetailPage id={detail.id} />
+    case 'event_create':
+      return <CreateEventPage formEventId={detail.id} />
+    case 'profile':
+      return <OtherProfilePage id={detail.id} />
+    case 'chat_settings':
+      return <ChatSettingsPage id={detail.id} />
+    default:
+      return null
+  }
+}
+
 function App() {
   const { activeTab, detailStack } = useNavigationStore()
-  
-  const currentDetail = detailStack.length > 0 ? detailStack[detailStack.length - 1] : null;
 
   const renderTab = () => {
     switch (activeTab) {

@@ -103,6 +103,18 @@ export interface Friend {
 // ── Event image pool (picsum) ──
 const img = (seed: number) => `https://picsum.photos/seed/${seed}/600/400`;
 
+/** Portraits carrés stables (Unsplash) — rendu proche de « vrais » profils. */
+function friendHeadshot(id: 'f1' | 'f2' | 'f3' | 'f4' | 'f5'): string {
+  const urls: Record<typeof id, string> = {
+    f1: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=384&h=384&q=80',
+    f2: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=384&h=384&q=80',
+    f3: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=384&h=384&q=80',
+    f4: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=384&h=384&q=80',
+    f5: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=384&h=384&q=80',
+  };
+  return urls[id];
+}
+
 // ── Events ──
 export const MOCK_EVENTS: Event[] = [
   { id: 'e1', title: 'Atelier Cuisine Italienne', location: 'Montmartre, Paris', dateKey: '2026-03-23', timeShort: '08:00', dateLabel: 'Lundi 23 mars', sectionDateLabel: 'Lundi 23 mars 2026', imageUri: img(101), priceLabel: '57€', participantCount: 22, participantMax: 30, isFavorite: true, isBeta: false, status: 'inscrit', conversationId: 'c1', visitsCount: 120, category: 'Cuisine', hostName: 'Chef Giovanni', hostAvatar: 'https://i.pravatar.cc/100?u=g1', price: '57€' },
@@ -386,7 +398,7 @@ export const MOCK_FRIENDS: Friend[] = [
     pseudo: 'Marie',
     age: 28,
     city: 'Paris · 11e',
-    imageUrl: 'https://i.pravatar.cc/150?img=24',
+    imageUrl: friendHeadshot('f1'),
     eventsInCommon: 12,
     mainChatConversationId: 'dm-f1',
     bio: 'Foodie et italienne dans l’âme. On s’est connus sur l’atelier cuisine — toujours partante pour un resto ou un marché avec toi.',
@@ -401,7 +413,7 @@ export const MOCK_FRIENDS: Friend[] = [
     pseudo: 'Lucas',
     age: 31,
     city: 'Lyon · Presqu’île',
-    imageUrl: 'https://i.pravatar.cc/150?img=33',
+    imageUrl: friendHeadshot('f2'),
     eventsInCommon: 8,
     mainChatConversationId: 'dm-f2',
     bio: 'Trail et photo le week-end. Même groupe que toi sur plusieurs sorties Nel — on enchaîne les bons plans rando.',
@@ -416,7 +428,7 @@ export const MOCK_FRIENDS: Friend[] = [
     pseudo: 'Emma',
     age: 25,
     city: 'Marseille · Vieux-Port',
-    imageUrl: 'https://i.pravatar.cc/150?img=26',
+    imageUrl: friendHeadshot('f3'),
     eventsInCommon: 15,
     mainChatConversationId: 'dm-f3',
     bio: 'Culture et expos. Musée Orsay avec toi et le groupe : un souvenir cool — la prochaine c’est chez moi côté sud !',
@@ -431,7 +443,7 @@ export const MOCK_FRIENDS: Friend[] = [
     pseudo: 'Hugo',
     age: 29,
     city: 'Toulouse · Carmes',
-    imageUrl: 'https://i.pravatar.cc/150?img=59',
+    imageUrl: friendHeadshot('f4'),
     eventsInCommon: 6,
     mainChatConversationId: 'dm-f4',
     bio: 'Ingé le jour, apéros Nel le soir. On se croise souvent sur les mêmes afterworks — dis-moi quand tu es dans le coin.',
@@ -446,7 +458,7 @@ export const MOCK_FRIENDS: Friend[] = [
     pseudo: 'Sarah',
     age: 27,
     city: 'Bordeaux · Chartrons',
-    imageUrl: 'https://i.pravatar.cc/150?img=38',
+    imageUrl: friendHeadshot('f5'),
     eventsInCommon: 3,
     mainChatConversationId: 'dm-f5',
     bio: 'Vin et sorties chill. Peu de sorties communes pour l’instant mais le feeling était là — on remet ça vite.',

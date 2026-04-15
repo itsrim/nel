@@ -140,14 +140,6 @@
   overflow-anchor: none;
 }
 
-.tab-container {
-  overflow-anchor: none;
-}
-
-.profile-tabs {
-  overflow-anchor: none;
-}
-
 .bio-card {
   background: #1C1C1E;
   border-radius: 16px;
@@ -296,15 +288,31 @@
   font-weight: 700;
 }
 
-/* ── Tabs ── */
+/* ── Tabs : ancrage scroll (sticky + scroll-margin) pour limiter les sauts au changement d’onglet ── */
 .profile-tabs {
   display: flex;
   overflow-x: auto;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   scrollbar-width: none;
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  background: #000;
+  padding-top: 2px;
+  margin-top: -2px;
+  /* Ancre de défilement : le navigateur garde une marge lors d’un alignement / focus */
+  scroll-margin-top: 12px;
+  scroll-margin-bottom: 8px;
+  overflow-anchor: none;
 }
 .profile-tabs::-webkit-scrollbar { display: none; }
+
+.tab-container {
+  overflow-anchor: none;
+  /* Évite l’effondrement total de la page sur onglet vide → scroll qui remonte au plafond */
+  min-height: min(42vh, 360px);
+}
 
 .p-tab {
   background: transparent;

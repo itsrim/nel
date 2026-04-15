@@ -293,6 +293,7 @@ export function ProfilePage() {
 
         {/* Sub Tabs */}
         <div
+          id="profile-tabs-anchor"
           className="profile-tabs"
           ref={profileTabsRef}
           onMouseDown={(e) => {

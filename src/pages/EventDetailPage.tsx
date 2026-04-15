@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { ChevronLeft, MapPin, Clock, Users, Heart, MessageCircle, Share2, Info } from 'lucide-react';
 import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
+import { isEventDateBeforeToday } from '../lib/eventDateKey';
 import './EventDetailPage.css';
 
 type ParticipantSlot =
@@ -46,6 +47,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const isInscribed = event.status === 'inscrit' || event.status === 'organisateur';
   const isFull = event.participantCount >= event.participantMax;
   const isHostOrganizer = viewerHosts && event.status === 'organisateur';
+  const isPastEvent = isEventDateBeforeToday(event.dateKey);
 
   const participantSlots = useMemo((): ParticipantSlot[] => {
     const slots: ParticipantSlot[] = [];
@@ -221,7 +223,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                 </div>
               );
             })}
-            {event.participantCount < event.participantMax && (
+            {event.participantCount < event.participantMax && !isPastEvent && (
               <div className="ed-participant-placeholder">
                 <Users size={20} color="#8E8E93" />
               </div>
@@ -229,7 +231,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           </div>
         </div>
 
-        {!isInscribed && (
+        {!isInscribed && !isPastEvent && (
           <div className="ed-warning-box">
             <Info size={18} color="#FF9F0A" />
             <p className="ed-warning-text">
@@ -245,22 +247,33 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             <span className="ed-price-amount">{event.price}</span>
             <span className="ed-price-label">par personne</span>
           </div>
-          <button className="ed-chat-btn" onClick={() => openDetail('chat', event.conversationId)}>
-            <MessageCircle size={24} />
-          </button>
-          <button
-            className={`ed-join-btn ${isInscribed || isHostOrganizer ? 'joined' : ''} ${!isInscribed && !isHostOrganizer && isFull ? 'full' : ''}`}
-            onClick={isHostOrganizer ? () => openDetail('event_create', event.id) : handleJoinToggle}
-            disabled={!isHostOrganizer && !isInscribed && isFull}
-          >
-            {isHostOrganizer
-              ? 'Modifier la sortie'
-              : event.status === 'inscrit'
-                ? 'Se désinscrire'
-                : isFull
-                  ? 'Complet'
-                  : 'Participer'}
-          </button>
+          {!isPastEvent && (
+            <>
+              <button
+                type="button"
+                className="ed-chat-btn"
+                onClick={() => openDetail('chat', event.conversationId)}
+                aria-label="Ouvrir la discussion"
+              >
+                <MessageCircle size={24} />
+              </button>
+              <button
+                type="button"
+                className={`ed-join-btn ${isInscribed || isHostOrganizer ? 'joined' : ''} ${!isInscribed && !isHostOrganizer && isFull ? 'full' : ''}`}
+                onClick={isHostOrganizer ? () => openDetail('event_create', event.id) : handleJoinToggle}
+                disabled={!isHostOrganizer && !isInscribed && isFull}
+              >
+                {isHostOrganizer
+                  ? 'Modifier la sortie'
+                  : event.status === 'inscrit'
+                    ? 'Se désinscrire'
+                    : isFull
+                      ? 'Complet'
+                      : 'Participer'}
+              </button>
+            </>
+          )}
+          {isPastEvent && <span className="ed-past-hint">Sortie passée</span>}
         </div>
       </footer>
     </div>

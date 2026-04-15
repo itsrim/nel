@@ -9,17 +9,22 @@
 }
 
 /* ── Header gradient ── */
+/* Aligné sur .cal-gradient (Events) : safe-area + 6 / 8, rangée titre ~44px + 8, rangée ~48px */
 .chat-header-gradient {
   background: linear-gradient(90deg, #FF6B35, #FF4081, #AB47BC);
-  padding: calc(env(safe-area-inset-top, 0px) + 12px) 0 14px;
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) 0 8px;
+  box-sizing: border-box;
 }
 
 .favorites-section { width: 100%; }
 
 .favorites-title {
-  padding-left: 14px;
-  padding-right: 12px;
-  margin-bottom: 10px;
+  margin: 0 0 8px 0;
+  padding: 0 12px 0 14px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
   font-size: 17px;
   font-weight: 700;
   color: rgba(255,255,255,0.96);
@@ -33,7 +38,10 @@
 
 .stories-scroll {
   display: flex;
-  gap: 14px;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  box-sizing: border-box;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   padding-left: 14px;
@@ -55,7 +63,7 @@
 
 /* Story cells */
 .story-cell {
-  width: 72px;
+  width: 56px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -70,8 +78,8 @@
 .story-ring { position: relative; }
 
 .story-avatar {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -81,8 +89,8 @@
 }
 
 .story-split2 {
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   display: flex;
   flex-direction: row;
   overflow: hidden;
@@ -97,8 +105,8 @@
 }
 /* Même principe que .list-avatar + .group-split : grille 2×2 bornée, pas flex-wrap (les <img> agrandissaient les cellules). */
 .story-grid4 {
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
@@ -112,10 +120,10 @@
   height: 100%;
   overflow: hidden;
 }
-.story-triple { width: 40px; height: 40px; display: flex; flex-direction: column; justify-content: center; }
-.story-triple-top { display: flex; height: 18px; gap: 3px; margin-bottom: 3px; }
-.story-triple-mini { flex: 1; height: 18px; border-radius: 2px; min-width: 0; overflow: hidden; }
-.story-triple-bottom { height: 17px; border-radius: 2px; overflow: hidden; }
+.story-triple { width: 30px; height: 30px; display: flex; flex-direction: column; justify-content: center; }
+.story-triple-top { display: flex; height: 14px; gap: 2px; margin-bottom: 2px; }
+.story-triple-mini { flex: 1; height: 14px; border-radius: 2px; min-width: 0; overflow: hidden; }
+.story-triple-bottom { height: 12px; border-radius: 2px; overflow: hidden; }
 
 .chat-slot-img {
   width: 100%;
@@ -146,9 +154,9 @@
 
 .story-label {
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  margin-top: 6px;
+  margin-top: 4px;
   text-align: center;
   width: 100%;
   overflow: hidden;
@@ -157,8 +165,8 @@
 }
 
 .story-new-ring {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   border: 2px dashed rgba(255,255,255,0.85);
   display: flex;
@@ -169,9 +177,9 @@
 
 .story-label-new {
   color: rgba(255,255,255,0.88);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  margin-top: 6px;
+  margin-top: 4px;
   text-align: center;
   width: 100%;
 }

@@ -282,6 +282,15 @@ button.ed-participant-avatar--clickable:focus-visible {
   gap: 12px;
 }
 
+.ed-past-hint {
+  flex: 1;
+  text-align: right;
+  color: #8e8e93;
+  font-size: 14px;
+  font-weight: 700;
+  padding-right: 4px;
+}
+
 .ed-price-info {
   display: flex;
   flex-direction: column;

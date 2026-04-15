@@ -127,7 +127,7 @@ function NewGroupStripItem() {
   return (
     <button className="story-cell" aria-label="Nouveau groupe">
       <div className="story-new-ring">
-        <Plus size={34} color="rgba(255,255,255,0.92)" />
+        <Plus size={26} color="rgba(255,255,255,0.92)" />
       </div>
       <span className="story-label-new">+ Groupe</span>
     </button>
