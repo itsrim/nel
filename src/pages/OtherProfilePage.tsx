@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { ChevronLeft, AlertTriangle, ShieldCheck, MapPin, Calendar, Award, MessageCircle, UserMinus } from 'lucide-react';
 import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
@@ -10,19 +9,28 @@ interface OtherProfilePageProps {
 
 export function OtherProfilePage({ id }: OtherProfilePageProps) {
   const { closeDetail, openDetail } = useNavigationStore();
-  const { suggestions, visits, friends } = useMessagingStore();
-  
-  // Find profile in suggestions, visits or friends
-  const profile = suggestions.find(s => s.id === id) || 
-                  visits.find(v => v.id === id) || 
-                  friends.find(f => f.id === id);
+  const { suggestions, profileVisits, friends } = useMessagingStore();
+
+  // Find profile in suggestions, visites de profil ou amis
+  const profile =
+    suggestions.find((s) => s.id === id) ||
+    profileVisits.find((v) => v.id === id) ||
+    friends.find((f) => f.profilId === id);
 
   if (!profile) return null;
+
+  const p = profile as Record<string, unknown>;
+  const displayName = (p.pseudo as string | undefined) || (p.name as string);
+  const messageConversationId = (p.mainChatConversationId as string | undefined) || 'c1';
+  const reliability =
+    typeof p.stats === 'object' && p.stats != null && 'reliability' in p.stats
+      ? Number((p.stats as { reliability: number }).reliability).toFixed(1)
+      : '5.0';
 
   return (
     <div className="other-profile-page">
       <div className="op-hero">
-        <img src={profile.imageUrl || (profile as any).avatarUrl} alt={profile.pseudo || (profile as any).name} className="op-hero-image" />
+        <img src={profile.imageUrl || (profile as any).avatarUrl} alt={displayName} className="op-hero-image" />
         <div className="op-hero-gradient" />
         
         <header className="op-header">
@@ -35,7 +43,9 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
         </header>
 
         <div className="op-hero-content">
-          <h1 className="op-title">{profile.pseudo || (profile as any).name}, {(profile as any).age}</h1>
+          <h1 className="op-title">
+            {displayName}, {(p.age as number | null | undefined) ?? '—'}
+          </h1>
           {(profile as any).verified && (
             <div className="op-verified-row">
               <ShieldCheck size={18} color="#34C759" />
@@ -63,7 +73,7 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
 
         <div className="op-stats-row">
           <div className="op-stat-cell">
-            <span className="op-stat-value">{(profile as any).stats?.reliability.toFixed(1) || "5.0"}</span>
+            <span className="op-stat-value">{reliability}</span>
             <span className="op-stat-label">Fiabilité</span>
           </div>
           <div className="op-stat-cell">
@@ -87,11 +97,11 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
         </div>
 
         <div className="op-actions">
-          <button className="op-btn-message" onClick={() => openDetail('chat', 'c1')}>
+          <button type="button" className="op-btn-message" onClick={() => openDetail('chat', messageConversationId)}>
             <MessageCircle size={20} />
             <span>Message</span>
           </button>
-          <button className="op-btn-remove">
+          <button type="button" className="op-btn-remove">
             <UserMinus size={20} />
             <span>Retirer des amis</span>
           </button>

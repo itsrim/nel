@@ -137,6 +137,15 @@
   margin-top: -24px;
   position: relative;
   z-index: 2;
+  overflow-anchor: none;
+}
+
+.tab-container {
+  overflow-anchor: none;
+}
+
+.profile-tabs {
+  overflow-anchor: none;
 }
 
 .bio-card {
@@ -347,6 +356,12 @@
   padding: 12px;
   border-radius: 14px;
   margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.p-event-row:focus-visible {
+  outline: 2px solid rgba(255, 214, 10, 0.55);
+  outline-offset: 2px;
 }
 
 .p-event-img {
@@ -371,6 +386,11 @@
   color: #8E8E93;
   font-size: 13px;
   font-weight: 500;
+}
+
+.p-event-meta-tag {
+  font-weight: 600;
+  color: #C4B5FD;
 }
 
 .empty-hint {

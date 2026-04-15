@@ -1,10 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { 
   Volume2, VolumeX, Bell, BellOff, FlaskConical, 
   UserPlus, ChevronDown, ChevronUp, UserMinus, LogOut 
 } from 'lucide-react';
 import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
+import { resolveMemberPhotoUrl } from '../lib/conversationMiniSlots';
+import type { GroupMember } from '../data/mockData';
 import './ChatSettingsPage.css';
 
 interface ChatSettingsPageProps {
@@ -12,7 +14,7 @@ interface ChatSettingsPageProps {
 }
 
 export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
-  const { closeDetail, openDetail } = useNavigationStore();
+  const { closeDetail, openDetail, setActiveTab } = useNavigationStore();
   const {
     conversations,
     friends,
@@ -61,6 +63,16 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
   const handleRemoveMember = (memberId: string) => {
     if (confirm('Voulez-vous vraiment retirer ce membre du groupe ?')) {
       removeMemberFromGroup(id, memberId);
+    }
+  };
+
+  const handleMemberAvatarClick = (m: GroupMember) => {
+    if (m.isSelf) {
+      setActiveTab('profile');
+      return;
+    }
+    if (m.profilId) {
+      openDetail('profile', m.profilId);
     }
   };
 
@@ -131,25 +143,37 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
             )}
 
             <div className="cs-members-list">
-              {members.map(m => (
+              {members.map((m) => {
+                const rawPhoto = resolveMemberPhotoUrl(m, friends, viewerProfileAvatarUrl);
+                const photoUrl = rawPhoto?.trim() ? rawPhoto : undefined;
+                const gradientBg = `linear-gradient(45deg, ${m.avatarGradient[0]}, ${m.avatarGradient[1]})`;
+                const canOpenProfile = m.isSelf || !!m.profilId;
+                const avatarClassBase = `cs-member-avatar${photoUrl ? ' cs-member-avatar--photo' : ''}`;
+                const avatarStyle = photoUrl ? undefined : { background: gradientBg };
+
+                const avatarBody = photoUrl ? (
+                  <img src={photoUrl} alt="" className="cs-member-avatar-img" />
+                ) : (
+                  m.name[0]
+                );
+
+                return (
                 <div key={m.id} className="cs-member-row">
-                  <div
-                    className={`cs-member-avatar${m.isSelf && viewerProfileAvatarUrl ? ' cs-member-avatar--photo' : ''}`}
-                    style={
-                      m.isSelf && viewerProfileAvatarUrl
-                        ? undefined
-                        : {
-                            background: m.isSelf
-                              ? '#78909C'
-                              : `linear-gradient(45deg, ${m.avatarGradient[0]}, ${m.avatarGradient[1]})`,
-                          }
-                    }>
-                    {m.isSelf && viewerProfileAvatarUrl ? (
-                      <img src={viewerProfileAvatarUrl} alt="" className="cs-member-avatar-img" />
-                    ) : (
-                      m.name[0]
-                    )}
-                  </div>
+                  {canOpenProfile ? (
+                    <button
+                      type="button"
+                      className={`${avatarClassBase} cs-member-avatar--clickable`}
+                      style={avatarStyle}
+                      onClick={() => handleMemberAvatarClick(m)}
+                      aria-label={m.isSelf ? 'Voir mon profil' : `Voir le profil de ${m.name}`}
+                    >
+                      {avatarBody}
+                    </button>
+                  ) : (
+                    <div className={avatarClassBase} style={avatarStyle}>
+                      {avatarBody}
+                    </div>
+                  )}
                   <span className="cs-member-name">{m.isSelf ? viewerProfileDisplayName : m.name}</span>
                   {!m.isSelf && (
                     <div className="cs-member-actions">
@@ -162,7 +186,8 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

@@ -1,4 +1,4 @@
-import { useNavigationStore } from './store/useNavigationStore'
+import { useNavigationStore, type DetailState } from './store/useNavigationStore'
 import { BottomNavigation } from './components/BottomNavigation'
 import { ChatPage } from './pages/ChatPage'
 import { EventsPage } from './pages/EventsPage'
@@ -28,29 +28,35 @@ function App() {
     }
   }
 
-  const renderDetail = () => {
-    if (!currentDetail) return null
-    switch (currentDetail.type) {
-      case 'chat':
-        return <ChatRoomPage id={currentDetail.id} />
-      case 'event':
-        return <EventDetailPage id={currentDetail.id} />
-      case 'event_create':
-        return <CreateEventPage formEventId={currentDetail.id} />
-      case 'profile':
-        return <OtherProfilePage id={currentDetail.id} />
-      case 'chat_settings':
-        return <ChatSettingsPage id={currentDetail.id} />
-      default:
-        return null
-    }
+  /** Toute la pile reste montée (couches masquées) pour conserver scroll / état au retour d’un overlay. */
+  const renderDetailStack = () => {
+    if (detailStack.length === 0) return null
+    return detailStack.map((detail, index) => {
+      const isTop = index === detailStack.length - 1
+      return (
+        <div
+          key={`${detail.type}-${detail.id}-${index}`}
+          className="detail-stack-layer"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000 + index * 10,
+            pointerEvents: isTop ? 'auto' : 'none',
+            visibility: isTop ? 'visible' : 'hidden',
+          }}
+          aria-hidden={!isTop}
+        >
+          {renderDetailContent(detail)}
+        </div>
+      )
+    })
   }
 
   return (
     <div className="app dark">
       <main className="app-content">
         {renderTab()}
-        {renderDetail()}
+        {renderDetailStack()}
       </main>
       <BottomNavigation />
     </div>

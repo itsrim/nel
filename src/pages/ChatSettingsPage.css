@@ -241,6 +241,23 @@
   display: block;
 }
 
+button.cs-member-avatar--clickable {
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+button.cs-member-avatar--clickable:focus-visible {
+  outline: 2px solid rgba(124, 158, 255, 0.85);
+  outline-offset: 2px;
+}
+
 .cs-member-name {
   flex: 1;
   color: #fff;

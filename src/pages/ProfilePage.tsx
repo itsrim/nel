@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
 import {
   Settings,
   Camera,
@@ -27,12 +27,38 @@ import {
   Check
 } from 'lucide-react';
 import { useMessagingStore } from '../store/useMessagingStore';
+import { useNavigationStore } from '../store/useNavigationStore';
 import { EventCard } from '../components/EventCard';
 import { getNelProfileImageKitUserKey, uploadLocalImageToImageKit } from '../lib/imagekitUpload';
 import { withUrlUploadVersion } from '../lib/versionRemoteAssetUrl';
 import './ProfilePage.css';
 
 type TabId = 'favorites' | 'friends' | 'history' | 'notifications' | 'reports';
+
+function getNearestScrollableAncestor(el: HTMLElement | null): HTMLElement | null {
+  if (!el) return null;
+  let node: HTMLElement | null = el.parentElement;
+  while (node) {
+    const { overflowY } = getComputedStyle(node);
+    const scrollable =
+      (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') &&
+      node.scrollHeight > node.clientHeight + 1;
+    if (scrollable) return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+function compensateScrollAfterTabStripLayout(strip: HTMLElement, viewportTopBefore: number) {
+  const nowTop = strip.getBoundingClientRect().top;
+  const delta = viewportTopBefore - nowTop;
+  if (Math.abs(delta) < 0.5) return;
+  const scroller =
+    getNearestScrollableAncestor(strip) ??
+    (document.scrollingElement as HTMLElement | null) ??
+    document.documentElement;
+  scroller.scrollTop += delta;
+}
 
 export function ProfilePage() {
   const {
@@ -46,8 +72,41 @@ export function ProfilePage() {
     viewerProfileDisplayName,
     setViewerProfileDisplayName,
   } = useMessagingStore();
+  const { openDetail } = useNavigationStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const profileTabsRef = useRef<HTMLDivElement>(null);
+  const profileTabStripViewportTopRef = useRef<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('favorites');
+
+  const selectProfileTab = useCallback((next: TabId) => {
+    if (next === activeTab) return;
+    const strip = profileTabsRef.current;
+    profileTabStripViewportTopRef.current = strip ? strip.getBoundingClientRect().top : null;
+    setActiveTab(next);
+  }, [activeTab]);
+
+  useLayoutEffect(() => {
+    const wantStripTop = profileTabStripViewportTopRef.current;
+    profileTabStripViewportTopRef.current = null;
+    if (wantStripTop == null) return;
+
+    const applyStripAnchor = () => {
+      const strip = profileTabsRef.current;
+      if (!strip) return;
+      compensateScrollAfterTabStripLayout(strip, wantStripTop);
+    };
+
+    applyStripAnchor();
+    // Le navigateur peut encore ajuster le scroll (scroll anchoring) après la peinture : 2e passage.
+    let rafInner = 0;
+    const rafOuter = requestAnimationFrame(() => {
+      rafInner = requestAnimationFrame(applyStripAnchor);
+    });
+    return () => {
+      cancelAnimationFrame(rafOuter);
+      cancelAnimationFrame(rafInner);
+    };
+  }, [activeTab]);
   const [editing, setEditing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -57,7 +116,11 @@ export function ProfilePage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [isPremium, setIsPremium] = useState(true);
 
-  const favoriteEvents = useMemo(() => events.filter(e => e.isFavorite), [events]);
+  /** Favoris + sorties dont vous êtes l’organisateur (créées par vous). */
+  const favoritesAndCreatedEvents = useMemo(
+    () => events.filter((e) => e.isFavorite || e.status === 'organisateur'),
+    [events],
+  );
   const historyEvents = useMemo(() => events.filter(e => e.status === 'inscrit' || e.status === 'organisateur'), [events]);
   const upcomingEvents = useMemo(() => events.filter(e => (e.status === 'inscrit' || e.status === 'organisateur' || e.status === 'en_attente')), [events]);
 
@@ -117,7 +180,7 @@ export function ProfilePage() {
         ) : null}
         
         <div className="hero-top-btns">
-          <button className="hero-icon-btn" onClick={() => setSettingsOpen(true)} aria-label="Settings">
+          <button type="button" className="hero-icon-btn" onClick={() => setSettingsOpen(true)} aria-label="Settings">
             <Settings size={22} color="#fff" />
           </button>
           <div style={{ flex: 1 }} />
@@ -186,14 +249,14 @@ export function ProfilePage() {
           </div>
           <div className="bio-actions">
             {!editing ? (
-              <button className="edit-btn" onClick={() => setEditing(true)}>
+              <button type="button" className="edit-btn" onClick={() => setEditing(true)}>
                 <Pencil size={16} color="#FBBF24" />
                 <span>Modifier le profil</span>
               </button>
             ) : (
               <div className="edit-save-cancel">
-                <button className="cancel-btn" onClick={() => setEditing(false)}>Annuler</button>
-                <button className="save-btn" onClick={() => setEditing(false)}>Enregistrer</button>
+                <button type="button" className="cancel-btn" onClick={() => setEditing(false)}>Annuler</button>
+                <button type="button" className="save-btn" onClick={() => setEditing(false)}>Enregistrer</button>
               </div>
             )}
           </div>
@@ -229,15 +292,21 @@ export function ProfilePage() {
         </div>
 
         {/* Sub Tabs */}
-        <div className="profile-tabs">
-          <button className={`p-tab ${activeTab === 'favorites' ? 'p-tab--active' : ''}`} onClick={() => setActiveTab('favorites')}>
+        <div
+          className="profile-tabs"
+          ref={profileTabsRef}
+          onMouseDown={(e) => {
+            if ((e.target as HTMLElement).closest('button.p-tab')) e.preventDefault();
+          }}
+        >
+          <button type="button" className={`p-tab ${activeTab === 'favorites' ? 'p-tab--active' : ''}`} onClick={() => selectProfileTab('favorites')}>
             <div className="p-tab-inner">
               <Heart size={18} color={activeTab === 'favorites' ? '#FF4B81' : '#8E8E93'} />
-              <span>Favoris</span>
-              <span className="p-tab-badge" style={{ background: '#FF4B81' }}>{favoriteEvents.length}</span>
+              <span>Favoris & créées</span>
+              <span className="p-tab-badge" style={{ background: '#FF4B81' }}>{favoritesAndCreatedEvents.length}</span>
             </div>
           </button>
-          <button className={`p-tab ${activeTab === 'friends' ? 'p-tab--active' : ''}`} onClick={() => setActiveTab('friends')}>
+          <button type="button" className={`p-tab ${activeTab === 'friends' ? 'p-tab--active' : ''}`} onClick={() => selectProfileTab('friends')}>
             <div className="p-tab-inner">
               <Users size={18} color={activeTab === 'friends' ? '#8B5CF6' : '#8E8E93'} />
               <span>Amis</span>
@@ -245,21 +314,21 @@ export function ProfilePage() {
             </div>
           </button>
           {nelDemoIsAdmin && (
-            <button className={`p-tab ${activeTab === 'reports' ? 'p-tab--active' : ''}`} onClick={() => setActiveTab('reports')}>
+            <button type="button" className={`p-tab ${activeTab === 'reports' ? 'p-tab--active' : ''}`} onClick={() => selectProfileTab('reports')}>
               <div className="p-tab-inner">
                 <AlertTriangle size={18} color={activeTab === 'reports' ? '#EF4444' : '#8E8E93'} />
                 <span>Signalements</span>
               </div>
             </button>
           )}
-          <button className={`p-tab ${activeTab === 'history' ? 'p-tab--active' : ''}`} onClick={() => setActiveTab('history')}>
+          <button type="button" className={`p-tab ${activeTab === 'history' ? 'p-tab--active' : ''}`} onClick={() => selectProfileTab('history')}>
             <div className="p-tab-inner">
               <Clock size={18} color={activeTab === 'history' ? '#6B7280' : '#8E8E93'} />
               <span>Passés</span>
               <span className="p-tab-badge" style={{ background: '#6B7280' }}>{historyEvents.length}</span>
             </div>
           </button>
-          <button className={`p-tab ${activeTab === 'notifications' ? 'p-tab--active' : ''}`} onClick={() => setActiveTab('notifications')}>
+          <button type="button" className={`p-tab ${activeTab === 'notifications' ? 'p-tab--active' : ''}`} onClick={() => selectProfileTab('notifications')}>
             <div className="p-tab-inner">
               <Bell size={18} color={activeTab === 'notifications' ? '#5AC8FA' : '#8E8E93'} />
               <span>Notifications</span>
@@ -271,17 +340,47 @@ export function ProfilePage() {
         <div className="tab-container">
           {activeTab === 'favorites' && (
             <div className="favorites-list">
-              {favoriteEvents.map(e => (
-                <div key={e.id} className="p-event-row">
+              {favoritesAndCreatedEvents.map((e) => (
+                <div
+                  key={e.id}
+                  role="button"
+                  tabIndex={0}
+                  className="p-event-row"
+                  aria-label={`Ouvrir la sortie ${e.title}`}
+                  onMouseDown={(ev) => ev.preventDefault()}
+                  onClick={() => openDetail('event', e.id)}
+                  onKeyDown={(ev) => {
+                    if (ev.key === 'Enter' || ev.key === ' ') {
+                      ev.preventDefault();
+                      openDetail('event', e.id);
+                    }
+                  }}
+                >
                   <img src={e.imageUri} alt={e.title} className="p-event-img" />
                   <div className="p-event-info">
                     <div className="p-event-title">{e.title}</div>
-                    <div className="p-event-meta">{e.dateLabel} · {e.timeShort}</div>
+                    <div className="p-event-meta">
+                      {e.dateLabel} · {e.timeShort}
+                      {e.status === 'organisateur' ? (
+                        <span className="p-event-meta-tag"> · Vous organisez</span>
+                      ) : null}
+                    </div>
                   </div>
-                  <Heart size={20} fill="#FF4B81" color="#FF4B81" onClick={() => toggleEventFavorite(e.id)} style={{ cursor: 'pointer' }} />
+                  <Heart
+                    size={20}
+                    fill={e.isFavorite ? '#FF4B81' : 'transparent'}
+                    color="#FF4B81"
+                    onClick={(clickEv) => {
+                      clickEv.stopPropagation();
+                      toggleEventFavorite(e.id);
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  />
                 </div>
               ))}
-              {favoriteEvents.length === 0 && <div className="empty-hint">Aucun favori pour le moment.</div>}
+              {favoritesAndCreatedEvents.length === 0 && (
+                <div className="empty-hint">Aucune sortie en favori ni créée par vous pour l’instant.</div>
+              )}
             </div>
           )}
 
@@ -296,16 +395,50 @@ export function ProfilePage() {
                       {f.age} ans · {f.city} · {f.eventsInCommon} communs
                     </div>
                   </div>
-                  <button className="view-btn">Voir</button>
+                  <button
+                    type="button"
+                    className="view-btn"
+                    onClick={() => openDetail('profile', f.profilId)}
+                    aria-label={`Voir le profil de ${f.name}`}
+                  >
+                    Voir
+                  </button>
                 </div>
               ))}
+              {friends.length === 0 && <div className="empty-hint">Aucun ami pour le moment.</div>}
+            </div>
+          )}
+
+          {activeTab === 'reports' && (
+            <div className="reports-list">
+              <div className="empty-hint">Aucun signalement à traiter.</div>
+            </div>
+          )}
+
+          {activeTab === 'notifications' && (
+            <div className="notifications-list">
+              <div className="empty-hint">Aucune notification.</div>
             </div>
           )}
 
           {activeTab === 'history' && (
             <div className="history-list">
-              {historyEvents.map(e => (
-                <div key={e.id} className="p-event-row">
+              {historyEvents.map((e) => (
+                <div
+                  key={e.id}
+                  role="button"
+                  tabIndex={0}
+                  className="p-event-row"
+                  aria-label={`Ouvrir la sortie ${e.title}`}
+                  onMouseDown={(ev) => ev.preventDefault()}
+                  onClick={() => openDetail('event', e.id)}
+                  onKeyDown={(ev) => {
+                    if (ev.key === 'Enter' || ev.key === ' ') {
+                      ev.preventDefault();
+                      openDetail('event', e.id);
+                    }
+                  }}
+                >
                   <img src={e.imageUri} alt={e.title} className="p-event-img" />
                   <div className="p-event-info">
                     <div className="p-event-title">{e.title}</div>
@@ -325,7 +458,7 @@ export function ProfilePage() {
           <div className="modal-content">
             <div className="modal-header">
               <h3>Paramètres</h3>
-              <button onClick={() => setSettingsOpen(false)}><X size={24} /></button>
+              <button type="button" onClick={() => setSettingsOpen(false)}><X size={24} /></button>
             </div>
             <div className="modal-body">
               <div className="setting-section">

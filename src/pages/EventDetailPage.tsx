@@ -1,7 +1,13 @@
+import { useMemo } from 'react';
 import { ChevronLeft, MapPin, Clock, Users, Heart, MessageCircle, Share2, Info } from 'lucide-react';
 import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
 import './EventDetailPage.css';
+
+type ParticipantSlot =
+  | { kind: 'viewer'; key: string }
+  | { kind: 'profile'; profilId: string; imageUrl: string; name: string; key: string }
+  | { kind: 'anonymous'; seed: number; key: string };
 
 interface EventDetailPageProps {
   id: string;
@@ -13,9 +19,11 @@ function initialFromDisplayName(name: string): string {
 }
 
 export function EventDetailPage({ id }: EventDetailPageProps) {
-  const { closeDetail, openDetail } = useNavigationStore();
+  const { closeDetail, openDetail, setActiveTab } = useNavigationStore();
   const {
     events,
+    conversations,
+    friends,
     toggleEventFavorite,
     joinEvent,
     leaveEvent,
@@ -38,6 +46,52 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const isInscribed = event.status === 'inscrit' || event.status === 'organisateur';
   const isFull = event.participantCount >= event.participantMax;
   const isHostOrganizer = viewerHosts && event.status === 'organisateur';
+
+  const participantSlots = useMemo((): ParticipantSlot[] => {
+    const slots: ParticipantSlot[] = [];
+    const othersLimit = Math.min(
+      Math.max(0, event.participantCount - (isInscribed ? 1 : 0)),
+      21,
+    );
+    if (isInscribed) {
+      slots.push({ kind: 'viewer', key: 'viewer' });
+    }
+    const conv = conversations.find((c) => c.id === event.conversationId);
+    const fromConv =
+      conv?.members?.filter((m) => !m.isSelf && m.profilId) ?? [];
+    let used = 0;
+    for (const m of fromConv) {
+      if (used >= othersLimit) break;
+      const friend = friends.find((f) => f.profilId === m.profilId);
+      const imageUrl =
+        friend?.imageUrl ?? `https://i.pravatar.cc/100?u=${encodeURIComponent(m.profilId!)}`;
+      slots.push({
+        kind: 'profile',
+        profilId: m.profilId!,
+        imageUrl,
+        name: m.name,
+        key: `m-${m.profilId}`,
+      });
+      used++;
+    }
+    let anon = 0;
+    while (used < othersLimit) {
+      slots.push({
+        kind: 'anonymous',
+        seed: anon + (isInscribed ? 50 : 0),
+        key: `anon-${anon}`,
+      });
+      anon++;
+      used++;
+    }
+    return slots;
+  }, [
+    event.conversationId,
+    event.participantCount,
+    isInscribed,
+    conversations,
+    friends,
+  ]);
 
   const handleJoinToggle = () => {
     if (event.status === 'inscrit') {
@@ -68,7 +122,13 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
         <div className="ed-hero-gradient" />
         
         <header className="ed-header">
-          <button className="ed-back-btn" onClick={closeDetail}>
+          <button
+            type="button"
+            className="ed-back-btn"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={closeDetail}
+            aria-label="Retour"
+          >
             <ChevronLeft size={28} color="#fff" />
           </button>
           <div className="ed-header-actions">
@@ -120,24 +180,47 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             <span className="ed-count">{event.participantCount}/{event.participantMax}</span>
           </div>
           <div className="ed-participants-grid">
-            {isInscribed && (
-              <div className="ed-participant-avatar">
-                {viewerProfileAvatarUrl ? (
-                  <img
-                    src={viewerProfileAvatarUrl}
-                    alt=""
-                    className="ed-avatar-me-img"
-                  />
-                ) : (
-                  <div className="ed-avatar-me">{initialFromDisplayName(viewerProfileDisplayName)}</div>
-                )}
-              </div>
-            )}
-            {Array.from({ length: Math.min(event.participantCount - (isInscribed ? 1 : 0), 21) }).map((_, i) => (
-              <div key={i} className="ed-participant-avatar">
-                <img src={`https://i.pravatar.cc/100?u=p${i + (isInscribed ? 50 : 0)}`} alt="User" />
-              </div>
-            ))}
+            {participantSlots.map((slot) => {
+              if (slot.kind === 'viewer') {
+                return (
+                  <button
+                    key={slot.key}
+                    type="button"
+                    className="ed-participant-avatar ed-participant-avatar--clickable"
+                    onClick={() => setActiveTab('profile')}
+                    aria-label="Voir mon profil"
+                  >
+                    {viewerProfileAvatarUrl ? (
+                      <img
+                        src={viewerProfileAvatarUrl}
+                        alt=""
+                        className="ed-avatar-me-img"
+                      />
+                    ) : (
+                      <div className="ed-avatar-me">{initialFromDisplayName(viewerProfileDisplayName)}</div>
+                    )}
+                  </button>
+                );
+              }
+              if (slot.kind === 'profile') {
+                return (
+                  <button
+                    key={slot.key}
+                    type="button"
+                    className="ed-participant-avatar ed-participant-avatar--clickable"
+                    onClick={() => openDetail('profile', slot.profilId)}
+                    aria-label={`Voir le profil de ${slot.name}`}
+                  >
+                    <img src={slot.imageUrl} alt="" />
+                  </button>
+                );
+              }
+              return (
+                <div key={slot.key} className="ed-participant-avatar" aria-hidden>
+                  <img src={`https://i.pravatar.cc/100?u=p${slot.seed}`} alt="" />
+                </div>
+              );
+            })}
             {event.participantCount < event.participantMax && (
               <div className="ed-participant-placeholder">
                 <Users size={20} color="#8E8E93" />

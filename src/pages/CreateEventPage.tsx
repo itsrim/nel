@@ -210,7 +210,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     setDescription((prev) => {
       if (foldNorm(prev).includes(foldNorm(tagToken))) return prev;
       const base = prev.trimEnd();
-      const next = base.length > 0 ? `${base} ${tagToken}` : tagToken;
+      const next = `${base}\n\n${tagToken}`;
       return next.length > MAX_DESCRIPTION_LEN ? next.slice(0, MAX_DESCRIPTION_LEN) : next;
     });
   }, []);

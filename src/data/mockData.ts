@@ -83,11 +83,21 @@ export interface SuggestionProfile {
 
 export interface Friend {
   profilId: string;
+  /** Nom affiché (cartes, listes). */
   name: string;
   age: number | null;
   city: string;
   imageUrl: string;
+  /** Sorties en commun avec le profil connecté (toi). */
   eventsInCommon: number;
+  /** Fil privé nel avec toi — ouvre le bon chat depuis « Message ». */
+  mainChatConversationId: string;
+  pseudo?: string;
+  bio?: string;
+  memberSince?: string;
+  verified?: boolean;
+  stats?: { reliability: number; events: number; friends: number };
+  badges?: string[];
 }
 
 // ── Event image pool (picsum) ──
@@ -136,11 +146,87 @@ export const MOCK_CONVERSATIONS: Conversation[] = [
   { id: 'c6', title: 'Cours de Yoga', type: 'group', lastMessagePreview: 'Namasté 🧘', avatarGradient: ['#66BB6A', '#43A047'], unreadCount: 0, updatedAt: Date.now() - 86_400_000, isFavorite: false, members: [] },
   { id: 'c7', title: 'Concert Jazz', type: 'group', lastMessagePreview: 'Cool, on fait ça !', avatarGradient: ['#42A5F5', '#1E88E5'], unreadCount: 0, updatedAt: Date.now() - 100_000_000, isFavorite: true, members: [] },
   { id: 'c8', title: 'Exposition Art Moderne', type: 'group', lastMessagePreview: 'Merci pour l\'info !', avatarGradient: ['#EF5350', '#E53935'], unreadCount: 0, updatedAt: Date.now() - 200_000_000, isFavorite: false, members: [] },
+  // DM 1:1 avec toi (membre non-moi en premier → avatar tête dans ChatRoomPage)
+  {
+    id: 'dm-f1',
+    title: 'Marie L.',
+    type: 'dm',
+    lastMessagePreview: 'Parfait, merci pour l’info métro !',
+    avatarGradient: ['#EC407A', '#F48FB1'],
+    unreadCount: 1,
+    updatedAt: Date.now() - 45_000,
+    isFavorite: true,
+    memberCount: 2,
+    members: [
+      { id: 'u-f1', name: 'Marie L.', isSelf: false, avatarGradient: ['#EC407A', '#F48FB1'], profilId: 'f1' },
+      { id: 'me', name: 'Moi', isSelf: true, avatarGradient: ['#78909C', '#546E7A'] },
+    ],
+  },
+  {
+    id: 'dm-f2',
+    title: 'Lucas M.',
+    type: 'dm',
+    lastMessagePreview: 'Je t’envoie le lien Maps tout à l’heure',
+    avatarGradient: ['#42A5F5', '#1E88E5'],
+    unreadCount: 0,
+    updatedAt: Date.now() - 180_000,
+    isFavorite: false,
+    memberCount: 2,
+    members: [
+      { id: 'u-f2', name: 'Lucas M.', isSelf: false, avatarGradient: ['#42A5F5', '#1E88E5'], profilId: 'f2' },
+      { id: 'me', name: 'Moi', isSelf: true, avatarGradient: ['#78909C', '#546E7A'] },
+    ],
+  },
+  {
+    id: 'dm-f3',
+    title: 'Emma R.',
+    type: 'dm',
+    lastMessagePreview: 'Hâte de refaire une sortie avec toi',
+    avatarGradient: ['#66BB6A', '#43A047'],
+    unreadCount: 0,
+    updatedAt: Date.now() - 900_000,
+    isFavorite: true,
+    memberCount: 2,
+    members: [
+      { id: 'u-f3', name: 'Emma R.', isSelf: false, avatarGradient: ['#66BB6A', '#43A047'], profilId: 'f3' },
+      { id: 'me', name: 'Moi', isSelf: true, avatarGradient: ['#78909C', '#546E7A'] },
+    ],
+  },
+  {
+    id: 'dm-f4',
+    title: 'Hugo D.',
+    type: 'dm',
+    lastMessagePreview: 'Ok pour le créneau 19h',
+    avatarGradient: ['#FFC107', '#FF9800'],
+    unreadCount: 0,
+    updatedAt: Date.now() - 3_600_000,
+    isFavorite: false,
+    memberCount: 2,
+    members: [
+      { id: 'u-f4', name: 'Hugo D.', isSelf: false, avatarGradient: ['#FFC107', '#FF9800'], profilId: 'f4' },
+      { id: 'me', name: 'Moi', isSelf: true, avatarGradient: ['#78909C', '#546E7A'] },
+    ],
+  },
+  {
+    id: 'dm-f5',
+    title: 'Sarah K.',
+    type: 'dm',
+    lastMessagePreview: 'À bientôt sur Nel !',
+    avatarGradient: ['#EF5350', '#E53935'],
+    unreadCount: 0,
+    updatedAt: Date.now() - 86_400_000,
+    isFavorite: false,
+    memberCount: 2,
+    members: [
+      { id: 'u-f5', name: 'Sarah K.', isSelf: false, avatarGradient: ['#EF5350', '#E53935'], profilId: 'f5' },
+      { id: 'me', name: 'Moi', isSelf: true, avatarGradient: ['#78909C', '#546E7A'] },
+    ],
+  },
 ];
 
 export const MOCK_MESSAGES: Record<string, Message[]> = {
   'c1': [
-    { id: 'm1', conversationId: 'c1', authorName: 'Marc', text: 'Salut ! On se retrouve où ?', sentAt: Date.now() - 120_000, isOwn: false },
+    { id: 'm1', conversationId: 'c1', authorName: 'Marie', text: 'Salut ! On se retrouve où pour l’atelier cuisine ?', sentAt: Date.now() - 120_000, isOwn: false },
     { id: 'm2', conversationId: 'c1', authorName: 'Moi', text: "Au pied du métro comme d'hab ?", sentAt: Date.now() - 60_000, isOwn: true },
   ],
   'c2': [
@@ -148,6 +234,128 @@ export const MOCK_MESSAGES: Record<string, Message[]> = {
   ],
   'c7': [
     { id: 'm4', conversationId: 'c7', authorName: 'Lucas', text: 'Cool, on fait ça !', sentAt: Date.now() - 100_000_000, isOwn: false },
+  ],
+  'dm-f1': [
+    {
+      id: 'df1-1',
+      conversationId: 'dm-f1',
+      authorName: 'Marie L.',
+      text: 'Tu confirmes pour l’atelier cuisine dimanche ? J’ai réservé pour nous deux.',
+      sentAt: Date.now() - 720_000,
+      isOwn: false,
+    },
+    {
+      id: 'df1-2',
+      conversationId: 'dm-f1',
+      authorName: 'Moi',
+      text: 'Oui carrément, merci d’avoir géré la résa !',
+      sentAt: Date.now() - 700_000,
+      isOwn: true,
+    },
+    {
+      id: 'df1-3',
+      conversationId: 'dm-f1',
+      authorName: 'Marie L.',
+      text: 'Parfait, merci pour l’info métro !',
+      sentAt: Date.now() - 45_000,
+      isOwn: false,
+    },
+  ],
+  'dm-f2': [
+    {
+      id: 'df2-1',
+      conversationId: 'dm-f2',
+      authorName: 'Lucas M.',
+      text: 'Salut ! On se fait la rando dont tu parlais la semaine pro ?',
+      sentAt: Date.now() - 400_000,
+      isOwn: false,
+    },
+    {
+      id: 'df2-2',
+      conversationId: 'dm-f2',
+      authorName: 'Moi',
+      text: 'Yes, je suis partant. Tu proposes un lieu ?',
+      sentAt: Date.now() - 380_000,
+      isOwn: true,
+    },
+    {
+      id: 'df2-3',
+      conversationId: 'dm-f2',
+      authorName: 'Lucas M.',
+      text: 'Je t’envoie le lien Maps tout à l’heure',
+      sentAt: Date.now() - 180_000,
+      isOwn: false,
+    },
+  ],
+  'dm-f3': [
+    {
+      id: 'df3-1',
+      conversationId: 'dm-f3',
+      authorName: 'Moi',
+      text: 'Merci encore pour le musée Orsay, c’était top avec toi et le groupe',
+      sentAt: Date.now() - 1_200_000,
+      isOwn: true,
+    },
+    {
+      id: 'df3-2',
+      conversationId: 'dm-f3',
+      authorName: 'Emma R.',
+      text: 'Hâte de refaire une sortie avec toi',
+      sentAt: Date.now() - 900_000,
+      isOwn: false,
+    },
+  ],
+  'dm-f4': [
+    {
+      id: 'df4-1',
+      conversationId: 'dm-f4',
+      authorName: 'Hugo D.',
+      text: 'Tu es dispo jeudi pour l’afterwork ?',
+      sentAt: Date.now() - 5_000_000,
+      isOwn: false,
+    },
+    {
+      id: 'df4-2',
+      conversationId: 'dm-f4',
+      authorName: 'Moi',
+      text: 'Jeudi 19h ça me va',
+      sentAt: Date.now() - 4_800_000,
+      isOwn: true,
+    },
+    {
+      id: 'df4-3',
+      conversationId: 'dm-f4',
+      authorName: 'Hugo D.',
+      text: 'Ok pour le créneau 19h',
+      sentAt: Date.now() - 3_600_000,
+      isOwn: false,
+    },
+  ],
+  'dm-f5': [
+    {
+      id: 'df5-1',
+      conversationId: 'dm-f5',
+      authorName: 'Sarah K.',
+      text: 'Super de t’avoir croisé sur la sortie Bordeaux, on garde contact',
+      sentAt: Date.now() - 100_000_000,
+      isOwn: false,
+    },
+    {
+      id: 'df5-2',
+      conversationId: 'dm-f5',
+      authorName: 'Moi',
+      text: 'Avec plaisir !',
+      sentAt: Date.now() - 99_000_000,
+      isOwn: true,
+    },
+    {
+      id: 'df5-3',
+      conversationId: 'dm-f5',
+      authorName: 'Sarah K.',
+      text: 'À bientôt sur Nel !',
+      sentAt: Date.now() - 86_400_000,
+      isOwn: false,
+    },
   ],
 };
 
@@ -170,13 +378,83 @@ export const MOCK_SUGGESTIONS: SuggestionProfile[] = [
   { id: 's6', pseudo: 'Léa', age: 22, imageUrl: 'https://i.pravatar.cc/400?img=48', aspectRatio: 1.1 },
 ];
 
-// ── Friends ──
+// ── Amis (profils complets + DM dédié avec toi, alignés sur les groupes c1 / c2) ──
 export const MOCK_FRIENDS: Friend[] = [
-  { profilId: 'f1', name: 'Marie L.', age: 28, city: 'Paris', imageUrl: 'https://i.pravatar.cc/150?img=24', eventsInCommon: 12 },
-  { profilId: 'f2', name: 'Lucas M.', age: 31, city: 'Lyon', imageUrl: 'https://i.pravatar.cc/150?img=33', eventsInCommon: 8 },
-  { profilId: 'f3', name: 'Emma R.', age: 25, city: 'Marseille', imageUrl: 'https://i.pravatar.cc/150?img=26', eventsInCommon: 15 },
-  { profilId: 'f4', name: 'Hugo D.', age: 29, city: 'Toulouse', imageUrl: 'https://i.pravatar.cc/150?img=59', eventsInCommon: 6 },
-  { profilId: 'f5', name: 'Sarah K.', age: 27, city: 'Bordeaux', imageUrl: 'https://i.pravatar.cc/150?img=38', eventsInCommon: 3 },
+  {
+    profilId: 'f1',
+    name: 'Marie L.',
+    pseudo: 'Marie',
+    age: 28,
+    city: 'Paris · 11e',
+    imageUrl: 'https://i.pravatar.cc/150?img=24',
+    eventsInCommon: 12,
+    mainChatConversationId: 'dm-f1',
+    bio: 'Foodie et italienne dans l’âme. On s’est connus sur l’atelier cuisine — toujours partante pour un resto ou un marché avec toi.',
+    memberSince: '2024',
+    verified: true,
+    stats: { reliability: 4.9, events: 24, friends: 38 },
+    badges: ['Ponctuelle', 'Organisatrice', 'Foodie'],
+  },
+  {
+    profilId: 'f2',
+    name: 'Lucas M.',
+    pseudo: 'Lucas',
+    age: 31,
+    city: 'Lyon · Presqu’île',
+    imageUrl: 'https://i.pravatar.cc/150?img=33',
+    eventsInCommon: 8,
+    mainChatConversationId: 'dm-f2',
+    bio: 'Trail et photo le week-end. Même groupe que toi sur plusieurs sorties Nel — on enchaîne les bons plans rando.',
+    memberSince: '2023',
+    verified: true,
+    stats: { reliability: 4.7, events: 18, friends: 52 },
+    badges: ['Explorateur', 'Photographe'],
+  },
+  {
+    profilId: 'f3',
+    name: 'Emma R.',
+    pseudo: 'Emma',
+    age: 25,
+    city: 'Marseille · Vieux-Port',
+    imageUrl: 'https://i.pravatar.cc/150?img=26',
+    eventsInCommon: 15,
+    mainChatConversationId: 'dm-f3',
+    bio: 'Culture et expos. Musée Orsay avec toi et le groupe : un souvenir cool — la prochaine c’est chez moi côté sud !',
+    memberSince: '2024',
+    verified: false,
+    stats: { reliability: 4.8, events: 31, friends: 44 },
+    badges: ['Curieuse', 'Sociable'],
+  },
+  {
+    profilId: 'f4',
+    name: 'Hugo D.',
+    pseudo: 'Hugo',
+    age: 29,
+    city: 'Toulouse · Carmes',
+    imageUrl: 'https://i.pravatar.cc/150?img=59',
+    eventsInCommon: 6,
+    mainChatConversationId: 'dm-f4',
+    bio: 'Ingé le jour, apéros Nel le soir. On se croise souvent sur les mêmes afterworks — dis-moi quand tu es dans le coin.',
+    memberSince: '2025',
+    verified: false,
+    stats: { reliability: 4.5, events: 11, friends: 29 },
+    badges: ['Convivial'],
+  },
+  {
+    profilId: 'f5',
+    name: 'Sarah K.',
+    pseudo: 'Sarah',
+    age: 27,
+    city: 'Bordeaux · Chartrons',
+    imageUrl: 'https://i.pravatar.cc/150?img=38',
+    eventsInCommon: 3,
+    mainChatConversationId: 'dm-f5',
+    bio: 'Vin et sorties chill. Peu de sorties communes pour l’instant mais le feeling était là — on remet ça vite.',
+    memberSince: '2025',
+    verified: true,
+    stats: { reliability: 5.0, events: 9, friends: 21 },
+    badges: ['Nouvelle', 'Fiable'],
+  },
 ];
 
 // ── Helpers ──
