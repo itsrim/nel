@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import { useMessagingStore } from '../store/useMessagingStore';
 import { EventCard } from '../components/EventCard';
+import { getNelProfileImageKitUserKey, uploadLocalImageToImageKit } from '../lib/imagekitUpload';
+import { withUrlUploadVersion } from '../lib/versionRemoteAssetUrl';
 import './ProfilePage.css';
 
 type TabId = 'favorites' | 'friends' | 'history' | 'notifications' | 'reports';
@@ -43,6 +45,7 @@ export function ProfilePage() {
   const [age, setAge] = useState('28');
   const [bio, setBio] = useState('Passionné de rando et de sorties culturelles sur Paris ! 🏔️🎭');
   const [heroImg, setHeroImg] = useState('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [isPremium, setIsPremium] = useState(true);
   const [isAdmin, setIsAdmin] = useState(true);
 
@@ -54,14 +57,29 @@ export function ProfilePage() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setHeroImg(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    const input = e.target;
+    if (!file || !file.type.startsWith('image/')) {
+      input.value = '';
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const userKey = getNelProfileImageKitUserKey();
+      const url = await uploadLocalImageToImageKit({
+        webFile: file,
+        mimeType: file.type || null,
+        userKey,
+      });
+      setHeroImg(withUrlUploadVersion(url));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      window.alert(`Échec de l’envoi de la photo : ${msg}`);
+    } finally {
+      setUploadingPhoto(false);
+      input.value = '';
     }
   };
 
@@ -88,8 +106,14 @@ export function ProfilePage() {
             <Settings size={22} color="#fff" />
           </button>
           <div style={{ flex: 1 }} />
-          <button className="hero-icon-btn" onClick={handlePhotoClick} aria-label="Change photo">
-            <Camera size={22} color="#fff" />
+          <button
+            type="button"
+            className="hero-icon-btn"
+            onClick={handlePhotoClick}
+            disabled={uploadingPhoto}
+            aria-label="Change photo"
+            aria-busy={uploadingPhoto}>
+            <Camera size={22} color="#fff" style={{ opacity: uploadingPhoto ? 0.5 : 1 }} />
           </button>
         </div>
 

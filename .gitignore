@@ -1,3 +1,8 @@
 node_modules
 dist
 .DS_store
+
+# Secrets et variables locales (ne pas versionner)
+.env
+.env.local
+.env.*.local

@@ -13,7 +13,9 @@
     "deploy": "gh-pages -d dist -b gh-pages"
   },
   "dependencies": {
+    "@types/crypto-js": "^4.2.2",
     "@types/node": "^20.10.5",
+    "crypto-js": "^4.2.0",
     "lucide-react": "^0.544.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
