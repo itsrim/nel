@@ -79,6 +79,87 @@
   padding: 4px 16px calc(env(safe-area-inset-bottom, 0px) + 100px);
 }
 
+/* ── Mini carrousel couvertures par thème ── */
+.ce-cover-default-block {
+  margin-bottom: 12px;
+}
+
+.ce-cover-default-label {
+  margin: 0 0 8px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(142, 142, 147, 0.95);
+}
+
+.ce-cover-default-scroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 2px 10px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.ce-cover-default-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.ce-cover-default-chip {
+  flex: 0 0 auto;
+  width: 92px;
+  scroll-snap-align: start;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #1c1c1e;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ce-cover-default-chip:focus {
+  outline: none;
+}
+
+.ce-cover-default-chip:focus-visible {
+  border-color: rgba(155, 93, 229, 0.85);
+  box-shadow: 0 0 0 2px rgba(155, 93, 229, 0.25);
+}
+
+.ce-cover-default-chip--selected {
+  border-color: rgba(155, 93, 229, 0.9);
+  box-shadow: 0 0 0 2px rgba(155, 93, 229, 0.35);
+}
+
+.ce-cover-default-thumb {
+  width: 100%;
+  height: 58px;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+.ce-cover-default-tag {
+  display: block;
+  padding: 6px 6px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.82);
+  text-align: center;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
 /* ── Photo couverture ── */
 .ce-photo-zone {
   position: relative;
@@ -180,8 +261,10 @@
 
 /* ── Cartes ── */
 .ce-card {
+  /* Rayon partagé avec les champs plein cadre (titre, textarea) pour un focus net */
+  --ce-card-radius: 20px;
   background: #1c1c1e;
-  border-radius: 20px;
+  border-radius: var(--ce-card-radius);
   border: 1px solid rgba(255, 255, 255, 0.08);
   margin-bottom: 24px;
   overflow: hidden;
@@ -199,10 +282,19 @@
   background: transparent;
   resize: none;
   font-family: inherit;
+  border-radius: var(--ce-card-radius, 20px);
+  outline: none;
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: box-shadow 0.18s ease;
 }
 
 .ce-title-input::placeholder {
   color: rgba(142, 142, 147, 0.95);
+}
+
+.ce-title-input:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(155, 93, 229, 0.75);
 }
 
 .ce-block-label {
@@ -236,6 +328,15 @@
   font-size: 15px;
   background: rgba(0, 0, 0, 0.25);
   color-scheme: dark;
+  accent-color: #9b5de5;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ce-web-date-input:focus {
+  outline: none;
+  border-color: rgba(155, 93, 229, 0.55);
+  box-shadow: 0 0 0 2px rgba(155, 93, 229, 0.22);
 }
 
 /* Lieu + Max */
@@ -278,10 +379,18 @@
   padding: 14px;
   font-size: 16px;
   color: #fff;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .ce-lieu-field::placeholder {
   color: rgba(142, 142, 147, 0.95);
+}
+
+.ce-lieu-field:focus {
+  outline: none;
+  border-color: rgba(155, 93, 229, 0.55);
+  box-shadow: 0 0 0 2px rgba(155, 93, 229, 0.22);
 }
 
 .ce-max-field {
@@ -353,10 +462,20 @@
   background: transparent;
   resize: vertical;
   font-family: inherit;
+  border-radius: var(--ce-card-radius, 20px);
+  outline: none;
+  /* Évite le double contour (outline navigateur + carte) */
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: box-shadow 0.18s ease;
 }
 
 .ce-textarea::placeholder {
   color: rgba(142, 142, 147, 0.95);
+}
+
+.ce-textarea:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(155, 93, 229, 0.75);
 }
 
 .ce-option-row {
@@ -462,6 +581,46 @@
 .ce-switch input:focus-visible + .ce-switch-slider {
   outline: 2px solid #7eb8ff;
   outline-offset: 2px;
+}
+
+/* Annulation définitive (mode édition) */
+.ce-cancel-sortie-block {
+  margin-top: 20px;
+  margin-bottom: 8px;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(255, 69, 58, 0.08);
+  border: 1px solid rgba(255, 69, 58, 0.28);
+}
+
+.ce-cancel-sortie-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 69, 58, 0.45);
+  background: rgba(0, 0, 0, 0.35);
+  color: #ff6961;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ce-cancel-sortie-btn:hover {
+  background: rgba(255, 69, 58, 0.12);
+}
+
+.ce-cancel-sortie-hint {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(142, 142, 147, 0.95);
+  text-align: center;
 }
 
 /* Bas : Annuler + Créer */

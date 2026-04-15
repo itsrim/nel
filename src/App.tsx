@@ -36,7 +36,7 @@ function App() {
       case 'event':
         return <EventDetailPage id={currentDetail.id} />
       case 'event_create':
-        return <CreateEventPage />
+        return <CreateEventPage formEventId={currentDetail.id} />
       case 'profile':
         return <OtherProfilePage id={currentDetail.id} />
       case 'chat_settings':

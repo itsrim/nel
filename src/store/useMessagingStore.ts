@@ -48,6 +48,22 @@ export type NewEventInput = {
   isBeta?: boolean;
 };
 
+/** Mise à jour d’une sortie existante (même conversation / même id). */
+export type UpdateEventInput = {
+  title: string;
+  dateLabel: string;
+  location: string;
+  notes?: string;
+  timeShort?: string;
+  imageUri?: string;
+  participantMax: number;
+  dateKey: string;
+  sectionDateLabel: string;
+  hideAddress?: boolean;
+  manualApproval?: boolean;
+  isBeta?: boolean;
+};
+
 interface MessagingState {
   /** Synchronisé avec l’interrupteur « Mode admin » du profil (aperçu nel). */
   nelDemoIsAdmin: boolean;
@@ -72,6 +88,8 @@ interface MessagingState {
   sendMessage: (conversationId: string, text: string) => void;
   markAsRead: (conversationId: string) => void;
   addEvent: (input: NewEventInput) => string;
+  updateEvent: (eventId: string, input: UpdateEventInput) => void;
+  cancelEvent: (eventId: string) => void;
   createEmptyGroup: (title: string) => string;
   postEventGroupWelcome: (conversationId: string, eventTitle: string) => void;
   addMemberToGroup: (conversationId: string, member: GroupMember) => void;
@@ -183,6 +201,56 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     };
     set((state) => ({ events: [event, ...state.events] }));
     return id;
+  },
+
+  updateEvent: (eventId, input) => {
+    set((state) => {
+      const ev = state.events.find((e) => e.id === eventId);
+      if (!ev) return state;
+      const cappedMax = Math.min(
+        Math.max(2, input.participantMax),
+        150,
+      );
+      const participantMax = Math.max(cappedMax, ev.participantCount);
+      const priceLabel = ev.priceLabel?.trim() || 'Gratuit';
+      const next: Event = {
+        ...ev,
+        title: input.title.trim(),
+        dateLabel: input.dateLabel,
+        sectionDateLabel: input.sectionDateLabel,
+        dateKey: input.dateKey,
+        timeShort: input.timeShort?.trim() || ev.timeShort,
+        location: input.location.trim(),
+        notes: input.notes?.trim() || undefined,
+        imageUri: input.imageUri?.trim() || ev.imageUri,
+        participantMax,
+        hideAddress: input.hideAddress,
+        manualApproval: input.manualApproval,
+        isBeta: input.isBeta === true,
+      };
+      const convTitle = `Sortie : ${next.title}`;
+      return {
+        events: state.events.map((e) => (e.id === eventId ? next : e)),
+        conversations: state.conversations.map((c) =>
+          c.id === ev.conversationId ? { ...c, title: convTitle } : c,
+        ),
+      };
+    });
+  },
+
+  cancelEvent: (eventId) => {
+    set((state) => {
+      const ev = state.events.find((e) => e.id === eventId);
+      if (!ev) return state;
+      const cid = ev.conversationId;
+      const { [cid]: _drop, ...restMsgs } = state.messagesByConversation;
+      return {
+        events: state.events.filter((e) => e.id !== eventId),
+        conversations: state.conversations.filter((c) => c.id !== cid),
+        messagesByConversation: restMsgs,
+        favoriteConversationIds: state.favoriteConversationIds.filter((id) => id !== cid),
+      };
+    });
   },
 
   postEventGroupWelcome: (conversationId, eventTitle) => {

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Calendar, Check, ChevronLeft, ChevronRight, Plus, Search, X } from 'lucide-react';
 import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
@@ -50,17 +50,10 @@ function eventMatchesSearch(e: Event, query: string): boolean {
   return foldSearch(`${e.title} ${e.location} ${e.notes ?? ''}`).includes(q);
 }
 
-type EventPairRow = { key: string; left: Event; right?: Event };
-
-function chunkEventsIntoPairs(items: Event[]): EventPairRow[] {
-  const rows: EventPairRow[] = [];
-  for (let i = 0; i < items.length; i += 2) {
-    const left = items[i];
-    const right = items[i + 1];
-    rows.push({ key: right ? `${left.id}-${right.id}` : left.id, left, right });
-  }
-  return rows;
-}
+const EVENTS_LAYOUT_NARROW_PX = 640;
+const EVENTS_CARD_GAP = 12;
+const EVENTS_CARD_PAD = 24;
+const EVENTS_MIN_CARD_W = 168;
 
 const WEEK_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'] as const;
 const INITIAL_WEEK_MONDAY = new Date(2026, 2, 23); // March 23, 2026
@@ -94,6 +87,16 @@ function CalendarWeekStrip({ weekStart, selectedDateKey, onSelectDateKey }: {
 export function EventsPage() {
   const { openDetail } = useNavigationStore();
   const { events, toggleEventFavorite } = useMessagingStore();
+  const [viewportW, setViewportW] = useState(
+    () => (typeof window !== 'undefined' ? window.innerWidth : EVENTS_LAYOUT_NARROW_PX),
+  );
+
+  useEffect(() => {
+    const onResize = () => setViewportW(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const [weekStartMonday, setWeekStartMonday] = useState(() => new Date(INITIAL_WEEK_MONDAY));
   const [selectedDateKey, setSelectedDateKey] = useState(toDateKey(INITIAL_WEEK_MONDAY));
   const [headerMode, setHeaderMode] = useState<'calendar' | 'search'>('calendar');
@@ -137,9 +140,28 @@ export function EventsPage() {
       .sort((a, b) => (a[1][0]?.dateKey ?? '').localeCompare(b[1][0]?.dateKey ?? ''))
       .map(([title, items]) => ({
         title,
-        data: chunkEventsIntoPairs([...items].sort((a, b) => a.timeShort.localeCompare(b.timeShort))),
+        items: [...items].sort((a, b) => a.timeShort.localeCompare(b.timeShort)),
       }));
   }, [filteredWeekEvents]);
+
+  const isNarrowLayout = viewportW < EVENTS_LAYOUT_NARROW_PX;
+
+  /**
+   * Mobile (<640px) : grille 2 colonnes fixes (padding 12 + gap 12 + padding 12).
+   * Large : flex-wrap avec autant de cartes que possible ≥ largeur min.
+   */
+  const { eventCardW, topCardW } = useMemo(() => {
+    const w = viewportW;
+    const avail = w - EVENTS_CARD_PAD;
+    if (w < EVENTS_LAYOUT_NARROW_PX) {
+      const cardW = Math.max(120, Math.floor((w - 36) / 2));
+      return { eventCardW: cardW, topCardW: Math.min(280, Math.floor(cardW * 1.5)) };
+    }
+    let cols = Math.floor((avail + EVENTS_CARD_GAP) / (EVENTS_MIN_CARD_W + EVENTS_CARD_GAP));
+    cols = Math.max(2, Math.min(cols, 8));
+    const cardW = Math.floor((avail - (cols - 1) * EVENTS_CARD_GAP) / cols);
+    return { eventCardW: Math.max(EVENTS_MIN_CARD_W, cardW), topCardW: Math.min(280, Math.floor(cardW * 1.35)) };
+  }, [viewportW]);
 
   const applySearch = useCallback(() => {
     setCommittedSearch(searchDraft.trim());
@@ -150,11 +172,8 @@ export function EventsPage() {
     setCommittedSearch('');
   }, []);
 
-  const colW = typeof window !== 'undefined' ? Math.floor((Math.min(window.innerWidth, 430) - 24 - 6) / 2) : 180;
-  const topCardW = Math.min(280, Math.floor(colW * 1.5));
-
   return (
-    <div className="events-page">
+    <div className={`events-page${isNarrowLayout ? ' events-page--narrow' : ''}`}>
       {/* Calendar / Search header */}
       {headerMode === 'calendar' ? (
         <div className="cal-gradient">
@@ -214,10 +233,10 @@ export function EventsPage() {
             <div className="events-top5-scroll">
               {topWeekEvents.map((e) => (
                 <div key={e.id} style={{ width: topCardW, flexShrink: 0, marginRight: 12 }}>
-                  <EventCard 
-                    item={e} 
-                    onToggleFavorite={() => toggleEventFavorite(e.id)} 
-                    width={topCardW} 
+                  <EventCard
+                    item={e}
+                    onToggleFavorite={() => toggleEventFavorite(e.id)}
+                    width={topCardW}
                     onClick={() => openDetail('event', e.id)}
                   />
                 </div>
@@ -239,30 +258,22 @@ export function EventsPage() {
               <div className="events-section-header">
                 <span className="events-section-title">{section.title}</span>
               </div>
-              {section.data.map((row) => (
-                <div key={row.key} className="events-grid-row">
-                  <div style={{ width: colW }}>
-                    <EventCard 
-                      item={row.left} 
-                      onToggleFavorite={() => toggleEventFavorite(row.left.id)} 
-                      width={colW} 
-                      onClick={() => openDetail('event', row.left.id)}
+              <div className="events-section-cards">
+                {section.items.map((e) => (
+                  <div
+                    key={e.id}
+                    className="events-card-cell"
+                    style={isNarrowLayout ? undefined : { width: eventCardW }}
+                  >
+                    <EventCard
+                      item={e}
+                      onToggleFavorite={() => toggleEventFavorite(e.id)}
+                      width={eventCardW}
+                      onClick={() => openDetail('event', e.id)}
                     />
                   </div>
-                  {row.right ? (
-                    <div style={{ width: colW }}>
-                      <EventCard 
-                        item={row.right} 
-                        onToggleFavorite={() => toggleEventFavorite(row.right!.id)} 
-                        width={colW} 
-                        onClick={() => openDetail('event', row.right!.id)}
-                      />
-                    </div>
-                  ) : (
-                    <div style={{ width: colW }} />
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           ))
         )}

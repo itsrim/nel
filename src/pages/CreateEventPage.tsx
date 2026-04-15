@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Camera,
   ChevronDown,
@@ -9,16 +9,26 @@ import {
   MapPin,
   Pencil,
   ShieldCheck,
+  Trash2,
   Users,
   X,
 } from 'lucide-react';
 import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
+import type { Event } from '../data/mockData';
 import { getNelProfileImageKitUserKey, uploadLocalImageToImageKitEventCover } from '../lib/imagekitUpload';
 import { withUrlUploadVersion } from '../lib/versionRemoteAssetUrl';
+import {
+  DEFAULT_EVENT_COVER_THEMES,
+  findDefaultCoverThemeByImageUrl,
+  type DefaultEventCoverTheme,
+} from '../constants/defaultEventCoverThemes';
 import './CreateEventPage.css';
 
 const MAX_PARTICIPANTS_CAP = 150;
+const MAX_TITLE_LEN = 50;
+const MAX_DESCRIPTION_LEN = 300;
+const MAX_LOCATION_LEN = 99;
 
 function toIsoDateKey(d: Date): string {
   const y = d.getFullYear();
@@ -45,9 +55,55 @@ function roundDateToQuarterHour(d: Date): Date {
   return new Date(Math.ceil(d.getTime() / ms) * ms);
 }
 
-export function CreateEventPage() {
-  const { closeDetail } = useNavigationStore();
-  const { addEvent, createEmptyGroup, postEventGroupWelcome, nelDemoIsAdmin } = useMessagingStore();
+function dateFromEvent(ev: Event): Date {
+  const p = ev.dateKey.split('-').map((x) => parseInt(x, 10));
+  const y = p[0];
+  const mo = p[1];
+  const da = p[2];
+  const time = ev.timeShort || '12:00';
+  const [hh, mm] = time.split(':').map((x) => parseInt(x, 10));
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(da)) {
+    return new Date();
+  }
+  return new Date(
+    y,
+    mo - 1,
+    da,
+    Number.isFinite(hh) ? hh : 12,
+    Number.isFinite(mm) ? mm : 0,
+    0,
+    0,
+  );
+}
+
+/** Même logique que la fiche événement : sorties dont vous êtes l’organisateur affiché comme « vous ». */
+function eventIsEditableByViewer(ev: Event): boolean {
+  if (ev.status !== 'organisateur') return false;
+  return (
+    ev.hostedByViewer === true ||
+    ev.hostName === 'Moi' ||
+    ev.hostAvatar.includes('nel-organizer')
+  );
+}
+
+export interface CreateEventPageProps {
+  /** `'new'` pour une création, sinon id d’événement à modifier. */
+  formEventId: string;
+}
+
+export function CreateEventPage({ formEventId }: CreateEventPageProps) {
+  const { closeDetail, popDetails } = useNavigationStore();
+  const {
+    addEvent,
+    updateEvent,
+    cancelEvent,
+    createEmptyGroup,
+    postEventGroupWelcome,
+    nelDemoIsAdmin,
+    getEventById,
+  } = useMessagingStore();
+
+  const isEditMode = formEventId !== 'new';
 
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState('');
@@ -62,6 +118,31 @@ export function CreateEventPage() {
   const [manualApproval, setManualApproval] = useState(false);
   const [markAsBeta, setMarkAsBeta] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  /** En édition : ne pas descendre sous le nombre de participants déjà inscrits. */
+  const [participantFloor, setParticipantFloor] = useState(2);
+
+  useEffect(() => {
+    if (!isEditMode) {
+      setParticipantFloor(2);
+      return;
+    }
+    const ev = getEventById(formEventId);
+    if (!ev || !eventIsEditableByViewer(ev)) {
+      window.alert("Impossible d'ouvrir cette sortie en édition.");
+      closeDetail();
+      return;
+    }
+    setTitle(ev.title.slice(0, MAX_TITLE_LEN));
+    setLocation(ev.location.slice(0, MAX_LOCATION_LEN));
+    setDescription((ev.notes ?? '').slice(0, MAX_DESCRIPTION_LEN));
+    setMaxParticipants(String(ev.participantMax));
+    setEventDate(roundDateToQuarterHour(dateFromEvent(ev)));
+    setImageUri(ev.imageUri);
+    setHideAddress(ev.hideAddress ?? false);
+    setManualApproval(ev.manualApproval ?? false);
+    setMarkAsBeta(ev.isBeta ?? false);
+    setParticipantFloor(Math.max(2, ev.participantCount));
+  }, [isEditMode, formEventId, getEventById, closeDetail]);
 
   const dateInputValue = useMemo(() => toIsoDateKey(eventDate), [eventDate]);
   const timeInputValue = useMemo(
@@ -73,14 +154,19 @@ export function CreateEventPage() {
   const maxN = useMemo(() => parseInt(maxParticipants, 10), [maxParticipants]);
   const maxValid = Number.isFinite(maxN) ? maxN : MAX_PARTICIPANTS_CAP;
 
+  const selectedDefaultCoverId = useMemo(() => {
+    if (!imageUri) return null;
+    return findDefaultCoverThemeByImageUrl(imageUri)?.id ?? null;
+  }, [imageUri]);
+
   const bumpMax = useCallback((delta: number) => {
     setMaxParticipants((p) => {
       const n = parseInt(p, 10);
       const cur = Number.isFinite(n) ? n : MAX_PARTICIPANTS_CAP;
-      const next = Math.min(MAX_PARTICIPANTS_CAP, Math.max(2, cur + delta));
+      const next = Math.min(MAX_PARTICIPANTS_CAP, Math.max(participantFloor, cur + delta));
       return String(next);
     });
-  }, []);
+  }, [participantFloor]);
 
   const onDateChange = useCallback((v: string) => {
     if (!v) return;
@@ -111,6 +197,11 @@ export function CreateEventPage() {
     coverInputRef.current?.click();
   }, [uploadingEventCover]);
 
+  const selectThemeCover = useCallback((theme: DefaultEventCoverTheme) => {
+    setImageUri(theme.imageUrl);
+    setCoverImageNonce((n) => n + 1);
+  }, []);
+
   const onCoverFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -135,8 +226,8 @@ export function CreateEventPage() {
   }, []);
 
   const submit = useCallback(() => {
-    const t = title.trim();
-    const l = location.trim();
+    const t = title.trim().slice(0, MAX_TITLE_LEN);
+    const l = location.trim().slice(0, MAX_LOCATION_LEN);
     const parsed = eventDate;
     const timeShortStr = eventDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const maxParsed = parseInt(maxParticipants.trim(), 10);
@@ -149,8 +240,10 @@ export function CreateEventPage() {
       window.alert('Indiquez un lieu ou un point de rendez-vous.');
       return;
     }
-    if (!Number.isFinite(maxParsed) || maxParsed < 2 || maxParsed > MAX_PARTICIPANTS_CAP) {
-      window.alert(`Le nombre de participants doit être entre 2 et ${MAX_PARTICIPANTS_CAP}.`);
+    if (!Number.isFinite(maxParsed) || maxParsed < participantFloor || maxParsed > MAX_PARTICIPANTS_CAP) {
+      window.alert(
+        `Le nombre de participants doit être entre ${participantFloor} et ${MAX_PARTICIPANTS_CAP}.`,
+      );
       return;
     }
 
@@ -158,24 +251,48 @@ export function CreateEventPage() {
     try {
       const cappedMax = Math.min(maxParsed, MAX_PARTICIPANTS_CAP);
       const dateKey = toIsoDateKey(parsed);
-      const conversationId = createEmptyGroup(`Sortie : ${t}`);
-      addEvent({
-        conversationId,
-        title: t,
-        dateLabel: frenchShortDate(parsed),
-        location: l,
-        notes: description.trim() || undefined,
-        timeShort: timeShortStr || '19:00',
-        priceLabel: 'Gratuit',
-        imageUri: imageUri ?? undefined,
-        participantMax: cappedMax,
-        dateKey,
-        sectionDateLabel: frenchSectionLabel(parsed),
-        hideAddress,
-        manualApproval,
-        isBeta: nelDemoIsAdmin && markAsBeta,
-      });
-      postEventGroupWelcome(conversationId, t);
+      const sectionDateLabel = frenchSectionLabel(parsed);
+      const dateLabel = frenchShortDate(parsed);
+      const notesTrim = description.trim();
+      const notesVal = notesTrim ? notesTrim.slice(0, MAX_DESCRIPTION_LEN) : undefined;
+      const timeShortVal = timeShortStr || '19:00';
+      const beta = nelDemoIsAdmin && markAsBeta;
+
+      if (isEditMode) {
+        updateEvent(formEventId, {
+          title: t,
+          dateLabel,
+          location: l,
+          notes: notesVal,
+          timeShort: timeShortVal,
+          imageUri: imageUri ?? undefined,
+          participantMax: cappedMax,
+          dateKey,
+          sectionDateLabel,
+          hideAddress,
+          manualApproval,
+          isBeta: beta,
+        });
+      } else {
+        const conversationId = createEmptyGroup(`Sortie : ${t}`);
+        addEvent({
+          conversationId,
+          title: t,
+          dateLabel,
+          location: l,
+          notes: notesVal,
+          timeShort: timeShortVal,
+          priceLabel: 'Gratuit',
+          imageUri: imageUri ?? undefined,
+          participantMax: cappedMax,
+          dateKey,
+          sectionDateLabel,
+          hideAddress,
+          manualApproval,
+          isBeta: beta,
+        });
+        postEventGroupWelcome(conversationId, t);
+      }
       closeDetail();
     } finally {
       setSubmitting(false);
@@ -191,11 +308,27 @@ export function CreateEventPage() {
     manualApproval,
     markAsBeta,
     nelDemoIsAdmin,
+    isEditMode,
+    formEventId,
     addEvent,
+    updateEvent,
     createEmptyGroup,
     postEventGroupWelcome,
     closeDetail,
   ]);
+
+  const handleCancelSortie = useCallback(() => {
+    if (!isEditMode) return;
+    if (
+      !window.confirm(
+        'Annuler définitivement cette sortie ? Elle disparaîtra de la liste et le groupe de discussion sera supprimé.',
+      )
+    ) {
+      return;
+    }
+    cancelEvent(formEventId);
+    popDetails(2);
+  }, [isEditMode, formEventId, cancelEvent, popDetails]);
 
   return (
     <div className="create-event-page">
@@ -205,14 +338,14 @@ export function CreateEventPage() {
         <button type="button" className="ce-header-btn" onClick={closeDetail} aria-label="Fermer">
           <X size={26} color="#fff" />
         </button>
-        <h1 className="ce-header-title">Nouvelle Sortie</h1>
+        <h1 className="ce-header-title">{isEditMode ? 'Modifier la sortie' : 'Nouvelle sortie'}</h1>
         <button
           type="button"
           className="ce-header-create"
           onClick={submit}
           disabled={submitting || uploadingEventCover}
-          aria-label="Créer">
-          Créer
+          aria-label={isEditMode ? 'Enregistrer' : 'Créer'}>
+          {isEditMode ? 'Enregistrer' : 'Créer'}
         </button>
       </header>
 
@@ -224,6 +357,27 @@ export function CreateEventPage() {
           style={{ display: 'none' }}
           onChange={onCoverFileChange}
         />
+
+        <div className="ce-cover-default-block">
+          <p className="ce-cover-default-label">Ou une image par thème</p>
+          <div className="ce-cover-default-scroll" role="list" aria-label="Couvertures suggérées par thème">
+            {DEFAULT_EVENT_COVER_THEMES.map((theme) => {
+              const selected = selectedDefaultCoverId === theme.id;
+              return (
+                <button
+                  key={theme.id}
+                  type="button"
+                  className={`ce-cover-default-chip${selected ? ' ce-cover-default-chip--selected' : ''}`}
+                  onClick={() => selectThemeCover(theme)}
+                  aria-pressed={selected}
+                  aria-label={`Couverture ${theme.tag}`}>
+                  <img src={theme.imageUrl} alt="" className="ce-cover-default-thumb" loading="lazy" />
+                  <span className="ce-cover-default-tag">#{theme.tag}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <button
           type="button"
@@ -267,7 +421,7 @@ export function CreateEventPage() {
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Titre de l'événement"
             rows={2}
-            maxLength={60}
+            maxLength={MAX_TITLE_LEN}
           />
         </div>
 
@@ -306,6 +460,7 @@ export function CreateEventPage() {
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="Ex: Parc Monceau"
+              maxLength={MAX_LOCATION_LEN}
             />
           </div>
           <div className="ce-max-col">
@@ -328,7 +483,7 @@ export function CreateEventPage() {
                   type="button"
                   className="ce-stepper-btn"
                   onClick={() => bumpMax(-1)}
-                  disabled={maxValid <= 2}
+                  disabled={maxValid <= participantFloor}
                   aria-label="Diminuer le maximum">
                   <ChevronDown size={18} color="#fff" />
                 </button>
@@ -345,6 +500,7 @@ export function CreateEventPage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Ajoutez des détails, le déroulé, le matériel à prévoir..."
+              maxLength={MAX_DESCRIPTION_LEN}
             />
           </div>
         </div>
@@ -408,17 +564,27 @@ export function CreateEventPage() {
           </div>
         </div>
 
+        {isEditMode ? (
+          <div className="ce-cancel-sortie-block">
+            <button type="button" className="ce-cancel-sortie-btn" onClick={handleCancelSortie}>
+              <Trash2 size={18} color="#ff453a" aria-hidden />
+              <span>Annuler la sortie</span>
+            </button>
+            <p className="ce-cancel-sortie-hint">Action définitive : la sortie et son groupe de chat sont supprimés.</p>
+          </div>
+        ) : null}
+
         <div className="ce-bottom-actions">
           <button type="button" className="ce-cancel-btn" onClick={closeDetail}>
-            Annuler
+            {isEditMode ? 'Fermer' : 'Annuler'}
           </button>
           <button
             type="button"
             className="ce-create-btn"
             onClick={submit}
             disabled={submitting || uploadingEventCover}
-            aria-label="Créer l'événement">
-            ✨ Créer l&apos;événement
+            aria-label={isEditMode ? 'Enregistrer les modifications' : "Créer l'événement"}>
+            {isEditMode ? '✨ Enregistrer' : "✨ Créer l'événement"}
           </button>
         </div>
       </div>

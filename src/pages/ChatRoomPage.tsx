@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, Send, Image as ImageIcon, Video as VideoIcon, Heart, Eye, Settings, Calendar, Lock, XCircle } from 'lucide-react';
 import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
+import { buildConversationMiniSlots } from '../lib/conversationMiniSlots';
 import './ChatRoomPage.css';
 
 interface ChatRoomPageProps {
@@ -10,13 +11,15 @@ interface ChatRoomPageProps {
 
 export function ChatRoomPage({ id }: ChatRoomPageProps) {
   const { closeDetail, openDetail } = useNavigationStore();
-  const { 
-    conversations, 
-    messagesByConversation, 
-    sendMessage, 
-    markAsRead, 
+  const {
+    conversations,
+    messagesByConversation,
+    sendMessage,
+    markAsRead,
     toggleConversationFavorite,
-    getEventByConversationId
+    getEventByConversationId,
+    friends,
+    viewerProfileAvatarUrl,
   } = useMessagingStore();
   
   const conversation = conversations.find(c => c.id === id);
@@ -37,6 +40,16 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
 
   if (!conversation) return null;
 
+  const memberN = conversation.members?.length ?? 0;
+  const isGroup = conversation.type === 'group';
+  const headerSlots = buildConversationMiniSlots(
+    conversation,
+    linkedEvent,
+    friends,
+    viewerProfileAvatarUrl,
+    isGroup ? (memberN <= 2 ? 2 : 4) : 1,
+  );
+
   const handleSend = () => {
     if (!draft.trim()) return;
     sendMessage(id, draft);
@@ -51,16 +64,61 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
         </button>
         
         <div className="cr-header-info">
-          <div 
-            className="cr-avatar" 
-            style={{ background: `linear-gradient(45deg, ${conversation.avatarGradient[0]}, ${conversation.avatarGradient[1]})` }}
-          >
-            {conversation.type === 'dm' ? conversation.title[0] : 'G'}
+          <div
+            className="cr-avatar"
+            style={{
+              background: `linear-gradient(45deg, ${conversation.avatarGradient[0]}, ${conversation.avatarGradient[1]})`,
+            }}>
+            {isGroup ? (
+              memberN <= 2 ? (
+                <div className="cr-avatar-split">
+                  {[0, 1].map((i) => {
+                    const s = headerSlots[i];
+                    return (
+                      <div key={i} className="cr-avatar-half">
+                        {s?.hasImage && s.src ? (
+                          <img className="cr-avatar-slot-img" src={s.src} alt="" />
+                        ) : (
+                          <div
+                            className="cr-avatar-fallback"
+                            style={{
+                              background: i === 0 ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.25)',
+                            }}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="cr-avatar-grid">
+                  {[0, 1, 2, 3].map((i) => {
+                    const s = headerSlots[i];
+                    return (
+                      <div key={i} className="cr-avatar-quad">
+                        {s?.hasImage && s.src ? (
+                          <img className="cr-avatar-slot-img" src={s.src} alt="" />
+                        ) : (
+                          <div
+                            className="cr-avatar-fallback"
+                            style={{ background: `rgba(255,255,255,${0.22 + i * 0.08})` }}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            ) : headerSlots[0]?.hasImage && headerSlots[0].src ? (
+              <img className="cr-avatar-dm-img" src={headerSlots[0].src} alt="" />
+            ) : (
+              <span className="cr-avatar-letter">{conversation.title.slice(0, 1)}</span>
+            )}
           </div>
           <div className="cr-texts">
             <h3 className="cr-title">{conversation.title}</h3>
             <p className="cr-subtitle">
-              {conversation.type === 'group' ? `${conversation.members.length} membres` : 'Message direct'}
+              {isGroup ? `${memberN} membres` : 'Message direct'}
             </p>
           </div>
         </div>

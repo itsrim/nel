@@ -1,4 +1,4 @@
-import { ChevronLeft, MapPin, Clock, Users, Heart, MessageCircle, Share2, Info, Check } from 'lucide-react';
+import { ChevronLeft, MapPin, Clock, Users, Heart, MessageCircle, Share2, Info } from 'lucide-react';
 import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
 import './EventDetailPage.css';
@@ -37,6 +37,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
 
   const isInscribed = event.status === 'inscrit' || event.status === 'organisateur';
   const isFull = event.participantCount >= event.participantMax;
+  const isHostOrganizer = viewerHosts && event.status === 'organisateur';
 
   const handleJoinToggle = () => {
     if (event.status === 'inscrit') {
@@ -164,14 +165,18 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           <button className="ed-chat-btn" onClick={() => openDetail('chat', event.conversationId)}>
             <MessageCircle size={24} />
           </button>
-          <button 
-            className={`ed-join-btn ${isInscribed ? 'joined' : ''} ${!isInscribed && isFull ? 'full' : ''}`}
-            onClick={handleJoinToggle}
-            disabled={!isInscribed && isFull}
+          <button
+            className={`ed-join-btn ${isInscribed || isHostOrganizer ? 'joined' : ''} ${!isInscribed && !isHostOrganizer && isFull ? 'full' : ''}`}
+            onClick={isHostOrganizer ? () => openDetail('event_create', event.id) : handleJoinToggle}
+            disabled={!isHostOrganizer && !isInscribed && isFull}
           >
-            {event.status === 'organisateur' ? 'Votre sortie' : 
-             event.status === 'inscrit' ? 'Se désinscrire' : 
-             isFull ? 'Complet' : 'Participer'}
+            {isHostOrganizer
+              ? 'Modifier la sortie'
+              : event.status === 'inscrit'
+                ? 'Se désinscrire'
+                : isFull
+                  ? 'Complet'
+                  : 'Participer'}
           </button>
         </div>
       </footer>
