@@ -210,7 +210,7 @@ function ConversationRow({ item }: { item: Conversation }) {
 }
 
 function SubTabPill({
-  label, active, onPress, badge, badgeVariant, icon: Icon, activeUnderline,
+  label, active, onPress, badge, badgeVariant, icon: Icon,
 }: {
   label: string;
   active: boolean;
@@ -218,21 +218,18 @@ function SubTabPill({
   badge?: number;
   badgeVariant?: 'red' | 'gold';
   icon?: React.ComponentType<{ size?: number; color?: string }>;
-  activeUnderline?: 'light' | 'gold';
 }) {
-  const underlineClass =
-    active && activeUnderline === 'gold' ? 'sub-tab--underline-gold' :
-    active && activeUnderline === 'light' ? 'sub-tab--underline-light' : '';
-
   return (
-    <button className={`sub-tab ${underlineClass}`} onClick={onPress}>
-      {Icon && <Icon size={16} color={active ? '#fff' : '#8E8E93'} />}
-      <span className={`sub-tab-text ${active ? 'sub-tab-text--active' : ''}`}>{label}</span>
-      {badge != null && badge > 0 && (
-        <span className={`sub-tab-badge ${badgeVariant === 'gold' ? 'sub-tab-badge--gold' : 'sub-tab-badge--red'}`}>
-          {formatBadgeCount(badge)}
-        </span>
-      )}
+    <button type="button" className={`sub-tab ${active ? 'sub-tab--active' : ''}`} onClick={onPress}>
+      <div className="sub-tab-inner">
+        {Icon && <Icon size={16} color={active ? '#fff' : '#8E8E93'} />}
+        <span className="sub-tab-label">{label}</span>
+        {badge != null && badge > 0 && (
+          <span className={`sub-tab-badge ${badgeVariant === 'gold' ? 'sub-tab-badge--gold' : 'sub-tab-badge--red'}`}>
+            {formatBadgeCount(badge)}
+          </span>
+        )}
+      </div>
     </button>
   );
 }
@@ -356,9 +353,9 @@ export function ChatPage() {
       {/* Sub-tab bar */}
       <div className="sub-tab-bar">
         <div className="sub-tab-scroll">
-          <SubTabPill label="Messages" active={sub === 'messages'} onPress={() => setSub('messages')} badge={messagesTabBadge} badgeVariant="red" activeUnderline="light" />
-          <SubTabPill label="Suggestions" active={sub === 'suggestions'} onPress={() => setSub('suggestions')} activeUnderline="light" />
-          <SubTabPill label="Visites" active={sub === 'visites'} onPress={() => setSub('visites')} badge={visitesTabBadge} badgeVariant="gold" icon={Eye} activeUnderline="gold" />
+          <SubTabPill label="Messages" active={sub === 'messages'} onPress={() => setSub('messages')} badge={messagesTabBadge} badgeVariant="red" />
+          <SubTabPill label="Suggestions" active={sub === 'suggestions'} onPress={() => setSub('suggestions')} />
+          <SubTabPill label="Visites" active={sub === 'visites'} onPress={() => setSub('visites')} badge={visitesTabBadge} badgeVariant="gold" icon={Eye} />
         </div>
         <button className="search-btn-small" aria-label="Rechercher">
           <Search size={22} color="#8E8E93" />

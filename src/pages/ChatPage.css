@@ -193,9 +193,10 @@
   gap: 4px;
 }
 
+/* Même principe que .profile-tabs / .p-tab (ProfilePage) : trait horizontal sous l’onglet actif */
 .sub-tab-scroll {
   display: flex;
-  gap: 6px;
+  gap: 16px;
   flex: 1;
   min-width: 0;
   overflow-x: auto;
@@ -204,35 +205,35 @@
 .sub-tab-scroll::-webkit-scrollbar { display: none; }
 
 .sub-tab {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 8px 8px;
-  border: none;
-  border-radius: 10px;
   background: transparent;
+  border: none;
   cursor: pointer;
-  white-space: nowrap;
-  border-bottom: 0px solid transparent;
+  padding: 0 0 8px;
+  border-bottom: 2px solid transparent;
   flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
 }
 
-.sub-tab--underline-light {
-  border-bottom: 3px solid rgba(255,255,255,0.9);
+.sub-tab--active {
+  border-bottom-color: #fff;
 }
 
-.sub-tab--underline-gold {
-  border-bottom: 3px solid #FFC107;
+.sub-tab-inner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 
-.sub-tab-text {
+.sub-tab-label {
   color: #8E8E93;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
-.sub-tab-text--active { color: #fff; }
+.sub-tab--active .sub-tab-label {
+  color: #fff;
+}
 
 .sub-tab-badge {
   min-width: 18px;
@@ -242,12 +243,18 @@
   align-items: center;
   justify-content: center;
   padding: 0 5px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
 }
 
-.sub-tab-badge--red { background: #FF3B30; color: #fff; }
-.sub-tab-badge--gold { background: #FFD60A; color: #000; }
+.sub-tab-badge--red {
+  background: #ff3b30;
+  color: #fff !important;
+}
+.sub-tab-badge--gold {
+  background: #ffd60a;
+  color: #000 !important;
+}
 
 .search-btn-small {
   flex-shrink: 0;

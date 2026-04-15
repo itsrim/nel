@@ -370,6 +370,18 @@
   width: auto;
 }
 
+/* Desktop : 2 colonnes comme le mobile, cartes plus larges (images plus grandes). */
+.events-page--wide-grid .events-section-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.events-page--wide-grid .events-card-cell {
+  min-width: 0;
+  width: auto;
+}
+
 .events-empty {
   text-align: center;
   color: #8E8E93;

@@ -184,7 +184,7 @@ export function EventsPage() {
 
   /**
    * Mobile (<640px) : grille 2 colonnes fixes (padding 12 + gap 12 + padding 12).
-   * Large : flex-wrap avec autant de cartes que possible ≥ largeur min.
+   * Desktop : même grille 2 colonnes, cartes (et images) beaucoup plus larges.
    */
   const { eventCardW, topCardW } = useMemo(() => {
     const w = viewportW;
@@ -193,10 +193,13 @@ export function EventsPage() {
       const cardW = Math.max(120, Math.floor((w - 36) / 2));
       return { eventCardW: cardW, topCardW: Math.min(280, Math.floor(cardW * 1.5)) };
     }
-    let cols = Math.floor((avail + EVENTS_CARD_GAP) / (EVENTS_MIN_CARD_W + EVENTS_CARD_GAP));
-    cols = Math.max(2, Math.min(cols, 8));
-    const cardW = Math.floor((avail - (cols - 1) * EVENTS_CARD_GAP) / cols);
-    return { eventCardW: Math.max(EVENTS_MIN_CARD_W, cardW), topCardW: Math.min(280, Math.floor(cardW * 1.35)) };
+    const desktopCols = 2;
+    const cardW = Math.floor(
+      (avail - (desktopCols - 1) * EVENTS_CARD_GAP) / desktopCols,
+    );
+    const eventCardW = Math.max(EVENTS_MIN_CARD_W, cardW);
+    const topCardW = Math.min(420, Math.max(260, Math.floor(eventCardW * 1.12)));
+    return { eventCardW, topCardW };
   }, [viewportW]);
 
   const applySearch = useCallback(() => {
@@ -215,7 +218,8 @@ export function EventsPage() {
   const filterChipsActive = Boolean(filterDate || filterLocation.trim() || filterTag.trim());
 
   return (
-    <div className={`events-page${isNarrowLayout ? ' events-page--narrow' : ''}`}>
+    <div
+      className={`events-page${isNarrowLayout ? ' events-page--narrow' : ' events-page--wide-grid'}`}>
       {/* Calendar / Search header */}
       {headerMode === 'calendar' ? (
         <div className="cal-gradient">
@@ -361,11 +365,7 @@ export function EventsPage() {
               </div>
               <div className="events-section-cards">
                 {section.items.map((e) => (
-                  <div
-                    key={e.id}
-                    className="events-card-cell"
-                    style={isNarrowLayout ? undefined : { width: eventCardW }}
-                  >
+                  <div key={e.id} className="events-card-cell">
                     <EventCard
                       item={e}
                       onToggleFavorite={() => toggleEventFavorite(e.id)}
