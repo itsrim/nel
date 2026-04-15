@@ -64,6 +64,7 @@ export function ProfilePage() {
   const {
     events,
     friends,
+    appNotifications,
     toggleEventFavorite,
     nelDemoIsAdmin,
     setNelDemoIsAdmin,
@@ -123,6 +124,11 @@ export function ProfilePage() {
   );
   const historyEvents = useMemo(() => events.filter(e => e.status === 'inscrit' || e.status === 'organisateur'), [events]);
   const upcomingEvents = useMemo(() => events.filter(e => (e.status === 'inscrit' || e.status === 'organisateur' || e.status === 'en_attente')), [events]);
+
+  const sortedNotifications = useMemo(
+    () => [...appNotifications].sort((a, b) => b.createdAt - a.createdAt),
+    [appNotifications],
+  );
 
   const handlePhotoClick = () => {
     fileInputRef.current?.click();
@@ -333,6 +339,7 @@ export function ProfilePage() {
             <div className="p-tab-inner">
               <Bell size={18} color={activeTab === 'notifications' ? '#5AC8FA' : '#8E8E93'} />
               <span>Notifications</span>
+              <span className="p-tab-badge" style={{ background: '#5AC8FA' }}>{appNotifications.length}</span>
             </div>
           </button>
         </div>
@@ -418,7 +425,41 @@ export function ProfilePage() {
 
           {activeTab === 'notifications' && (
             <div className="notifications-list">
-              <div className="empty-hint">Aucune notification.</div>
+              {sortedNotifications.map((n) => {
+                const inviteeAv =
+                  friends.find((f) => f.profilId === n.inviteeProfilId)?.imageUrl ?? '';
+                const when = new Date(n.createdAt).toLocaleString('fr-FR', {
+                  dateStyle: 'short',
+                  timeStyle: 'short',
+                });
+                return (
+                  <button
+                    key={n.id}
+                    type="button"
+                    className="notification-card"
+                    onMouseDown={(ev) => ev.preventDefault()}
+                    onClick={() => openDetail('event', n.eventId)}
+                  >
+                    {inviteeAv ? (
+                      <img src={inviteeAv} alt="" className="notification-av" />
+                    ) : (
+                      <div className="notification-av notification-av--placeholder" aria-hidden>
+                        <Bell size={22} color="#8E8E93" />
+                      </div>
+                    )}
+                    <div className="notification-texts">
+                      <div className="notification-title">Invitation envoyée</div>
+                      <div className="notification-body">
+                        {n.inviteeName} recevra une notification pour rejoindre « {n.eventTitle} ».
+                      </div>
+                      <div className="notification-meta">{when}</div>
+                    </div>
+                  </button>
+                );
+              })}
+              {sortedNotifications.length === 0 && (
+                <div className="empty-hint">Aucune notification.</div>
+              )}
             </div>
           )}
 

@@ -29,6 +29,30 @@ export interface Event {
   manualApproval?: boolean;
   /** Sortie créée depuis nel : hôte = profil visiteur (photo / prénom suivis en direct). */
   hostedByViewer?: boolean;
+  /**
+   * File d’attente : demandes non validées (`en_attente` si validation manuelle)
+   * ou inscrits au-delà de la capacité (`overflow`).
+   */
+  waitlistEntries?: Array<{
+    id: string;
+    name: string;
+    imageUrl?: string;
+    profilId?: string;
+    reason: 'en_attente' | 'overflow';
+  }>;
+  /** Amis à qui l’organisateur a envoyé une invitation (démo nel + filtre doublons). */
+  invitedProfilIds?: string[];
+}
+
+/** Notification in-app (centre Profil — démo). */
+export interface AppNotification {
+  id: string;
+  createdAt: number;
+  kind: 'event_invite_sent';
+  eventId: string;
+  eventTitle: string;
+  inviteeName: string;
+  inviteeProfilId: string;
 }
 
 export interface Conversation {
@@ -120,11 +144,87 @@ export const MOCK_EVENTS: Event[] = [
   { id: 'e1', title: 'Atelier Cuisine Italienne', location: 'Montmartre, Paris', dateKey: '2026-03-23', timeShort: '08:00', dateLabel: 'Lundi 23 mars', sectionDateLabel: 'Lundi 23 mars 2026', imageUri: img(101), priceLabel: '57€', participantCount: 22, participantMax: 30, isFavorite: true, isBeta: false, status: 'inscrit', conversationId: 'c1', visitsCount: 120, category: 'Cuisine', hostName: 'Chef Giovanni', hostAvatar: 'https://i.pravatar.cc/100?u=g1', price: '57€' },
   { id: 'e2', title: 'Visite Musée d\'Orsay', location: 'Café de Flore', dateKey: '2026-03-23', timeShort: '14:00', dateLabel: 'Lundi 23 mars', sectionDateLabel: 'Lundi 23 mars 2026', imageUri: img(102), priceLabel: '17€', participantCount: 31, participantMax: 150, isFavorite: false, isBeta: false, status: 'inscrit', conversationId: 'c2', visitsCount: 95, category: 'Culture', hostName: 'Claire D.', hostAvatar: 'https://i.pravatar.cc/100?u=c1', price: '17€' },
   { id: 'e3', title: 'Cours de Guitare', location: 'Saint-Germain', dateKey: '2026-03-23', timeShort: '18:00', dateLabel: 'Lundi 23 mars', sectionDateLabel: 'Lundi 23 mars 2026', imageUri: img(103), priceLabel: 'Gratuit', participantCount: 15, participantMax: 200, isFavorite: false, isBeta: false, status: 'inscrire', conversationId: 'c3', visitsCount: 80, category: 'Musique', hostName: 'Marc L.', hostAvatar: 'https://i.pravatar.cc/100?u=m1', price: 'Gratuit' },
-  { id: 'e4', title: 'Escape Game', location: 'Station F', dateKey: '2026-03-24', timeShort: '08:00', dateLabel: 'Mardi 24 mars', sectionDateLabel: 'Mardi 24 mars 2026', imageUri: img(104), priceLabel: '56€', participantCount: 21, participantMax: 20, isFavorite: true, isBeta: false, status: 'inscrit', conversationId: 'c4', visitsCount: 200, category: 'Jeux', hostName: 'Alice F.', hostAvatar: 'https://i.pravatar.cc/100?u=a1', price: '56€' },
+  {
+    id: 'e4',
+    title: 'Escape Game',
+    location: 'Station F',
+    dateKey: '2026-03-24',
+    timeShort: '08:00',
+    dateLabel: 'Mardi 24 mars',
+    sectionDateLabel: 'Mardi 24 mars 2026',
+    imageUri: img(104),
+    priceLabel: '56€',
+    participantCount: 21,
+    participantMax: 20,
+    isFavorite: true,
+    isBeta: false,
+    status: 'inscrit',
+    conversationId: 'c4',
+    visitsCount: 200,
+    category: 'Jeux',
+    hostName: 'Alice F.',
+    hostAvatar: 'https://i.pravatar.cc/100?u=a1',
+    price: '56€',
+    waitlistEntries: [
+      { id: 'wl-e4-1', name: 'Thomas P.', imageUrl: 'https://i.pravatar.cc/100?u=wl4a', reason: 'overflow' },
+    ],
+  },
   { id: 'e5', title: 'Atelier Cocktails', location: 'Le Marais', dateKey: '2026-03-24', timeShort: '19:30', dateLabel: 'Mardi 24 mars', sectionDateLabel: 'Mardi 24 mars 2026', imageUri: img(105), priceLabel: '21€', participantCount: 7, participantMax: 15, isFavorite: false, isBeta: false, status: 'inscrit', conversationId: 'c5', visitsCount: 60, category: 'Mixologie', hostName: 'Bartender Sam', hostAvatar: 'https://i.pravatar.cc/100?u=b1', price: '21€' },
-  { id: 'e6', title: 'Cours de Yoga', location: 'Bastille', dateKey: '2026-03-25', timeShort: '11:00', dateLabel: 'Mercredi 25 mars', sectionDateLabel: 'Mercredi 25 mars 2026', imageUri: img(106), priceLabel: 'Gratuit', participantCount: 6, participantMax: 6, isFavorite: false, isBeta: false, status: 'organisateur', conversationId: 'c6', visitsCount: 150, category: 'Bien-être', hostName: 'Elena Y.', hostAvatar: 'https://i.pravatar.cc/100?u=e1', price: 'Gratuit' },
+  {
+    id: 'e6',
+    title: 'Cours de Yoga',
+    location: 'Bastille',
+    dateKey: '2026-03-25',
+    timeShort: '11:00',
+    dateLabel: 'Mercredi 25 mars',
+    sectionDateLabel: 'Mercredi 25 mars 2026',
+    imageUri: img(106),
+    priceLabel: 'Gratuit',
+    participantCount: 6,
+    participantMax: 6,
+    isFavorite: false,
+    isBeta: false,
+    status: 'organisateur',
+    conversationId: 'c6',
+    visitsCount: 150,
+    category: 'Bien-être',
+    hostName: 'Elena Y.',
+    hostAvatar: 'https://i.pravatar.cc/100?u=e1',
+    price: 'Gratuit',
+    waitlistEntries: [
+      { id: 'wl-e6-1', name: 'Inès V.', imageUrl: friendHeadshot('f3'), profilId: 'f3', reason: 'overflow' },
+      { id: 'wl-e6-2', name: 'Karim B.', imageUrl: 'https://i.pravatar.cc/100?u=wle6b', reason: 'overflow' },
+      { id: 'wl-e6-3', name: 'Julie T.', imageUrl: 'https://i.pravatar.cc/100?u=wle6c', reason: 'overflow' },
+    ],
+  },
   { id: 'e7', title: 'Concert Jazz', location: 'Opéra Garnier', dateKey: '2026-03-25', timeShort: '20:00', dateLabel: 'Mercredi 25 mars', sectionDateLabel: 'Mercredi 25 mars 2026', imageUri: img(107), priceLabel: '45€', participantCount: 50, participantMax: 100, isFavorite: true, isBeta: false, status: 'inscrit', conversationId: 'c7', visitsCount: 180, category: 'Musique', hostName: 'Jazz Band', hostAvatar: 'https://i.pravatar.cc/100?u=j1', price: '45€' },
-  { id: 'e8', title: 'Exposition Art Moderne', location: 'Centre Pompidou', dateKey: '2026-03-26', timeShort: '10:00', dateLabel: 'Jeudi 26 mars', sectionDateLabel: 'Jeudi 26 mars 2026', imageUri: img(108), priceLabel: '25€', participantCount: 80, participantMax: 150, isFavorite: false, isBeta: false, status: 'inscrire', conversationId: 'c8', category: 'Culture', hostName: 'Musée P.', hostAvatar: 'https://i.pravatar.cc/100?u=p1', price: '25€' },
+  {
+    id: 'e8',
+    title: 'Exposition Art Moderne',
+    location: 'Centre Pompidou',
+    dateKey: '2026-03-26',
+    timeShort: '10:00',
+    dateLabel: 'Jeudi 26 mars',
+    sectionDateLabel: 'Jeudi 26 mars 2026',
+    imageUri: img(108),
+    priceLabel: '25€',
+    participantCount: 80,
+    participantMax: 150,
+    isFavorite: false,
+    isBeta: false,
+    status: 'inscrire',
+    conversationId: 'c8',
+    category: 'Culture',
+    hostName: 'Musée P.',
+    hostAvatar: 'https://i.pravatar.cc/100?u=p1',
+    price: '25€',
+    visitsCount: 42,
+    manualApproval: true,
+    waitlistEntries: [
+      { id: 'wl-e8-1', name: 'Marie L.', imageUrl: friendHeadshot('f1'), profilId: 'f1', reason: 'en_attente' },
+      { id: 'wl-e8-2', name: 'Lucas M.', imageUrl: friendHeadshot('f2'), profilId: 'f2', reason: 'en_attente' },
+    ],
+  },
   { id: 'e9', title: 'Workshop Photo', location: 'Montparnasse', dateKey: '2026-03-27', timeShort: '10:00', dateLabel: 'Vendredi 27 mars', sectionDateLabel: 'Vendredi 27 mars 2026', imageUri: img(109), priceLabel: '35€', participantCount: 15, participantMax: 20, isFavorite: false, isBeta: false, status: 'inscrit', conversationId: 'c9' },
   { id: 'e10', title: 'Festival de Musique', location: 'Parc de la Villette', dateKey: '2026-03-28', timeShort: '16:00', dateLabel: 'Samedi 28 mars', sectionDateLabel: 'Samedi 28 mars 2026', imageUri: img(110), priceLabel: '30€', participantCount: 120, participantMax: 200, isFavorite: false, isBeta: false, status: 'inscrire', conversationId: 'c10' },
   { id: 'e11', title: 'Cours de Danse Salsa', location: 'Marais', dateKey: '2026-03-29', timeShort: '18:00', dateLabel: 'Dimanche 29 mars', sectionDateLabel: 'Dimanche 29 mars 2026', imageUri: img(111), priceLabel: '40€', participantCount: 12, participantMax: 15, isFavorite: true, isBeta: false, status: 'inscrit', conversationId: 'c11' },

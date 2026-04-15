@@ -408,6 +408,70 @@
     font-size: 15px;
 }
 
+/* Notifications */
+.notifications-list {
+  padding: 0 4px;
+}
+
+.notification-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: #1C1C1E;
+  border: none;
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.notification-card:focus-visible {
+  outline: 2px solid rgba(139, 92, 246, 0.65);
+  outline-offset: 2px;
+}
+
+.notification-av {
+  width: 50px;
+  height: 50px;
+  border-radius: 25px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.notification-av--placeholder {
+  background: #2c2c2e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-texts {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-title {
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.notification-body {
+  color: #aeaeb2;
+  font-size: 13px;
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.notification-meta {
+  color: #8E8E93;
+  font-size: 12px;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
 /* Friends */
 .friend-card {
     display: flex;

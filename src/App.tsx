@@ -1,4 +1,5 @@
 import { useNavigationStore, type DetailState } from './store/useNavigationStore'
+import { useMessagingStore } from './store/useMessagingStore'
 import { BottomNavigation } from './components/BottomNavigation'
 import { ChatPage } from './pages/ChatPage'
 import { EventsPage } from './pages/EventsPage'
@@ -29,6 +30,7 @@ function renderDetailContent(detail: DetailState) {
 
 function App() {
   const { activeTab, detailStack } = useNavigationStore()
+  const toast = useMessagingStore((s) => s.toast)
 
   const renderTab = () => {
     switch (activeTab) {
@@ -74,6 +76,11 @@ function App() {
         {renderDetailStack()}
       </main>
       <BottomNavigation />
+      {toast ? (
+        <div className="nel-toast" role="status" aria-live="polite">
+          {toast.message}
+        </div>
+      ) : null}
     </div>
   )
 }

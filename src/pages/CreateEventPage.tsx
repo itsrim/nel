@@ -328,6 +328,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     createEmptyGroup,
     postEventGroupWelcome,
     closeDetail,
+    participantFloor,
   ]);
 
   const handleCancelSortie = useCallback(() => {

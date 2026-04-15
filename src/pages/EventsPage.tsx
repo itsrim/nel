@@ -75,7 +75,6 @@ const EVENTS_CARD_PAD = 24;
 const EVENTS_MIN_CARD_W = 168;
 
 const WEEK_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'] as const;
-const INITIAL_WEEK_MONDAY = new Date(2026, 2, 23); // March 23, 2026
 
 /* ── Calendar week strip ── */
 function CalendarWeekStrip({ weekStart, selectedDateKey, onSelectDateKey }: {
@@ -116,8 +115,9 @@ export function EventsPage() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  const [weekStartMonday, setWeekStartMonday] = useState(() => new Date(INITIAL_WEEK_MONDAY));
-  const [selectedDateKey, setSelectedDateKey] = useState(toDateKey(INITIAL_WEEK_MONDAY));
+  /** Semaine courante : les nouvelles sorties (date du jour) restent visibles après création. */
+  const [weekStartMonday, setWeekStartMonday] = useState(() => startOfWeekMonday(new Date()));
+  const [selectedDateKey, setSelectedDateKey] = useState(() => toDateKey(new Date()));
   const [headerMode, setHeaderMode] = useState<'calendar' | 'search'>('calendar');
   const [searchDraft, setSearchDraft] = useState('');
   const [committedSearch, setCommittedSearch] = useState('');

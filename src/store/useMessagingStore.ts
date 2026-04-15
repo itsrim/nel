@@ -13,6 +13,7 @@ import {
   type Friend,
   type Message,
   type GroupMember,
+  type AppNotification,
 } from '../data/mockData';
 
 const LS_VIEWER_AVATAR = 'nel_viewer_profile_avatar_url';
@@ -79,6 +80,8 @@ interface MessagingState {
   profileVisits: ProfileVisit[];
   suggestions: SuggestionProfile[];
   friends: Friend[];
+  /** Fil Profil → Notifications (invitations sorties, etc.). */
+  appNotifications: AppNotification[];
   favoriteConversationIds: string[];
   messagesByConversation: Record<string, Message[]>;
   toggleEventFavorite: (eventId: string) => void;
@@ -98,6 +101,11 @@ interface MessagingState {
   updateConversationSettings: (conversationId: string, settings: { muteSounds?: boolean; blockNotifications?: boolean }) => void;
   joinEvent: (eventId: string) => void;
   leaveEvent: (eventId: string) => void;
+  /** Organisateur : invite un ami (notif in-app + message système dans le chat de la sortie). */
+  inviteFriendToEvent: (eventId: string, friend: Friend) => void;
+  /** Toast global (invitation, etc.). */
+  toast: { id: number; message: string } | null;
+  showToast: (message: string) => void;
 }
 
 export const useMessagingStore = create<MessagingState>((set, get) => ({
@@ -130,6 +138,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
   profileVisits: MOCK_VISITS,
   suggestions: MOCK_SUGGESTIONS,
   friends: MOCK_FRIENDS,
+  appNotifications: [],
   favoriteConversationIds: MOCK_CONVERSATIONS.filter((c) => c.isFavorite).map((c) => c.id),
   messagesByConversation: MOCK_MESSAGES,
 
@@ -198,6 +207,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       hostedByViewer: true,
       hideAddress: input.hideAddress,
       manualApproval: input.manualApproval,
+      invitedProfilIds: [],
     };
     set((state) => ({ events: [event, ...state.events] }));
     return id;
@@ -424,5 +434,72 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
           : e
       ),
     }));
+  },
+
+  inviteFriendToEvent: (eventId, friend) => {
+    const state = get();
+    const event = state.events.find((e) => e.id === eventId);
+    if (!event) return;
+    const invited = new Set(event.invitedProfilIds ?? []);
+    if (invited.has(friend.profilId)) return;
+    const conv = state.conversations.find((c) => c.id === event.conversationId);
+    const alreadyMember = (conv?.members ?? []).some(
+      (m) => m.profilId === friend.profilId,
+    );
+    if (alreadyMember) return;
+
+    const hostName = state.viewerProfileDisplayName.trim() || 'L’organisateur';
+    const firstName = friend.name.trim().split(/\s+/)[0] || friend.name;
+    const systemText = `${hostName} a invité ${firstName} — une notification lui a été envoyée pour « ${event.title} ».`;
+
+    const notif: AppNotification = {
+      id: `n_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: Date.now(),
+      kind: 'event_invite_sent',
+      eventId: event.id,
+      eventTitle: event.title,
+      inviteeName: friend.name,
+      inviteeProfilId: friend.profilId,
+    };
+
+    const msg: Message = {
+      id: `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      conversationId: event.conversationId,
+      authorName: 'Système',
+      text: systemText,
+      sentAt: Date.now(),
+      isOwn: false,
+    };
+
+    set((s) => ({
+      events: s.events.map((e) =>
+        e.id === eventId
+          ? {
+              ...e,
+              invitedProfilIds: [...(e.invitedProfilIds ?? []), friend.profilId],
+            }
+          : e,
+      ),
+      appNotifications: [notif, ...s.appNotifications],
+      messagesByConversation: {
+        ...s.messagesByConversation,
+        [event.conversationId]: [
+          ...(s.messagesByConversation[event.conversationId] ?? []),
+          msg,
+        ],
+      },
+      conversations: s.conversations.map((c) =>
+        c.id === event.conversationId
+          ? {
+              ...c,
+              lastMessagePreview: systemText.slice(0, 120),
+              updatedAt: Date.now(),
+            }
+          : c,
+      ),
+    }));
+    const inviteeFirst =
+      friend.name.trim().split(/\s+/)[0] || friend.name.trim() || friend.name;
+    get().showToast(`Invitation envoyée à ${inviteeFirst}`);
   },
 }));
