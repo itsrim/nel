@@ -1,5 +1,6 @@
 /**
- * Couvertures par défaut (thèmes / hashtags) — URLs stables Unsplash pour la création de sortie nel.
+ * Couvertures par défaut (thèmes / hashtags) — fichiers dans `public/event-cover-themes/`
+ * (plus de requête réseau vers Unsplash à chaque affichage).
  */
 export type DefaultEventCoverTheme = {
   id: string;
@@ -8,22 +9,35 @@ export type DefaultEventCoverTheme = {
   imageUrl: string;
 };
 
-const u = (photoId: string) =>
-  `https://images.unsplash.com/${photoId}?w=800&q=80&auto=format&fit=crop`;
+/** Préfixe Vite (`base`, ex. `/nel/`) pour les fichiers dans `public/`. */
+const coverPath = (file: string) => `${import.meta.env.BASE_URL}event-cover-themes/${file}`;
 
 export const DEFAULT_EVENT_COVER_THEMES: DefaultEventCoverTheme[] = [
-  { id: 'bien-etre', tag: 'bien-être', imageUrl: u('photo-1506126613408-eca07ce68773') },
-  { id: 'forme', tag: 'forme', imageUrl: u('photo-1517836357463-d25dfeac3438') },
-  { id: 'dev-personnel', tag: 'dév personnel', imageUrl: u('photo-1503676260728-1c00da094a0b') },
-  { id: 'nature', tag: 'nature', imageUrl: u('photo-1441974231531-c6227db76b6e') },
-  { id: 'partage', tag: 'partage', imageUrl: u('photo-1529156069898-49953e39b3ac') },
-  { id: 'musique', tag: 'musique', imageUrl: u('photo-1511379938547-c1f69419868d') },
-  { id: 'travail', tag: 'travail', imageUrl: u('photo-1497366216548-37526070297c') },
-  { id: 'sortie', tag: 'sortie', imageUrl: u('photo-1514525253161-7a46d19cd819') },
-  { id: 'autres', tag: 'autres', imageUrl: u('photo-1506905925346-21bda4d32df4') },
+  { id: 'bien-etre', tag: 'bien-être', imageUrl: coverPath('bien-etre.jpg') },
+  { id: 'forme', tag: 'forme', imageUrl: coverPath('forme.jpg') },
+  { id: 'dev-personnel', tag: 'dév personnel', imageUrl: coverPath('dev-personnel.jpg') },
+  { id: 'nature', tag: 'nature', imageUrl: coverPath('nature.jpg') },
+  { id: 'partage', tag: 'partage', imageUrl: coverPath('partage.jpg') },
+  { id: 'musique', tag: 'musique', imageUrl: coverPath('musique.jpg') },
+  { id: 'travail', tag: 'travail', imageUrl: coverPath('travail.jpg') },
+  { id: 'sortie', tag: 'sortie', imageUrl: coverPath('sortie.jpg') },
+  { id: 'autres', tag: 'autres', imageUrl: coverPath('autres.jpg') },
 ];
 
+/** Compare chemins absolus ou relatifs (ex. même fichier servi sous autre origine). */
+function coverImagePathKey(url: string): string {
+  const stripped = url.split('?')[0];
+  try {
+    if (stripped.startsWith('http://') || stripped.startsWith('https://')) {
+      return new URL(stripped).pathname;
+    }
+  } catch {
+    /* ignore */
+  }
+  return stripped;
+}
+
 export function findDefaultCoverThemeByImageUrl(imageUrl: string): DefaultEventCoverTheme | undefined {
-  const base = imageUrl.split('?')[0];
-  return DEFAULT_EVENT_COVER_THEMES.find((t) => t.imageUrl.split('?')[0] === base);
+  const key = coverImagePathKey(imageUrl);
+  return DEFAULT_EVENT_COVER_THEMES.find((t) => coverImagePathKey(t.imageUrl) === key);
 }
