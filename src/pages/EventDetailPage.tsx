@@ -10,11 +10,13 @@ import {
   Share2,
   Info,
   X,
+  AlertTriangle,
 } from 'lucide-react';
 import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
 import { isEventDateBeforeToday } from '../lib/eventDateKey';
 import type { Friend } from '../data/mockData';
+import { ReportModal } from '../components/ReportModal';
 import './EventDetailPage.css';
 
 type ParticipantSlot =
@@ -46,6 +48,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   } = useMessagingStore();
 
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const event = events.find(e => e.id === id);
 
@@ -183,11 +186,24 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             <ChevronLeft size={28} color="#fff" />
           </button>
           <div className="ed-header-actions">
-            <button className="ed-icon-btn" onClick={handleShare}>
+            <button type="button" className="ed-icon-btn" onClick={handleShare} aria-label="Partager">
               <Share2 size={24} color="#fff" />
             </button>
-            <button className="ed-icon-btn" onClick={() => toggleEventFavorite(event.id)}>
+            <button
+              type="button"
+              className="ed-icon-btn"
+              onClick={() => toggleEventFavorite(event.id)}
+              aria-label={event.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            >
               <Heart size={24} color={event.isFavorite ? "#FF2D55" : "#fff"} fill={event.isFavorite ? "#FF2D55" : "none"} />
+            </button>
+            <button
+              type="button"
+              className="ed-icon-btn"
+              onClick={() => setReportOpen(true)}
+              aria-label="Signaler cette sortie"
+            >
+              <AlertTriangle size={24} color="#FFCC00" />
             </button>
           </div>
         </header>
@@ -449,6 +465,15 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           </div>
         </>
       )}
+
+      <ReportModal
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        title="Signaler cette sortie"
+        kind="event"
+        subjectId={event.id}
+        subjectLabel={event.title}
+      />
     </div>
   );
 }

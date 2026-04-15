@@ -1,0 +1,133 @@
+/* ── ReportModal (signalement profil / sortie) ───────────────── */
+
+.rm-root {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  pointer-events: auto;
+}
+
+.rm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.rm-panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+  background: #2c2c2e;
+  border-radius: 16px;
+  padding: 22px 20px 18px;
+  border: 1px solid #3a3a3c;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+}
+
+.rm-icon-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.rm-title {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 19px;
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: -0.3px;
+}
+
+.rm-hint {
+  margin: 0 0 14px;
+  color: #8e8e93;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.rm-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #aeaeb2;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rm-required {
+  font-weight: 500;
+  color: #8e8e93;
+}
+
+.rm-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #48484a;
+  background: #1c1c1e;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  resize: vertical;
+  min-height: 120px;
+  font-family: inherit;
+}
+
+.rm-textarea::placeholder {
+  color: #636366;
+}
+
+.rm-textarea:focus {
+  outline: none;
+  border-color: #7c9eff;
+  box-shadow: 0 0 0 2px rgba(124, 158, 255, 0.25);
+}
+
+.rm-error {
+  margin: 8px 0 0;
+  color: #ff453a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rm-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.rm-btn {
+  flex: 1;
+  padding: 14px 12px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rm-btn--ghost {
+  background: #3a3a3c;
+  color: #fff;
+}
+
+.rm-btn--primary {
+  background: linear-gradient(135deg, #6b21a8, #8b5cf6);
+  color: #fff;
+}
+
+.rm-btn--ghost:active,
+.rm-btn--primary:active {
+  opacity: 0.92;
+}

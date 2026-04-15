@@ -408,6 +408,134 @@
     font-size: 15px;
 }
 
+.p-tab-badge--alert {
+  background: #ef4444 !important;
+}
+
+/* Signalements admin */
+.reports-list {
+  padding: 0 4px;
+}
+
+.admin-report-card {
+  background: #1c1c1e;
+  border-radius: 14px;
+  padding: 0;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.admin-report-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.admin-report-main:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.admin-report-main:focus-visible {
+  outline: 2px solid rgba(239, 68, 68, 0.55);
+  outline-offset: -2px;
+}
+
+.admin-report-actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.admin-report-btn {
+  flex: 1;
+  padding: 12px 10px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.admin-report-btn--ghost {
+  background: #2c2c2e;
+  color: #fff;
+  border: 1px solid #3a3a3c;
+}
+
+.admin-report-btn--primary {
+  background: linear-gradient(135deg, #6b21a8, #8b5cf6);
+  color: #fff;
+}
+
+.admin-report-btn:active {
+  opacity: 0.92;
+}
+
+.admin-report-icon {
+  flex-shrink: 0;
+  width: 50px;
+  height: 50px;
+  border-radius: 25px;
+  background: #2c2c2e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-report-texts {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-report-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-report-kind {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.admin-report-subject {
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  margin-top: 6px;
+}
+
+.admin-report-body {
+  color: #aeaeb2;
+  font-size: 13px;
+  margin-top: 6px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.admin-report-meta {
+  color: #8e8e93;
+  font-size: 12px;
+  margin-top: 8px;
+  font-weight: 500;
+}
+
 /* Notifications */
 .notifications-list {
   padding: 0 4px;

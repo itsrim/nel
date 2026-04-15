@@ -4,7 +4,12 @@ import type { Event } from '../data/mockData';
  * Filtre « découverte » (accueil, agenda) : sortie privée masquée sauf
  * organisateur (vous), inscrits, ou administrateur nel (aperçu produit).
  */
-export function eventIsVisibleInDiscovery(e: Event, nelDemoIsAdmin: boolean): boolean {
+export function eventIsVisibleInDiscovery(
+  e: Event,
+  nelDemoIsAdmin: boolean,
+  moderationHiddenEventIds?: readonly string[],
+): boolean {
+  if (moderationHiddenEventIds?.includes(e.id)) return false;
   if (e.isPrivate !== true) return true;
   if (nelDemoIsAdmin) return true;
   if (e.hostedByViewer === true) return true;

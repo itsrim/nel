@@ -45,7 +45,12 @@ function App() {
     }
   }
 
-  /** Toute la pile reste montée (couches masquées) pour conserver scroll / état au retour d’un overlay. */
+  /**
+   * Pile entièrement montée : on ne met pas `visibility: hidden` sur les couches du dessous,
+   * sinon un overlay semi-transparent (ex. paramètres de discussion) ne « voile » plus la salle
+   * de chat — on ne voit que l’onglet derrière, comme si la conversation avait disparu.
+   * `pointer-events: none` suffit à bloquer les interactions sur les couches inférieures.
+   */
   const renderDetailStack = () => {
     if (detailStack.length === 0) return null
     return detailStack.map((detail, index) => {
@@ -59,7 +64,6 @@ function App() {
             inset: 0,
             zIndex: 1000 + index * 10,
             pointerEvents: isTop ? 'auto' : 'none',
-            visibility: isTop ? 'visible' : 'hidden',
           }}
           aria-hidden={!isTop}
         >

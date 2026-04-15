@@ -16,6 +16,7 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
     messagesByConversation,
     sendMessage,
     markAsRead,
+    recordConversationOpened,
     toggleConversationFavorite,
     getEventByConversationId,
     friends,
@@ -28,6 +29,10 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
   
   const [draft, setDraft] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    recordConversationOpened(id);
+  }, [id, recordConversationOpened]);
 
   useEffect(() => {
     if (listRef.current) {

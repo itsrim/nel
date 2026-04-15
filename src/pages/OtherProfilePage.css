@@ -9,7 +9,20 @@
   z-index: 1300;
   background-color: #000;
   overflow-y: auto;
-  padding-bottom: 40px;
+  padding-bottom: 120px;
+}
+
+/* Onglets (styles de base : ProfilePage.css) — fond aligné sur la fiche autre profil */
+.other-profile-page .op-profile-tabs {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  background: transparent;
+  position: relative;
+  z-index: 4;
+}
+
+.other-profile-page .op-tab-container {
+  min-height: min(38vh, 320px);
 }
 
 .op-hero {
@@ -209,4 +222,44 @@
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.op-btn-friend-request {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  background: linear-gradient(135deg, #6b21a8, #8b5cf6);
+  color: #fff;
+  padding: 16px;
+  border-radius: 14px;
+  border: none;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 8px rgba(107, 33, 168, 0.35);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.op-btn-friend-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid #3a3a3c;
+  background: #1c1c1e;
+  color: #8e8e93;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: not-allowed;
+  opacity: 0.95;
+}
+
+.op-btn-friend-state--rejected {
+  border-color: rgba(255, 159, 10, 0.35);
+  color: #ff9f0a;
 }

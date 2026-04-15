@@ -31,6 +31,8 @@ import { useNavigationStore } from '../store/useNavigationStore';
 import { EventCard } from '../components/EventCard';
 import { getNelProfileImageKitUserKey, uploadLocalImageToImageKit } from '../lib/imagekitUpload';
 import { withUrlUploadVersion } from '../lib/versionRemoteAssetUrl';
+import { formatBadgeCount } from '../data/mockData';
+import { isEventDateBeforeToday } from '../lib/eventDateKey';
 import './ProfilePage.css';
 
 type TabId = 'favorites' | 'friends' | 'history' | 'notifications' | 'reports';
@@ -68,6 +70,12 @@ export function ProfilePage() {
     toggleEventFavorite,
     nelDemoIsAdmin,
     setNelDemoIsAdmin,
+    nelDemoIsPremium,
+    setNelDemoIsPremium,
+    adminReports,
+    markAllAdminReportsRead,
+    dismissAdminReport,
+    moderationHideAndNotifyFromReport,
     viewerProfileAvatarUrl,
     setViewerProfileAvatarUrl,
     viewerProfileDisplayName,
@@ -79,12 +87,18 @@ export function ProfilePage() {
   const profileTabStripViewportTopRef = useRef<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('favorites');
 
-  const selectProfileTab = useCallback((next: TabId) => {
-    if (next === activeTab) return;
-    const strip = profileTabsRef.current;
-    profileTabStripViewportTopRef.current = strip ? strip.getBoundingClientRect().top : null;
-    setActiveTab(next);
-  }, [activeTab]);
+  const selectProfileTab = useCallback(
+    (next: TabId) => {
+      if (next === activeTab) return;
+      const strip = profileTabsRef.current;
+      profileTabStripViewportTopRef.current = strip ? strip.getBoundingClientRect().top : null;
+      if (next === 'reports') {
+        markAllAdminReportsRead();
+      }
+      setActiveTab(next);
+    },
+    [activeTab, markAllAdminReportsRead],
+  );
 
   useLayoutEffect(() => {
     const wantStripTop = profileTabStripViewportTopRef.current;
@@ -115,14 +129,30 @@ export function ProfilePage() {
   const [age, setAge] = useState('28');
   const [bio, setBio] = useState('Passionné de rando et de sorties culturelles sur Paris ! 🏔️🎭');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [isPremium, setIsPremium] = useState(true);
+  const unreadAdminReportsCount = useMemo(
+    () => adminReports.filter((r) => !r.read).length,
+    [adminReports],
+  );
 
-  /** Favoris + sorties dont vous êtes l’organisateur (créées par vous). */
+  /** Favoris + créées : uniquement à partir d’aujourd’hui (jour calendaire local). */
   const favoritesAndCreatedEvents = useMemo(
-    () => events.filter((e) => e.isFavorite || e.status === 'organisateur'),
+    () =>
+      events.filter(
+        (e) =>
+          (e.isFavorite || e.status === 'organisateur') && !isEventDateBeforeToday(e.dateKey),
+      ),
     [events],
   );
-  const historyEvents = useMemo(() => events.filter(e => e.status === 'inscrit' || e.status === 'organisateur'), [events]);
+  /** Passés : avant aujourd’hui parmi inscrit / organisateur / favori. */
+  const historyEvents = useMemo(
+    () =>
+      events.filter(
+        (e) =>
+          isEventDateBeforeToday(e.dateKey) &&
+          (e.status === 'inscrit' || e.status === 'organisateur' || e.isFavorite),
+      ),
+    [events],
+  );
   const upcomingEvents = useMemo(() => events.filter(e => (e.status === 'inscrit' || e.status === 'organisateur' || e.status === 'en_attente')), [events]);
 
   const sortedNotifications = useMemo(
@@ -325,6 +355,11 @@ export function ProfilePage() {
               <div className="p-tab-inner">
                 <AlertTriangle size={18} color={activeTab === 'reports' ? '#EF4444' : '#8E8E93'} />
                 <span>Signalements</span>
+                {unreadAdminReportsCount > 0 ? (
+                  <span className="p-tab-badge p-tab-badge--alert" aria-label={`${unreadAdminReportsCount} non lus`}>
+                    {formatBadgeCount(unreadAdminReportsCount)}
+                  </span>
+                ) : null}
               </div>
             </button>
           )}
@@ -387,7 +422,10 @@ export function ProfilePage() {
                 </div>
               ))}
               {favoritesAndCreatedEvents.length === 0 && (
-                <div className="empty-hint">Aucune sortie en favori ni créée par vous pour l’instant.</div>
+                <div className="empty-hint">
+                  Aucune sortie en favori ou créée par vous à partir d’aujourd’hui. Les dates passées sont
+                  dans « Passés ».
+                </div>
               )}
             </div>
           )}
@@ -419,7 +457,57 @@ export function ProfilePage() {
 
           {activeTab === 'reports' && (
             <div className="reports-list">
-              <div className="empty-hint">Aucun signalement à traiter.</div>
+              {adminReports.map((r) => {
+                const when = new Date(r.createdAt).toLocaleString('fr-FR', {
+                  dateStyle: 'short',
+                  timeStyle: 'short',
+                });
+                return (
+                  <div key={r.id} className="admin-report-card">
+                    <button
+                      type="button"
+                      className="admin-report-main"
+                      onMouseDown={(ev) => ev.preventDefault()}
+                      onClick={() =>
+                        r.kind === 'profile'
+                          ? openDetail('profile', r.subjectId)
+                          : openDetail('event', r.subjectId)
+                      }
+                    >
+                      <div className="admin-report-icon" aria-hidden>
+                        <AlertTriangle size={22} color="#FFCC00" />
+                      </div>
+                      <div className="admin-report-texts">
+                        <div className="admin-report-title-row">
+                          <span className="admin-report-kind">{r.kind === 'profile' ? 'Profil' : 'Sortie'}</span>
+                        </div>
+                        <div className="admin-report-subject">{r.subjectLabel}</div>
+                        <div className="admin-report-body">{r.explanation}</div>
+                        <div className="admin-report-meta">{when}</div>
+                      </div>
+                    </button>
+                    <div className="admin-report-actions">
+                      <button
+                        type="button"
+                        className="admin-report-btn admin-report-btn--ghost"
+                        onClick={() => dismissAdminReport(r.id)}
+                      >
+                        Ignorer
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-report-btn admin-report-btn--primary"
+                        onClick={() => moderationHideAndNotifyFromReport(r.id)}
+                      >
+                        Masquer et informer
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {adminReports.length === 0 ? (
+                <div className="empty-hint">Aucun signalement à traiter.</div>
+              ) : null}
             </div>
           )}
 
@@ -510,7 +598,12 @@ export function ProfilePage() {
                     <div className="setting-label">Premium</div>
                     <div className="setting-sub">Toutes les fonctionnalités débloquées</div>
                   </div>
-                  <input type="checkbox" checked={isPremium} onChange={e => setIsPremium(e.target.checked)} className="switch" />
+                  <input
+                    type="checkbox"
+                    checked={nelDemoIsPremium}
+                    onChange={(e) => setNelDemoIsPremium(e.target.checked)}
+                    className="switch"
+                  />
                 </div>
                 <div className="setting-item">
                   <div className="setting-icon pink"><Shield size={20} color="#fff" /></div>

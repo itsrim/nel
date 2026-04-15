@@ -105,7 +105,7 @@ function CalendarWeekStrip({ weekStart, selectedDateKey, onSelectDateKey }: {
 /* ── Main ── */
 export function EventsPage() {
   const { openDetail } = useNavigationStore();
-  const { events, toggleEventFavorite, nelDemoIsAdmin } = useMessagingStore();
+  const { events, toggleEventFavorite, nelDemoIsAdmin, moderationHiddenEventIds } = useMessagingStore();
   const [viewportW, setViewportW] = useState(
     () => (typeof window !== 'undefined' ? window.innerWidth : EVENTS_LAYOUT_NARROW_PX),
   );
@@ -144,9 +144,9 @@ export function EventsPage() {
       events.filter(
         (e) =>
           isDateKeyInWeek(e.dateKey, weekStartMonday) &&
-          eventIsVisibleInDiscovery(e, nelDemoIsAdmin),
+          eventIsVisibleInDiscovery(e, nelDemoIsAdmin, moderationHiddenEventIds),
       ),
-    [events, weekStartMonday, nelDemoIsAdmin],
+    [events, weekStartMonday, nelDemoIsAdmin, moderationHiddenEventIds],
   );
 
   const filteredWeekEvents = useMemo(() => {

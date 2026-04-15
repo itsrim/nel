@@ -10,7 +10,7 @@ import './HomePage.css';
 
 export function HomePage() {
   const { openDetail } = useNavigationStore();
-  const { events, nelDemoIsAdmin } = useMessagingStore();
+  const { events, nelDemoIsAdmin, moderationHiddenEventIds } = useMessagingStore();
   const [searchDraft, setSearchDraft] = useState('');
   const [committedSearch, setCommittedSearch] = useState('');
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
@@ -27,14 +27,14 @@ export function HomePage() {
 
   const filteredEvents = useMemo(() => {
     return events.filter((e) => {
-      if (!eventIsVisibleInDiscovery(e, nelDemoIsAdmin)) return false;
+      if (!eventIsVisibleInDiscovery(e, nelDemoIsAdmin, moderationHiddenEventIds)) return false;
       const matchesSearch = e.title.toLowerCase().includes(committedSearch.toLowerCase()) || 
                              e.location.toLowerCase().includes(committedSearch.toLowerCase());
       // For now, tags are mock filtering
       const matchesTag = !selectedTagId || selectedTagId === '1' || true; 
       return matchesSearch && matchesTag;
     });
-  }, [events, committedSearch, selectedTagId, nelDemoIsAdmin]);
+  }, [events, committedSearch, selectedTagId, nelDemoIsAdmin, moderationHiddenEventIds]);
 
   const topEvents = useMemo(() => {
     return [...filteredEvents]

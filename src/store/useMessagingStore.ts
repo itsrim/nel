@@ -14,6 +14,7 @@ import {
   type Message,
   type GroupMember,
   type AppNotification,
+  type AdminReportEntry,
 } from '../data/mockData';
 
 const LS_VIEWER_AVATAR = 'nel_viewer_profile_avatar_url';
@@ -71,6 +72,9 @@ interface MessagingState {
   /** Synchronisé avec l’interrupteur « Mode admin » du profil (aperçu nel). */
   nelDemoIsAdmin: boolean;
   setNelDemoIsAdmin: (value: boolean) => void;
+  /** Synchronisé avec l’interrupteur « Premium » du profil (aperçu nel). */
+  nelDemoIsPremium: boolean;
+  setNelDemoIsPremium: (value: boolean) => void;
   /** Photo de profil (hero) — même source que l’onglet Profil, persistée. */
   viewerProfileAvatarUrl: string;
   setViewerProfileAvatarUrl: (url: string) => void;
@@ -82,8 +86,35 @@ interface MessagingState {
   profileVisits: ProfileVisit[];
   suggestions: SuggestionProfile[];
   friends: Friend[];
+  /** Profils (`profilId`) à qui une demande d’ami a déjà été envoyée (démo — irréversible). */
+  friendRequestSentProfilIds: string[];
+  /** Demande refusée par l’autre (démo — ne pas renvoyer). */
+  friendRequestRejectedProfilIds: string[];
+  /** Envoie une demande d’ami si pas déjà ami, pas refusée et pas déjà envoyée. */
+  sendFriendRequest: (profilId: string) => void;
+  /** Démo : plus d’ami mutuel — masque Message / retire l’accès DM privé côté UI. */
+  removeMutualFriend: (profilId: string) => void;
   /** Fil Profil → Notifications (invitations sorties, etc.). */
   appNotifications: AppNotification[];
+  /** File admin : signalements profils / sorties (onglet Signalements). */
+  adminReports: AdminReportEntry[];
+  submitAdminReport: (input: {
+    kind: 'profile' | 'event';
+    subjectId: string;
+    subjectLabel: string;
+    explanation: string;
+  }) => void;
+  /** Marque tous les signalements comme lus (ouverture de l’onglet admin). */
+  markAllAdminReportsRead: () => void;
+  /** Sorties retirées de l’agenda public après action modération (démo). */
+  moderationHiddenEventIds: string[];
+  /** Profils retirés des suggestions / visites après action modération (démo). */
+  moderationHiddenProfilIds: string[];
+  dismissAdminReport: (reportId: string) => void;
+  /** Retire le signalement, masque le contenu et envoie un message dans le fil groupe ou DM si possible. */
+  moderationHideAndNotifyFromReport: (reportId: string) => void;
+  /** Message « Modération Nel » dans un fil (non écrit par « Moi »). */
+  postModerationNotice: (conversationId: string, text: string) => void;
   favoriteConversationIds: string[];
   messagesByConversation: Record<string, Message[]>;
   toggleEventFavorite: (eventId: string) => void;
@@ -92,6 +123,8 @@ interface MessagingState {
   getEventByConversationId: (conversationId: string) => Event | undefined;
   sendMessage: (conversationId: string, text: string) => void;
   markAsRead: (conversationId: string) => void;
+  /** Enregistre l’ouverture du fil (bande favoris triée « dernier ouvert »). */
+  recordConversationOpened: (conversationId: string) => void;
   addEvent: (input: NewEventInput) => string;
   updateEvent: (eventId: string, input: UpdateEventInput) => void;
   cancelEvent: (eventId: string) => void;
@@ -113,6 +146,8 @@ interface MessagingState {
 export const useMessagingStore = create<MessagingState>((set, get) => ({
   nelDemoIsAdmin: true,
   setNelDemoIsAdmin: (value) => set({ nelDemoIsAdmin: value }),
+  nelDemoIsPremium: true,
+  setNelDemoIsPremium: (value) => set({ nelDemoIsPremium: value }),
 
   viewerProfileAvatarUrl: readViewerStorage(LS_VIEWER_AVATAR, DEFAULT_VIEWER_AVATAR),
   setViewerProfileAvatarUrl: (url) => {
@@ -140,9 +175,143 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
   profileVisits: MOCK_VISITS,
   suggestions: MOCK_SUGGESTIONS,
   friends: MOCK_FRIENDS,
+  friendRequestSentProfilIds: [],
+  /** Quelques refus simulés pour l’aperçu (cœur brisé dans Suggestions). */
+  friendRequestRejectedProfilIds: ['u050', 'u051', 'u052'],
+  sendFriendRequest: (profilId) => {
+    const id = profilId.trim();
+    if (!id) return;
+    const { friends, friendRequestSentProfilIds, friendRequestRejectedProfilIds } = get();
+    if (friends.find((f) => f.profilId === id)?.mutualFriend === true) return;
+    if (friendRequestRejectedProfilIds.includes(id)) return;
+    if (friendRequestSentProfilIds.includes(id)) {
+      return;
+    }
+    set({ friendRequestSentProfilIds: [...friendRequestSentProfilIds, id] });
+    get().showToast('Demande d’ami envoyée.');
+  },
+  removeMutualFriend: (profilId) => {
+    const id = profilId.trim();
+    if (!id) return;
+    set((state) => ({
+      friends: state.friends.map((f) =>
+        f.profilId === id && f.mutualFriend === true ? { ...f, mutualFriend: false } : f,
+      ),
+    }));
+    get().showToast('Retiré de vos amis.');
+  },
   appNotifications: [],
+  adminReports: [],
+  submitAdminReport: ({ kind, subjectId, subjectLabel, explanation }) => {
+    const id = `rep_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const entry: AdminReportEntry = {
+      id,
+      createdAt: Date.now(),
+      kind,
+      subjectId: subjectId.trim(),
+      subjectLabel: subjectLabel.trim() || (kind === 'profile' ? 'Profil' : 'Sortie'),
+      explanation: explanation.trim(),
+      read: false,
+    };
+    set((s) => ({ adminReports: [entry, ...s.adminReports] }));
+    get().showToast('Signalement envoyé. Merci.');
+  },
+  markAllAdminReportsRead: () =>
+    set((s) => ({
+      adminReports: s.adminReports.map((r) => (r.read ? r : { ...r, read: true })),
+    })),
+  moderationHiddenEventIds: [],
+  moderationHiddenProfilIds: [],
+  dismissAdminReport: (reportId) => {
+    const id = reportId.trim();
+    if (!id) return;
+    set((s) => ({ adminReports: s.adminReports.filter((r) => r.id !== id) }));
+  },
+  postModerationNotice: (conversationId, text) => {
+    const tid = conversationId.trim();
+    if (!tid) return;
+    const body = text.trim();
+    if (!body) return;
+    const newMessage: Message = {
+      id: `mod_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      conversationId: tid,
+      authorName: 'Modération Nel',
+      text: body,
+      sentAt: Date.now(),
+      isOwn: false,
+    };
+    set((state) => {
+      const currentMessages = state.messagesByConversation[tid] ?? [];
+      return {
+        messagesByConversation: {
+          ...state.messagesByConversation,
+          [tid]: [...currentMessages, newMessage],
+        },
+        conversations: state.conversations.map((c) =>
+          c.id === tid ? { ...c, lastMessagePreview: body.slice(0, 72), updatedAt: Date.now() } : c,
+        ),
+      };
+    });
+  },
+  moderationHideAndNotifyFromReport: (reportId) => {
+    const id = reportId.trim();
+    if (!id) return;
+    const report = get().adminReports.find((r) => r.id === id);
+    if (!report) return;
+
+    const notice =
+      'Suite à un signalement, l’équipe vous informe qu’un problème a été remonté sur ce contenu. Merci de respecter les règles de la communauté Nel.';
+
+    if (report.kind === 'event') {
+      const ev = get().events.find((e) => e.id === report.subjectId);
+      set((s) => ({
+        adminReports: s.adminReports.filter((r) => r.id !== id),
+        moderationHiddenEventIds: s.moderationHiddenEventIds.includes(report.subjectId)
+          ? s.moderationHiddenEventIds
+          : [...s.moderationHiddenEventIds, report.subjectId],
+      }));
+      if (ev) {
+        get().postModerationNotice(ev.conversationId, notice);
+        get().showToast(
+          `Sortie retirée de l’agenda public. Un message a été envoyé dans le fil du groupe « ${ev.title} ».`,
+        );
+      } else {
+        get().showToast('Sortie retirée de l’agenda public.');
+      }
+      return;
+    }
+
+    const f = get().friends.find((fr) => fr.profilId === report.subjectId);
+    set((s) => ({
+      adminReports: s.adminReports.filter((r) => r.id !== id),
+      moderationHiddenProfilIds: s.moderationHiddenProfilIds.includes(report.subjectId)
+        ? s.moderationHiddenProfilIds
+        : [...s.moderationHiddenProfilIds, report.subjectId],
+    }));
+    if (f?.mainChatConversationId) {
+      get().postModerationNotice(f.mainChatConversationId, notice);
+      get().showToast(`Profil retiré des suggestions. Message envoyé à ${report.subjectLabel}.`);
+    } else {
+      get().showToast(
+        `Profil retiré des suggestions. Aucun fil privé avec ${report.subjectLabel} pour un message automatique (démo).`,
+      );
+    }
+  },
   favoriteConversationIds: MOCK_CONVERSATIONS.filter((c) => c.isFavorite).map((c) => c.id),
   messagesByConversation: MOCK_MESSAGES,
+
+  toast: null,
+  showToast: (message) => {
+    const text = message.trim();
+    if (!text) return;
+    const toastId = Date.now();
+    set({ toast: { id: toastId, message: text } });
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        set((s) => (s.toast?.id === toastId ? { toast: null } : {}));
+      }, 3200);
+    }
+  },
 
   toggleEventFavorite: (eventId) =>
     set((state) => ({
@@ -346,6 +515,16 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     set((state) => ({
       conversations: state.conversations.map((c) =>
         c.id === conversationId ? { ...c, unreadCount: 0 } : c,
+      ),
+    }));
+  },
+
+  recordConversationOpened: (conversationId) => {
+    if (!get().conversations.some((c) => c.id === conversationId)) return;
+    const now = Date.now();
+    set((state) => ({
+      conversations: state.conversations.map((c) =>
+        c.id === conversationId ? { ...c, lastOpenedAt: now } : c,
       ),
     }));
   },

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Crown, Eye, Heart, Plus, Search } from 'lucide-react';
+import { Crown, Eye, Heart, HeartCrack, Plus, Search, UserPlus } from 'lucide-react';
 import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
 import {
@@ -14,6 +14,11 @@ import { buildConversationMiniSlots } from '../lib/conversationMiniSlots';
 import './ChatPage.css';
 
 /* ── Helpers ── */
+
+/** Dernière activité visible : message (`updatedAt`) ou ouverture du fil (`lastOpenedAt`). */
+function conversationRecency(c: Conversation): number {
+  return Math.max(c.updatedAt, c.lastOpenedAt ?? 0);
+}
 
 function truncateStoryLabel(title: string, max = 11): string {
   if (title.length <= max) return title;
@@ -195,7 +200,7 @@ function ConversationRow({ item }: { item: Conversation }) {
               <span className="conv-name">{item.title}</span>
               {isGroup && <span className="groupe-tag">Groupe</span>}
             </div>
-            <span className="conv-time">{formatRelativeTime(item.updatedAt)}</span>
+            <span className="conv-time">{formatRelativeTime(conversationRecency(item))}</span>
           </div>
           <p className="conv-preview">{item.lastMessagePreview}</p>
         </div>
@@ -236,27 +241,62 @@ function SubTabPill({
 
 export function ChatPage() {
   const { openDetail } = useNavigationStore();
-  const { conversations, profileVisits, suggestions, favoriteConversationIds } = useMessagingStore();
+  const {
+    conversations,
+    profileVisits,
+    suggestions,
+    favoriteConversationIds,
+    friends,
+    friendRequestSentProfilIds,
+    friendRequestRejectedProfilIds,
+    sendFriendRequest,
+    moderationHiddenProfilIds,
+  } = useMessagingStore();
   const [sub, setSub] = useState<SubTab>('messages');
-  const [visitLikedById, setVisitLikedById] = useState<Record<string, boolean>>({});
-  const [suggestionLikedById, setSuggestionLikedById] = useState<Record<string, boolean>>({});
 
-  const toggleVisitLike = useCallback((id: string) => {
-    setVisitLikedById((p) => ({ ...p, [id]: !p[id] }));
-  }, []);
+  /** Ami mutuel (cœur rose) — distinct du simple fait d’être dans l’annuaire « Amis » nel. */
+  const isMutualFriend = useCallback(
+    (profilId: string) => friends.find((f) => f.profilId === profilId)?.mutualFriend === true,
+    [friends],
+  );
 
-  const toggleSuggestionLike = useCallback((id: string) => {
-    setSuggestionLikedById((p) => ({ ...p, [id]: !p[id] }));
-  }, []);
+  const hasSentFriendRequest = useCallback(
+    (profilId: string) => friendRequestSentProfilIds.includes(profilId),
+    [friendRequestSentProfilIds],
+  );
+
+  const hasRejectedFriendRequest = useCallback(
+    (profilId: string) => friendRequestRejectedProfilIds.includes(profilId),
+    [friendRequestRejectedProfilIds],
+  );
+
+  const handleFriendRequest = useCallback(
+    (e: React.MouseEvent, profilId: string) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (
+        isMutualFriend(profilId) ||
+        hasSentFriendRequest(profilId) ||
+        hasRejectedFriendRequest(profilId)
+      ) {
+        return;
+      }
+      sendFriendRequest(profilId);
+    },
+    [isMutualFriend, hasSentFriendRequest, hasRejectedFriendRequest, sendFriendRequest],
+  );
 
   const sorted = useMemo(
-    () => [...conversations].sort((a, b) => b.updatedAt - a.updatedAt),
+    () => [...conversations].sort((a, b) => conversationRecency(b) - conversationRecency(a)),
     [conversations],
   );
 
   const favoriteConversationsStrip = useMemo(() => {
     const byId = new Map(conversations.map((c) => [c.id, c]));
-    return favoriteConversationIds.map((id) => byId.get(id)).filter((c): c is Conversation => c !== undefined);
+    const list = favoriteConversationIds
+      .map((id) => byId.get(id))
+      .filter((c): c is Conversation => c !== undefined);
+    return [...list].sort((a, b) => conversationRecency(b) - conversationRecency(a));
   }, [conversations, favoriteConversationIds]);
 
   const messagesTabBadge = useMemo(
@@ -264,24 +304,35 @@ export function ChatPage() {
     [conversations],
   );
 
+  const profileVisitsVisible = useMemo(
+    () => profileVisits.filter((v) => !moderationHiddenProfilIds.includes(v.id)),
+    [profileVisits, moderationHiddenProfilIds],
+  );
+
   const visitesTabBadge = useMemo(
-    () => profileVisits.filter((v) => v.friendRequest).length + profileVisits.length,
-    [profileVisits],
+    () =>
+      profileVisitsVisible.filter((v) => v.friendRequest).length + profileVisitsVisible.length,
+    [profileVisitsVisible],
+  );
+
+  const suggestionsVisible = useMemo(
+    () => suggestions.filter((s) => !moderationHiddenProfilIds.includes(s.id)),
+    [suggestions, moderationHiddenProfilIds],
   );
 
   const suggestionColumns = useMemo(
-    () => buildMasonryColumns(suggestions, 2),
-    [suggestions],
+    () => buildMasonryColumns(suggestionsVisible, 2),
+    [suggestionsVisible],
   );
 
   const sortedVisits = useMemo(
-    () => [...profileVisits].sort((a, b) => {
+    () => [...profileVisitsVisible].sort((a, b) => {
       const ra = a.friendRequest ? 1 : 0;
       const rb = b.friendRequest ? 1 : 0;
       if (rb !== ra) return rb - ra;
       return b.lastVisitAt - a.lastVisitAt;
     }),
-    [profileVisits],
+    [profileVisitsVisible],
   );
 
   return (
@@ -333,7 +384,7 @@ export function ChatPage() {
               </div>
               <div className="premium-banner-texts">
                 <span className="premium-banner-title">Fonctionnalité Premium</span>
-                <span className="premium-banner-sub">{profileVisits.length} personnes ont visité votre profil.</span>
+                <span className="premium-banner-sub">{profileVisitsVisible.length} personnes ont visité votre profil.</span>
               </div>
             </div>
             {sortedVisits.map((v) => (
@@ -355,11 +406,40 @@ export function ChatPage() {
                   </div>
                 </div>
                 <button
-                  className={`visit-like-btn ${visitLikedById[v.id] ? 'visit-like-btn--active' : ''}`}
-                  onClick={() => toggleVisitLike(v.id)}
+                  type="button"
+                  className={`visit-like-btn${hasSentFriendRequest(v.id) ? ' visit-like-btn--sent' : ''}${isMutualFriend(v.id) ? ' visit-like-btn--friend' : ''}${hasRejectedFriendRequest(v.id) ? ' visit-like-btn--rejected' : ''}`}
+                  disabled={
+                    isMutualFriend(v.id) ||
+                    hasSentFriendRequest(v.id) ||
+                    hasRejectedFriendRequest(v.id)
+                  }
+                  onClick={(e) => handleFriendRequest(e, v.id)}
+                  aria-label={
+                    isMutualFriend(v.id)
+                      ? 'Ami·e'
+                      : hasRejectedFriendRequest(v.id)
+                        ? 'Demande d’ami refusée'
+                        : hasSentFriendRequest(v.id)
+                          ? 'Demande d’ami envoyée'
+                          : 'Envoyer une demande d’ami'
+                  }
                 >
-                  <Heart size={18} color="#fff" fill={visitLikedById[v.id] ? '#fff' : 'none'} />
-                  <span>Like</span>
+                  {isMutualFriend(v.id) ? (
+                    <Heart size={18} color="#FF4081" fill="#FF4081" aria-hidden />
+                  ) : hasRejectedFriendRequest(v.id) ? (
+                    <HeartCrack size={18} color="#FF9F0A" aria-hidden />
+                  ) : (
+                    <UserPlus size={18} color="#fff" aria-hidden />
+                  )}
+                  <span>
+                    {isMutualFriend(v.id)
+                      ? 'Ami·e'
+                      : hasRejectedFriendRequest(v.id)
+                        ? 'Refusée'
+                        : hasSentFriendRequest(v.id)
+                          ? 'Envoyée'
+                          : 'Ajouter'}
+                  </span>
                 </button>
               </div>
             ))}
@@ -371,7 +451,9 @@ export function ChatPage() {
             {suggestionColumns.map((col, ci) => (
               <div key={ci} className="suggestion-col">
                 {col.map((item) => {
-                  const liked = !!suggestionLikedById[item.id];
+                  const sent = hasSentFriendRequest(item.id);
+                  const mutual = isMutualFriend(item.id);
+                  const rejected = hasRejectedFriendRequest(item.id);
                   return (
                     <div key={item.id} className="suggestion-card">
                       <div className="suggestion-img-press" onClick={() => openDetail('profile', item.id)}>
@@ -388,11 +470,27 @@ export function ChatPage() {
                         </span>
                       </div>
                       <button
-                        className="suggestion-heart-btn"
-                        onClick={() => toggleSuggestionLike(item.id)}
-                        aria-label={liked ? 'Retirer le like' : 'Aimer'}
+                        type="button"
+                        className={`suggestion-add-friend-btn${sent ? ' suggestion-add-friend-btn--sent' : ''}${mutual ? ' suggestion-add-friend-btn--friend' : ''}${rejected ? ' suggestion-add-friend-btn--rejected' : ''}`}
+                        disabled={mutual || sent || rejected}
+                        onClick={(e) => handleFriendRequest(e, item.id)}
+                        aria-label={
+                          mutual
+                            ? 'Ami·e'
+                            : rejected
+                              ? 'Demande d’ami refusée'
+                              : sent
+                                ? 'Demande d’ami envoyée'
+                                : 'Envoyer une demande d’ami'
+                        }
                       >
-                        <Heart size={22} color={liked ? '#FF4081' : '#fff'} fill={liked ? '#FF4081' : 'none'} />
+                        {mutual ? (
+                          <Heart size={22} color="#FF4081" fill="#FF4081" aria-hidden />
+                        ) : rejected ? (
+                          <HeartCrack size={22} color="#FF9F0A" aria-hidden />
+                        ) : (
+                          <UserPlus size={22} color="#fff" aria-hidden />
+                        )}
                       </button>
                     </div>
                   );

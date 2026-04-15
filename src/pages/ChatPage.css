@@ -523,7 +523,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #FF4081;
+  background: linear-gradient(135deg, #6B21A8, #8B5CF6);
   padding: 10px 16px;
   border-radius: 22px;
   border: none;
@@ -535,7 +535,26 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.visit-like-btn--active { background: #E91E63; }
+.visit-like-btn--sent {
+  background: #3a3a3c;
+  opacity: 0.92;
+  cursor: default;
+}
+
+.visit-like-btn--friend {
+  background: #2c4a3e;
+  cursor: default;
+}
+
+.visit-like-btn--rejected {
+  background: #3a3428;
+  cursor: default;
+}
+
+.visit-like-btn:disabled {
+  opacity: 0.85;
+  cursor: not-allowed;
+}
 
 /* ── Suggestions masonry ── */
 .suggestions-masonry {
@@ -595,17 +614,38 @@
   white-space: nowrap;
 }
 
-.suggestion-heart-btn {
+.suggestion-add-friend-btn {
   position: absolute;
   top: 10px;
   right: 10px;
   z-index: 4;
-  padding: 4px;
+  padding: 6px;
   border-radius: 20px;
-  background: rgba(0,0,0,0.28);
-  border: none;
+  background: rgba(107, 33, 168, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
   -webkit-tap-highlight-color: transparent;
+}
+
+.suggestion-add-friend-btn--sent {
+  background: rgba(60, 60, 64, 0.85);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.suggestion-add-friend-btn--friend {
+  background: rgba(44, 74, 62, 0.85);
+  border-color: rgba(52, 199, 89, 0.35);
+}
+
+.suggestion-add-friend-btn--rejected {
+  background: rgba(58, 52, 40, 0.9);
+  border-color: rgba(255, 159, 10, 0.35);
+}
+
+.suggestion-add-friend-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.95;
 }
