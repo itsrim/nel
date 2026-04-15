@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type TabId = 'home' | 'chat' | 'tickets' | 'profile' | 'more';
+export type TabId = 'chat' | 'events' | 'profile';
 
 interface NavigationStore {
   activeTab: TabId;
@@ -8,6 +8,6 @@ interface NavigationStore {
 }
 
 export const useNavigationStore = create<NavigationStore>((set) => ({
-  activeTab: 'home',
+  activeTab: 'chat',
   setActiveTab: (tab) => set({ activeTab: tab }),
 }));

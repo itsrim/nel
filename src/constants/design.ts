@@ -1,0 +1,20 @@
+/** Design system — thème sombre fidèle à meetabit */
+export const Design = {
+  bg: '#000000',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#8E8E93',
+  textSection: '#A5B4FC',
+  badgeRed: '#FF3B30',
+  badgeGold: '#FFD60A',
+  tabActiveBg: '#FFD700',
+  tabActiveText: '#000000',
+  tabBarBg: 'rgba(25, 30, 25, 0.95)',
+  tabBarBorder: 'rgba(255, 255, 255, 0.05)',
+  gradientHeaderChat: ['#FF6B35', '#FF4081', '#AB47BC'] as const,
+  gradientHeaderEvents: ['#FFEB3B', '#FF4081', '#E91E63'] as const,
+  cardOverlay: 'rgba(0,0,0,0.55)',
+  blueSoft: 'rgba(100, 149, 237, 0.35)',
+  tabBarBottomOffset: 20,
+  tabBarInnerPadding: 12,
+  contentBottomSpace: 110,
+} as const;

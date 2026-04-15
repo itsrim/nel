@@ -1,4 +1,4 @@
-import { Filter, Heart, X, Clock, Users, List } from 'lucide-react';
+import { Filter, X, List, MapPin, Calendar, ChevronDown, Locate, Menu } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import './HomePage.css';
 
@@ -26,11 +26,11 @@ const events: Event[] = [
   {
     id: 1,
     title: 'Concert Jazz',
-    location: 'Centre-ville',
+    location: 'Centre-ville, Toulouse',
     time: '20:00',
-    date: '15 mars',
+    date: 'Jeu 10 Avr 2025',
     price: '25€',
-    rating: '★ 4.8 (124)',
+    rating: '4.8',
     image: 'jazz',
     lat: 43.6047,
     lng: 1.4442,
@@ -38,11 +38,11 @@ const events: Event[] = [
   {
     id: 2,
     title: 'Festival de Musique',
-    location: 'Capitole',
+    location: 'Place du Capitole',
     time: '18:00',
-    date: '16 mars',
+    date: 'Ven 11 Avr 2025',
     price: '30€',
-    rating: '★ 4.9 (89)',
+    rating: '4.9',
     image: 'festival',
     lat: 43.6045,
     lng: 1.4440,
@@ -50,11 +50,11 @@ const events: Event[] = [
   {
     id: 3,
     title: 'Exposition Art',
-    location: 'Musée',
+    location: 'Musée des Abattoirs',
     time: '14:00',
-    date: '17 mars',
+    date: 'Sam 12 Avr 2025',
     price: '15€',
-    rating: '★ 4.7 (56)',
+    rating: '4.7',
     image: 'art',
     lat: 43.6050,
     lng: 1.4445,
@@ -64,9 +64,9 @@ const events: Event[] = [
     title: 'Théâtre',
     location: 'Théâtre du Capitole',
     time: '19:30',
-    date: '18 mars',
+    date: 'Dim 13 Avr 2025',
     price: '35€',
-    rating: '★ 4.9 (203)',
+    rating: '4.9',
     image: 'theatre',
     lat: 43.6043,
     lng: 1.4438,
@@ -74,11 +74,11 @@ const events: Event[] = [
   {
     id: 5,
     title: 'Concert Rock',
-    location: 'Zénith',
+    location: 'Zénith, Toulouse',
     time: '21:00',
-    date: '19 mars',
+    date: 'Lun 14 Avr 2025',
     price: '40€',
-    rating: '★ 4.6 (78)',
+    rating: '4.6',
     image: 'rock',
     lat: 43.6060,
     lng: 1.4450,
@@ -208,16 +208,20 @@ export function HomePage() {
       {/* Map Container */}
       <div className="map-container">
         {/* Header - Overlay on map */}
-        <header className="map-header">
-          <div className="search-bar-header">
-            <div className="search-bar-content">
-              <span className="search-location">Toulouse · Événements</span>
-              <span className="search-dates">13-15 mars · 2 personnes</span>
-            </div>
-          </div>
-          <button className="filter-button-header" aria-label="Filter">
-            <Filter size={20} />
+        <header className="map-header home-map-header">
+          <button type="button" className="home-location-pill" aria-label="Changer de lieu">
+            <MapPin size={18} />
+            <span className="home-location-text">Toulouse</span>
+            <ChevronDown size={18} />
           </button>
+          <div className="home-header-actions">
+            <button type="button" className="home-header-icon-btn" aria-label="Ma position">
+              <Locate size={20} />
+            </button>
+            <button type="button" className="home-header-icon-btn" aria-label="Filtres">
+              <Filter size={20} />
+            </button>
+          </div>
         </header>
         <div className="map-placeholder">
           <iframe
@@ -253,56 +257,61 @@ export function HomePage() {
           </div>
         </div>
 
-        {/* Event Detail Card */}
+        {/* Event Detail Card (style maquette: image gauche, infos droite, Next time / Going, pointeur) */}
         {selectedEvent && (
-          <div className="event-detail-card">
-            <button className="close-button" onClick={handleCloseInfo} aria-label="Close">
+          <div className="event-detail-card event-detail-card-mock">
+            <button type="button" className="close-button" onClick={(e) => { e.stopPropagation(); handleCloseInfo(); }} aria-label="Fermer">
               <X size={18} />
             </button>
-            {selectedCluster && selectedCluster.count > 1 && (
-              <div className="cluster-navigation">
-                <button 
-                  className="cluster-nav-button prev" 
-                  onClick={handlePrevClusterEvent}
-                  disabled={clusterEventIndex === 0}
-                  aria-label="Previous"
-                >
-                  ←
-                </button>
-                <span className="cluster-counter">
-                  {clusterEventIndex + 1} / {selectedCluster.count}
-                </span>
-                <button 
-                  className="cluster-nav-button next" 
-                  onClick={handleNextClusterEvent}
-                  disabled={clusterEventIndex === selectedCluster.events.length - 1}
-                  aria-label="Next"
-                >
-                  →
-                </button>
-              </div>
-            )}
-            <div className={`event-image-detail ${selectedEvent.image}`}></div>
-            <div className="event-detail-content">
-              <div className="event-detail-header">
+            <div className="event-detail-card-top-actions">
+              {selectedCluster && selectedCluster.count > 1 && (
+                <div className="cluster-navigation">
+                  <button
+                    type="button"
+                    className="cluster-nav-button prev"
+                    onClick={(e) => { e.stopPropagation(); handlePrevClusterEvent(); }}
+                    disabled={clusterEventIndex === 0}
+                    aria-label="Précédent"
+                  >
+                    ←
+                  </button>
+                  <span className="cluster-counter">
+                    {clusterEventIndex + 1} / {selectedCluster.count}
+                  </span>
+                  <button
+                    type="button"
+                    className="cluster-nav-button next"
+                    onClick={(e) => { e.stopPropagation(); handleNextClusterEvent(); }}
+                    disabled={clusterEventIndex === selectedCluster.events.length - 1}
+                    aria-label="Suivant"
+                  >
+                    →
+                  </button>
+                </div>
+              )}
+              <button type="button" className="event-detail-menu-button" aria-label="Menu">
+                <Menu size={20} />
+              </button>
+            </div>
+            <div className="event-detail-card-inner">
+              <div className={`event-detail-thumb ${selectedEvent.image}`} />
+              <div className="event-detail-body">
                 <h3 className="event-detail-title">{selectedEvent.title}</h3>
-                <div className="event-detail-price">{selectedEvent.price}</div>
-              </div>
-              <p className="event-detail-subtitle">{selectedEvent.location} · {selectedEvent.time} · {selectedEvent.date}</p>
-              <div className="event-detail-info">
-                <div className="detail-info-item">
-                  <Users size={14} />
-                  <span>{selectedEvent.rating}</span>
+                <p className="event-detail-date">
+                  <Calendar size={14} />
+                  {selectedEvent.date}
+                </p>
+                <p className="event-detail-location">
+                  <MapPin size={14} />
+                  {selectedEvent.location}
+                </p>
+                <div className="event-detail-actions">
+                  <button type="button" className="action-button secondary next-time">Next time</button>
+                  <button type="button" className="action-button primary going">Going</button>
                 </div>
               </div>
-              <div className="event-detail-actions">
-                <button className="action-button secondary">Plus tard</button>
-                <button className="action-button primary">Participer</button>
-              </div>
             </div>
-            <button className="favorite-button-detail" aria-label="Favorite">
-              <Heart size={20} />
-            </button>
+            <div className="event-detail-pointer" aria-hidden />
           </div>
         )}
       </div>
@@ -324,26 +333,21 @@ export function HomePage() {
           {events.map((event) => (
             <div
               key={event.id}
-              className={`event-card ${selectedEvent?.id === event.id ? 'selected' : ''}`}
-              onClick={() => handleEventCardClick(event)}
+              role="button"
+              tabIndex={0}
+              className={`event-card event-card-strip ${selectedEvent?.id === event.id ? 'selected' : ''}`}
+              onClick={(e) => { e.stopPropagation(); handleEventCardClick(event); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleEventCardClick(event); } }}
             >
-              <div className={`event-card-image ${event.image}`}></div>
+              <div className={`event-card-image ${event.image}`} aria-hidden />
               <div className="event-card-content">
-                <div className="event-card-header">
-                  <h3 className="event-card-title">{event.title}</h3>
-                  <div className="event-card-price">{event.price}</div>
-                </div>
-                <div className="event-card-meta">
-                  <Clock size={12} />
-                  <span>{event.time} · {event.date}</span>
-                  <Users size={12} />
-                  <span>{event.location}</span>
-                  <span className="event-card-rating">{event.rating}</span>
-                </div>
+                <h3 className="event-card-title">{event.title}</h3>
+                <p className="event-card-location">
+                  <MapPin size={14} />
+                  {event.location}
+                </p>
+                <p className="event-card-rate">Rate <span className="event-card-rate-value">{event.rating}/5</span></p>
               </div>
-              <button className="event-card-favorite" aria-label="Favorite">
-                <Heart size={18} />
-              </button>
             </div>
           ))}
         </div>
