@@ -4,6 +4,7 @@ import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
 import { EventCard } from '../components/EventCard';
 import { QuestionnaireModal } from '../components/QuestionnaireModal';
+import { formatEventSectionTitle } from '../lib/eventDateKey';
 import './HomePage.css';
 
 export function HomePage() {
@@ -39,16 +40,20 @@ export function HomePage() {
       .slice(0, 5);
   }, [filteredEvents]);
 
-  // Group events by dateKey for the agenda
+  /** Un groupe par `dateKey`, titre affiché harmonisé (évite doublons mock vs création). */
   const groupedEvents = useMemo(() => {
     const groups: Record<string, typeof events> = {};
-    filteredEvents.forEach(e => {
-      if (!groups[e.sectionDateLabel]) {
-        groups[e.sectionDateLabel] = [];
-      }
-      groups[e.sectionDateLabel].push(e);
+    filteredEvents.forEach((e) => {
+      if (!groups[e.dateKey]) groups[e.dateKey] = [];
+      groups[e.dateKey].push(e);
     });
-    return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
+    return Object.entries(groups)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([dateKey, items]) => ({
+        dateKey,
+        title: formatEventSectionTitle(dateKey),
+        items,
+      }));
   }, [filteredEvents]);
 
   const handleApplySearch = () => {
@@ -120,9 +125,9 @@ export function HomePage() {
 
       <main className="home-content">
         <h2 className="section-title main-agenda-title">Agenda des activités</h2>
-        {groupedEvents.map(([date, items]) => (
-          <section key={date} className="agenda-group">
-            <h3 className="group-date-title">{date}</h3>
+        {groupedEvents.map(({ dateKey, title, items }) => (
+          <section key={dateKey} className="agenda-group">
+            <h3 className="group-date-title">{title}</h3>
             <div className="event-grid">
               {items.map(e => (
                 <div key={e.id} className="grid-event-wrapper">

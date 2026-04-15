@@ -1,9 +1,11 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Calendar, Check, ChevronLeft, ChevronRight, Plus, Search, X } from 'lucide-react';
+import { Calendar, Check, ChevronLeft, ChevronRight, ListFilter, Plus, Search, X } from 'lucide-react';
 import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
 import { EventCard } from '../components/EventCard';
 import type { Event } from '../data/mockData';
+import { EVENT_THEME_TAG_OPTIONS } from '../constants/defaultEventCoverThemes';
+import { formatEventSectionTitle, parseDateKeyLocal } from '../lib/eventDateKey';
 import './EventsPage.css';
 
 /* ── Date helpers ── */
@@ -21,10 +23,6 @@ function startOfWeekMonday(d: Date): Date {
   const dow = x.getDay();
   x.setDate(x.getDate() + (dow === 0 ? -6 : 1 - dow));
   return x;
-}
-function parseDateKeyLocal(dateKey: string): Date {
-  const p = dateKey.split('-');
-  return new Date(+p[0], +p[1] - 1, +p[2]);
 }
 function isDateKeyInWeek(dateKey: string, weekStart: Date): boolean {
   const d0 = toDateKey(weekStart);
@@ -48,6 +46,27 @@ function eventMatchesSearch(e: Event, query: string): boolean {
   const q = foldSearch(query.trim());
   if (!q) return true;
   return foldSearch(`${e.title} ${e.location} ${e.notes ?? ''}`).includes(q);
+}
+
+function eventMatchesFilterDate(e: Event, dateKey: string): boolean {
+  const d = dateKey.trim();
+  if (!d) return true;
+  return e.dateKey === d;
+}
+
+function eventMatchesFilterLocation(e: Event, q: string): boolean {
+  const t = foldSearch(q.trim());
+  if (!t) return true;
+  return foldSearch(e.location).includes(t);
+}
+
+function eventMatchesFilterTag(e: Event, raw: string): boolean {
+  let t = raw.trim();
+  if (t.startsWith('#')) t = t.slice(1);
+  const f = foldSearch(t);
+  if (!f) return true;
+  const hay = foldSearch(`${e.category} ${e.title} ${e.notes ?? ''}`);
+  return hay.includes(f);
 }
 
 const EVENTS_LAYOUT_NARROW_PX = 640;
@@ -102,6 +121,10 @@ export function EventsPage() {
   const [headerMode, setHeaderMode] = useState<'calendar' | 'search'>('calendar');
   const [searchDraft, setSearchDraft] = useState('');
   const [committedSearch, setCommittedSearch] = useState('');
+  const [searchFilterPanelOpen, setSearchFilterPanelOpen] = useState(false);
+  const [filterDate, setFilterDate] = useState('');
+  const [filterLocation, setFilterLocation] = useState('');
+  const [filterTag, setFilterTag] = useState('');
 
   const monthTitle = useMemo(() => formatWeekMonthTitle(weekStartMonday), [weekStartMonday]);
 
@@ -122,8 +145,14 @@ export function EventsPage() {
 
   const filteredWeekEvents = useMemo(() => {
     if (headerMode !== 'search') return weekEvents;
-    return weekEvents.filter((e) => eventMatchesSearch(e, committedSearch));
-  }, [weekEvents, headerMode, committedSearch]);
+    return weekEvents.filter(
+      (e) =>
+        eventMatchesSearch(e, committedSearch) &&
+        eventMatchesFilterDate(e, filterDate) &&
+        eventMatchesFilterLocation(e, filterLocation) &&
+        eventMatchesFilterTag(e, filterTag),
+    );
+  }, [weekEvents, headerMode, committedSearch, filterDate, filterLocation, filterTag]);
 
   const topWeekEvents = useMemo(
     () => [...weekEvents].sort((a, b) => (b.visitsCount ?? b.participantCount * 5) - (a.visitsCount ?? a.participantCount * 5)).slice(0, 5),
@@ -133,13 +162,14 @@ export function EventsPage() {
   const sections = useMemo(() => {
     const map = new Map<string, Event[]>();
     for (const e of filteredWeekEvents) {
-      if (!map.has(e.sectionDateLabel)) map.set(e.sectionDateLabel, []);
-      map.get(e.sectionDateLabel)!.push(e);
+      if (!map.has(e.dateKey)) map.set(e.dateKey, []);
+      map.get(e.dateKey)!.push(e);
     }
     return Array.from(map.entries())
-      .sort((a, b) => (a[1][0]?.dateKey ?? '').localeCompare(b[1][0]?.dateKey ?? ''))
-      .map(([title, items]) => ({
-        title,
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([dateKey, items]) => ({
+        dateKey,
+        title: formatEventSectionTitle(dateKey),
         items: [...items].sort((a, b) => a.timeShort.localeCompare(b.timeShort)),
       }));
   }, [filteredWeekEvents]);
@@ -170,7 +200,13 @@ export function EventsPage() {
   const clearSearch = useCallback(() => {
     setSearchDraft('');
     setCommittedSearch('');
+    setFilterDate('');
+    setFilterLocation('');
+    setFilterTag('');
+    setSearchFilterPanelOpen(false);
   }, []);
+
+  const filterChipsActive = Boolean(filterDate || filterLocation.trim() || filterTag.trim());
 
   return (
     <div className={`events-page${isNarrowLayout ? ' events-page--narrow' : ''}`}>
@@ -197,28 +233,87 @@ export function EventsPage() {
         <div className="search-header-gradient">
           <div className="search-mode-top">
             <span className="search-mode-title">Recherche</span>
-            <button className="search-mode-cal-btn" onClick={() => setHeaderMode('calendar')} aria-label="Calendrier">
+            <button
+              type="button"
+              className="search-mode-cal-btn"
+              onClick={() => {
+                setSearchFilterPanelOpen(false);
+                setHeaderMode('calendar');
+              }}
+              aria-label="Calendrier">
               <Calendar size={24} color="#FFD60A" />
             </button>
           </div>
           <div className="events-search-row">
-            <div className="events-search-bar">
-              <Search size={20} color="rgba(255,255,255,0.6)" />
-              <input
-                className="events-search-input"
-                placeholder="Rechercher une activité…"
-                value={searchDraft}
-                onChange={(e) => setSearchDraft(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && applySearch()}
-              />
-              {(searchDraft.length > 0 || committedSearch.length > 0) && (
-                <button className="events-search-clear" onClick={clearSearch} aria-label="Effacer">
-                  <X size={18} color="rgba(255,255,255,0.55)" />
-                </button>
-              )}
-              <button className="events-search-submit" onClick={applySearch} aria-label="Valider">
-                <Check size={20} color="#7EB8FF" />
+            <div
+              className={`events-search-toolbar${searchFilterPanelOpen ? ' events-search-toolbar--filters' : ''}`}>
+              <button
+                type="button"
+                className={`events-filter-toggle${searchFilterPanelOpen || filterChipsActive ? ' events-filter-toggle--active' : ''}`}
+                onClick={() => setSearchFilterPanelOpen((o) => !o)}
+                aria-expanded={searchFilterPanelOpen}
+                aria-label="Filtres : date, lieu, tag">
+                <ListFilter size={22} color={searchFilterPanelOpen || filterChipsActive ? '#FFD60A' : '#fff'} />
               </button>
+              {!searchFilterPanelOpen ? (
+                <div className="events-search-bar events-search-bar--grow">
+                  <Search size={20} color="rgba(255,255,255,0.6)" />
+                  <input
+                    className="events-search-input"
+                    placeholder="Rechercher une activité…"
+                    value={searchDraft}
+                    onChange={(e) => setSearchDraft(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && applySearch()}
+                  />
+                  {(searchDraft.length > 0 ||
+                    committedSearch.length > 0 ||
+                    filterChipsActive) && (
+                    <button type="button" className="events-search-clear" onClick={clearSearch} aria-label="Effacer">
+                      <X size={18} color="rgba(255,255,255,0.55)" />
+                    </button>
+                  )}
+                  <button type="button" className="events-search-submit" onClick={applySearch} aria-label="Valider">
+                    <Check size={20} color="#7EB8FF" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="events-search-loupe-only"
+                    onClick={() => setSearchFilterPanelOpen(false)}
+                    aria-label="Retour à la recherche texte">
+                    <Search size={22} color="#FFD60A" />
+                  </button>
+                  <input
+                    type="date"
+                    className="events-filter-field events-filter-field--date"
+                    value={filterDate}
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    aria-label="Filtrer par date"
+                  />
+                  <input
+                    type="text"
+                    className="events-filter-field events-filter-field--grow"
+                    placeholder="Lieu"
+                    value={filterLocation}
+                    onChange={(e) => setFilterLocation(e.target.value)}
+                    aria-label="Filtrer par lieu"
+                  />
+                  <select
+                    className="events-filter-field events-filter-field--grow events-filter-select"
+                    value={filterTag}
+                    onChange={(e) => setFilterTag(e.target.value)}
+                    aria-label="Filtrer par thème (même liste que les couvertures)">
+                    <option value="">Thème / tag…</option>
+                    {EVENT_THEME_TAG_OPTIONS.map((tag) => (
+                      <option key={tag} value={tag}>
+                        #{tag}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -254,7 +349,7 @@ export function EventsPage() {
           </p>
         ) : (
           sections.map((section) => (
-            <div key={section.title}>
+            <div key={section.dateKey}>
               <div className="events-section-header">
                 <span className="events-section-title">{section.title}</span>
               </div>

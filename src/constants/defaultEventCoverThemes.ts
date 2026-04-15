@@ -24,6 +24,9 @@ export const DEFAULT_EVENT_COVER_THEMES: DefaultEventCoverTheme[] = [
   { id: 'autres', tag: 'autres', imageUrl: coverPath('autres.jpg') },
 ];
 
+/** Même ordre que les chips couverture (#bien-être … #autres) — filtre liste événements. */
+export const EVENT_THEME_TAG_OPTIONS: readonly string[] = DEFAULT_EVENT_COVER_THEMES.map((t) => t.tag);
+
 /** Compare chemins absolus ou relatifs (ex. même fichier servi sous autre origine). */
 function coverImagePathKey(url: string): string {
   const stripped = url.split('?')[0];

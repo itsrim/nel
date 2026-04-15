@@ -30,6 +30,10 @@ const MAX_TITLE_LEN = 50;
 const MAX_DESCRIPTION_LEN = 300;
 const MAX_LOCATION_LEN = 99;
 
+function foldNorm(s: string): string {
+  return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+}
+
 function toIsoDateKey(d: Date): string {
   const y = d.getFullYear();
   const mo = String(d.getMonth() + 1).padStart(2, '0');
@@ -41,11 +45,13 @@ function frenchShortDate(d: Date): string {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
 }
 
+/** Même convention que `formatEventSectionTitle` / mock événements (jour + mois + année). */
 function frenchSectionLabel(d: Date): string {
   const raw = d.toLocaleDateString('fr-FR', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
+    year: 'numeric',
   });
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
@@ -200,6 +206,13 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const selectThemeCover = useCallback((theme: DefaultEventCoverTheme) => {
     setImageUri(theme.imageUrl);
     setCoverImageNonce((n) => n + 1);
+    const tagToken = `#${theme.tag}`;
+    setDescription((prev) => {
+      if (foldNorm(prev).includes(foldNorm(tagToken))) return prev;
+      const base = prev.trimEnd();
+      const next = base.length > 0 ? `${base} ${tagToken}` : tagToken;
+      return next.length > MAX_DESCRIPTION_LEN ? next.slice(0, MAX_DESCRIPTION_LEN) : next;
+    });
   }, []);
 
   const onCoverFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -9,10 +9,12 @@
   position: relative;
 }
 
-/* ── Calendar gradient header ── */
-.cal-gradient {
-  background: linear-gradient(90deg, #2D1A45, #4F1D52, #7A2462, #9B2D6E);
+/* ── Calendar / recherche : même hauteur de bandeau (ligne titre + ligne 48px) ── */
+.cal-gradient,
+.search-header-gradient {
+  background: linear-gradient(90deg, #2d1a45, #4f1d52, #7a2462, #9b2d6e);
   padding: calc(env(safe-area-inset-top, 0px) + 6px) 0 8px;
+  box-sizing: border-box;
 }
 
 .cal-top-row {
@@ -60,12 +62,14 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Week strip */
+/* Week strip — même hauteur que .events-search-bar (48px) */
 .cal-week-row {
   display: flex;
   padding: 0 6px;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  min-height: 48px;
+  box-sizing: border-box;
 }
 
 .cal-day-col {
@@ -105,19 +109,15 @@
 
 .cal-num--sel { color: #fff; }
 
-/* ── Search header ── */
-.search-header-gradient {
-  background: linear-gradient(90deg, #2D1A45, #4F1D52, #7A2462, #9B2D6E);
-  padding: calc(env(safe-area-inset-top, 0px) + 6px) 0 10px;
-}
-
 .search-mode-top {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   padding: 0 14px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+  min-height: 44px;
+  box-sizing: border-box;
 }
 
 .search-mode-title {
@@ -136,7 +136,127 @@
 
 .events-search-row {
   padding: 0 12px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
+}
+
+.events-search-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+
+.events-search-toolbar--filters {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.events-search-toolbar--filters::-webkit-scrollbar {
+  display: none;
+}
+
+.events-filter-toggle {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.events-filter-toggle:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.events-filter-toggle--active {
+  border-color: rgba(255, 214, 10, 0.45);
+  background: rgba(255, 214, 10, 0.12);
+}
+
+.events-search-loupe-only {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.events-search-loupe-only:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.events-search-loupe-only:focus-visible {
+  outline: none;
+  border-color: rgba(155, 93, 229, 0.55);
+  box-shadow: 0 0 0 2px rgba(155, 93, 229, 0.22);
+}
+
+.events-filter-field {
+  flex: 0 1 120px;
+  min-width: 72px;
+  height: 48px;
+  box-sizing: border-box;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0 10px;
+  outline: none;
+  color-scheme: dark;
+  accent-color: #9b5de5;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.events-filter-field--grow {
+  flex: 1 1 100px;
+  min-width: 64px;
+}
+
+.events-filter-field--date {
+  flex: 0 0 auto;
+  min-width: 132px;
+  max-width: 150px;
+}
+
+.events-filter-field::placeholder {
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.events-filter-field:focus {
+  border-color: rgba(155, 93, 229, 0.55);
+  box-shadow: 0 0 0 2px rgba(155, 93, 229, 0.2);
+}
+
+.events-filter-select {
+  cursor: pointer;
+  padding-right: 28px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.55)' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  text-overflow: ellipsis;
+}
+
+.events-filter-select option {
+  background: #1c1c1e;
+  color: #fff;
 }
 
 .events-search-bar {
@@ -147,6 +267,11 @@
   padding: 0 16px;
   height: 48px;
   gap: 8px;
+}
+
+.events-search-bar--grow {
+  flex: 1;
+  min-width: 0;
 }
 
 .events-search-input {
