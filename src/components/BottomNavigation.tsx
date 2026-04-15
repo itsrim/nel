@@ -1,4 +1,4 @@
-import { MessageCircle, Calendar, User } from 'lucide-react';
+import { Home, MessageCircle, Calendar, User } from 'lucide-react';
 import { useNavigationStore, type TabId } from '../store/useNavigationStore';
 import './BottomNavigation.css';
 
@@ -10,8 +10,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: 'chat', label: 'Chat', icon: MessageCircle },
-  { id: 'events', label: 'Event', icon: Calendar },
-  { id: 'profile', label: 'Profil', icon: User },
+  { id: 'events', label: 'Events', icon: Calendar },
+  { id: 'profile', label: 'Profile', icon: User },
 ];
 
 export function BottomNavigation() {

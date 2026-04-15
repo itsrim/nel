@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Calendar, Check, ChevronLeft, ChevronRight, Plus, Search, X } from 'lucide-react';
+import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
 import { EventCard } from '../components/EventCard';
 import type { Event } from '../data/mockData';
@@ -91,6 +92,7 @@ function CalendarWeekStrip({ weekStart, selectedDateKey, onSelectDateKey }: {
 
 /* ── Main ── */
 export function EventsPage() {
+  const { openDetail } = useNavigationStore();
   const { events, toggleEventFavorite } = useMessagingStore();
   const [weekStartMonday, setWeekStartMonday] = useState(() => new Date(INITIAL_WEEK_MONDAY));
   const [selectedDateKey, setSelectedDateKey] = useState(toDateKey(INITIAL_WEEK_MONDAY));
@@ -212,7 +214,12 @@ export function EventsPage() {
             <div className="events-top5-scroll">
               {topWeekEvents.map((e) => (
                 <div key={e.id} style={{ width: topCardW, flexShrink: 0, marginRight: 12 }}>
-                  <EventCard item={e} onToggleFavorite={() => toggleEventFavorite(e.id)} width={topCardW} />
+                  <EventCard 
+                    item={e} 
+                    onToggleFavorite={() => toggleEventFavorite(e.id)} 
+                    width={topCardW} 
+                    onClick={() => openDetail('event', e.id)}
+                  />
                 </div>
               ))}
             </div>
@@ -235,11 +242,21 @@ export function EventsPage() {
               {section.data.map((row) => (
                 <div key={row.key} className="events-grid-row">
                   <div style={{ width: colW }}>
-                    <EventCard item={row.left} onToggleFavorite={() => toggleEventFavorite(row.left.id)} width={colW} />
+                    <EventCard 
+                      item={row.left} 
+                      onToggleFavorite={() => toggleEventFavorite(row.left.id)} 
+                      width={colW} 
+                      onClick={() => openDetail('event', row.left.id)}
+                    />
                   </div>
                   {row.right ? (
                     <div style={{ width: colW }}>
-                      <EventCard item={row.right} onToggleFavorite={() => toggleEventFavorite(row.right!.id)} width={colW} />
+                      <EventCard 
+                        item={row.right} 
+                        onToggleFavorite={() => toggleEventFavorite(row.right!.id)} 
+                        width={colW} 
+                        onClick={() => openDetail('event', row.right!.id)}
+                      />
                     </div>
                   ) : (
                     <div style={{ width: colW }} />

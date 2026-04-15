@@ -1,0 +1,212 @@
+/* ── OtherProfilePage ───────────────────────────────────────── */
+
+.other-profile-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1300;
+  background-color: #000;
+  overflow-y: auto;
+  padding-bottom: 40px;
+}
+
+.op-hero {
+  position: relative;
+  height: 320px;
+  width: 100%;
+}
+
+.op-hero-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.op-hero-gradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.2) 65%, transparent 100%);
+}
+
+.op-header {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 16px;
+  z-index: 10;
+}
+
+.op-back-btn, .op-report-btn {
+  background: rgba(0,0,0,0.3);
+  border: none;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.op-hero-content {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+}
+
+.op-title {
+  color: #fff;
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.op-verified-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: rgba(255,255,255,0.95);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.op-content {
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.op-bio-card {
+  background-color: #1A1A1A;
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.op-bio-text {
+  color: #fff;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.op-divider {
+  height: 1px;
+  background-color: #333;
+}
+
+.op-info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #8E8E93;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.op-stats-row {
+  display: flex;
+  gap: 10px;
+}
+
+.op-stat-cell {
+  flex: 1;
+  background-color: #1A1A1A;
+  border-radius: 14px;
+  padding: 16px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.op-stat-value {
+  color: #42A5F5;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.op-stat-label {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.op-section-title {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  margin: 4px 0 0;
+}
+
+.op-badges-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.op-badge-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #1A1A1A;
+  padding: 8px 14px;
+  border-radius: 20px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.op-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.op-btn-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background-color: #2196F3;
+  color: #fff;
+  padding: 16px;
+  border-radius: 14px;
+  border: none;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 8px rgba(33, 150, 243, 0.35);
+}
+
+.op-btn-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background-color: transparent;
+  color: #FF3B30;
+  padding: 14px;
+  border-radius: 14px;
+  border: 2px solid #FF3B30;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}

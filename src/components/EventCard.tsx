@@ -5,15 +5,16 @@ import './EventCard.css';
 interface EventCardProps {
   item: Event;
   onToggleFavorite: () => void;
+  onClick?: () => void;
   width?: number;
 }
 
-export function EventCard({ item, onToggleFavorite, width }: EventCardProps) {
+export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardProps) {
   const CARD_IMAGE_ASPECT = 2.05;
   const imgH = width ? Math.round(width / CARD_IMAGE_ASPECT) : 90;
 
   return (
-    <div className="ecard" style={width ? { width } : undefined}>
+    <div className="ecard" style={width ? { width } : undefined} onClick={onClick}>
       <div className="ecard-img-wrap" style={{ height: imgH }}>
         <img
           src={item.imageUri}

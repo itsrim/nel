@@ -1,310 +1,338 @@
-import { useState } from 'react';
-import { Calendar, Heart, Users, Clock, Settings, Award, Globe, Shield, Crown, Check, Moon, Sun } from 'lucide-react';
-import { useThemeStore } from '../store/useThemeStore';
+import { useState, useMemo, useRef } from 'react';
+import {
+  Settings,
+  Camera,
+  ShieldCheck,
+  Pencil,
+  Calendar,
+  Award,
+  Heart,
+  Users,
+  AlertTriangle,
+  Clock,
+  Bell,
+  X,
+  Plus,
+  Crown,
+  Shield,
+  Trash2,
+  LogOut,
+  Globe,
+  FlaskConical,
+  MessageCircle,
+  EyeOff,
+  ListChecks,
+  User,
+  Check
+} from 'lucide-react';
+import { useMessagingStore } from '../store/useMessagingStore';
+import { EventCard } from '../components/EventCard';
 import './ProfilePage.css';
 
-type ProfileTab = 'upcoming' | 'favorites' | 'friends' | 'past' | 'settings';
-
-interface Badge {
-  id: string;
-  name: string;
-  icon: React.ComponentType<any>;
-}
-
-interface Event {
-  id: number;
-  title: string;
-  date: string;
-  time: string;
-  image: string;
-  isFavorite?: boolean;
-  participated?: boolean;
-}
-
-interface Friend {
-  id: number;
-  name: string;
-  avatar: string;
-  eventsInCommon: number;
-}
-
-const badges: Badge[] = [
-  { id: 'punctual', name: 'Ponctuel', icon: Award },
-  { id: 'organizer', name: 'Organisateur', icon: Award },
-  { id: 'friendly', name: 'Amical', icon: Award },
-  { id: 'explorer', name: 'Explorateur', icon: Award },
-];
-
-const upcomingEvents: Event[] = [];
-
-const favoriteEvents: Event[] = [
-  { id: 1, title: 'Session Photo', date: '1 janv.', time: '20:00', image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200', isFavorite: true },
-  { id: 2, title: 'Atelier Écriture', date: '1 janv.', time: '08:00', image: 'https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=200', isFavorite: true },
-  { id: 3, title: 'Atelier DIY', date: '1 janv.', time: '14:00', image: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=200', isFavorite: true },
-  { id: 4, title: 'Atelier Cocktails', date: '1 janv.', time: '08:00', image: 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=200', isFavorite: true },
-];
-
-const pastEvents: Event[] = [
-  { id: 5, title: 'Escape Game', date: '31 janv.', time: '17:00', image: 'https://images.unsplash.com/photo-1569863959165-56dae551d4fc?w=200', participated: true },
-  { id: 6, title: "Tournoi d'Échecs", date: '31 janv.', time: '15:30', image: 'https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=200', participated: true },
-  { id: 7, title: 'Session Photo', date: '31 janv.', time: '11:00', image: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=200', participated: true },
-  { id: 8, title: 'Session Photo', date: '31 janv.', time: '10:00', image: 'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=200', participated: true },
-];
-
-const friends: Friend[] = [
-  { id: 1, name: 'Marie L.', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', eventsInCommon: 12 },
-  { id: 2, name: 'Lucas M.', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', eventsInCommon: 8 },
-  { id: 3, name: 'Emma R.', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100', eventsInCommon: 15 },
-  { id: 4, name: 'Hugo D.', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100', eventsInCommon: 6 },
-];
-
-const tabCounts = {
-  upcoming: 0,
-  favorites: 173,
-  friends: 6,
-  past: 687,
-};
+type TabId = 'favorites' | 'friends' | 'history' | 'notifications' | 'reports';
 
 export function ProfilePage() {
-  const [activeTab, setActiveTab] = useState<ProfileTab>('upcoming');
+  const { events, friends, toggleEventFavorite } = useMessagingStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [activeTab, setActiveTab] = useState<TabId>('favorites');
+  const [editing, setEditing] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Mock user state
+  const [displayName, setDisplayName] = useState('Jean J.');
+  const [age, setAge] = useState('28');
+  const [bio, setBio] = useState('Passionné de rando et de sorties culturelles sur Paris ! 🏔️🎭');
+  const [heroImg, setHeroImg] = useState('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800');
   const [isPremium, setIsPremium] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [language, setLanguage] = useState<'FR' | 'EN'>('FR');
-  const { isDarkMode, toggleTheme } = useThemeStore();
+  const [isAdmin, setIsAdmin] = useState(true);
 
-  const tabs: { id: ProfileTab; label: string; icon: React.ComponentType<any>; count?: number }[] = [
-    { id: 'upcoming', label: 'À venir', icon: Calendar, count: tabCounts.upcoming },
-    { id: 'favorites', label: 'Favoris', icon: Heart, count: tabCounts.favorites },
-    { id: 'friends', label: 'Amis', icon: Users, count: tabCounts.friends },
-    { id: 'past', label: 'Passés', icon: Clock, count: tabCounts.past },
-    { id: 'settings', label: 'Paramètres', icon: Settings },
-  ];
+  const favoriteEvents = useMemo(() => events.filter(e => e.isFavorite), [events]);
+  const historyEvents = useMemo(() => events.filter(e => e.status === 'inscrit' || e.status === 'organisateur'), [events]);
+  const upcomingEvents = useMemo(() => events.filter(e => (e.status === 'inscrit' || e.status === 'organisateur' || e.status === 'en_attente')), [events]);
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'upcoming':
-        return (
-          <div className="tab-content">
-            {upcomingEvents.length === 0 ? (
-              <div className="empty-state">
-                <Calendar size={48} className="empty-icon" />
-                <p>Aucun événement à venir.</p>
-              </div>
-            ) : (
-              <div className="events-list">
-                {upcomingEvents.map((event) => (
-                  <div key={event.id} className="event-item">
-                    <img src={event.image} alt={event.title} className="event-image" />
-                    <div className="event-info">
-                      <h3>{event.title}</h3>
-                      <p>{event.date} · {event.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
+  const handlePhotoClick = () => {
+    fileInputRef.current?.click();
+  };
 
-      case 'favorites':
-        return (
-          <div className="tab-content">
-            <div className="events-list">
-              {favoriteEvents.map((event) => (
-                <div key={event.id} className="event-item">
-                  <div className="event-image-wrapper">
-                    <img src={event.image} alt={event.title} className="event-image" />
-                    <span className="favorite-badge"><Heart size={12} fill="#fff" /></span>
-                  </div>
-                  <div className="event-info">
-                    <h3>{event.title}</h3>
-                    <p>{event.date} · {event.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-
-      case 'friends':
-        return (
-          <div className="tab-content">
-            <div className="friends-list">
-              {friends.map((friend) => (
-                <div key={friend.id} className="friend-item">
-                  <img src={friend.avatar} alt={friend.name} className="friend-avatar" />
-                  <div className="friend-info">
-                    <h3>{friend.name}</h3>
-                    <p>{friend.eventsInCommon} événements en commun</p>
-                  </div>
-                  <button className="see-button">Voir</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-
-      case 'past':
-        return (
-          <div className="tab-content">
-            <div className="events-list">
-              {pastEvents.map((event) => (
-                <div key={event.id} className="event-item">
-                  <img src={event.image} alt={event.title} className="event-image" />
-                  <div className="event-info">
-                    <h3>{event.title}</h3>
-                    <p>
-                      {event.date} · {event.time}
-                      {event.participated && (
-                        <span className="participated-badge">
-                          <Check size={12} /> Participé
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-
-      case 'settings':
-        return (
-          <div className="tab-content settings-content">
-            <div className={`setting-card premium ${isPremium ? 'active' : ''}`}>
-              <div className="setting-icon premium-icon">
-                <Crown size={24} />
-              </div>
-              <div className="setting-info">
-                <h3>Premium Activé</h3>
-                <p>Toutes les fonctionnalités débloquées</p>
-              </div>
-              <label className="toggle">
-                <input 
-                  type="checkbox" 
-                  checked={isPremium} 
-                  onChange={() => setIsPremium(!isPremium)} 
-                />
-                <span className="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div className="setting-card">
-              <div className="setting-icon admin-icon">
-                <Shield size={24} />
-              </div>
-              <div className="setting-info">
-                <h3>Admin Mode</h3>
-                <p>Mode utilisateur standard</p>
-              </div>
-              <label className="toggle">
-                <input 
-                  type="checkbox" 
-                  checked={isAdmin} 
-                  onChange={() => setIsAdmin(!isAdmin)} 
-                />
-                <span className="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div className="setting-card">
-              <div className="setting-icon theme-icon">
-                {isDarkMode ? <Moon size={24} /> : <Sun size={24} />}
-              </div>
-              <div className="setting-info">
-                <h3>Mode Sombre</h3>
-                <p>{isDarkMode ? 'Thème sombre activé' : 'Thème clair activé'}</p>
-              </div>
-              <label className="toggle">
-                <input 
-                  type="checkbox" 
-                  checked={isDarkMode} 
-                  onChange={toggleTheme} 
-                />
-                <span className="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div className="setting-card">
-              <div className="setting-icon language-icon">
-                <Globe size={24} />
-              </div>
-              <div className="setting-info">
-                <h3>Langue</h3>
-                <p>Français</p>
-              </div>
-              <div className="language-buttons">
-                <button 
-                  className={`lang-btn ${language === 'FR' ? 'active' : ''}`}
-                  onClick={() => setLanguage('FR')}
-                >
-                  FR
-                </button>
-                <button 
-                  className={`lang-btn ${language === 'EN' ? 'active' : ''}`}
-                  onClick={() => setLanguage('EN')}
-                >
-                  EN
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-
-      default:
-        return null;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setHeroImg(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
+  const badges = [
+    { id: 'punctual', label: 'Ponctuel', icon: Award },
+    { id: 'organizer', label: 'Organisateur', icon: Award },
+    { id: 'friendly', label: 'Amical', icon: Award },
+    { id: 'explorer', label: 'Explorateur', icon: Award },
+  ];
+
   return (
     <div className="profile-page">
-      {/* Profile Header */}
-      <div className="profile-header">
-        <div className="profile-avatar">
-          <img 
-            src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200" 
-            alt="Profile"
-          />
+      {/* Hero Section */}
+      <div className="profile-hero">
+        <img
+          src={heroImg}
+          alt="Profile"
+          className="hero-img"
+        />
+        <div className="hero-overlay" />
+        
+        <div className="hero-top-btns">
+          <button className="hero-icon-btn" onClick={() => setSettingsOpen(true)} aria-label="Settings">
+            <Settings size={22} color="#fff" />
+          </button>
+          <div style={{ flex: 1 }} />
+          <button className="hero-icon-btn" onClick={handlePhotoClick} aria-label="Change photo">
+            <Camera size={22} color="#fff" />
+          </button>
         </div>
-        <h1 className="profile-name">Jean Dupont</h1>
-        <p className="profile-location">Toulouse, France</p>
+
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          onChange={handleFileChange} 
+          style={{ display: 'none' }} 
+          accept="image/*"
+        />
+
+        <div className="hero-bottom-info">
+          {!editing ? (
+            <h1 className="hero-name">{displayName}{age ? `, ${age}` : ''}</h1>
+          ) : (
+            <div className="hero-edit-fields">
+              <input 
+                value={displayName} 
+                onChange={e => setDisplayName(e.target.value)}
+                placeholder="Nom"
+                className="hero-input"
+              />
+              <input 
+                value={age} 
+                onChange={e => setAge(e.target.value)}
+                placeholder="Âge"
+                className="hero-input hero-input--small"
+              />
+            </div>
+          )}
+          <div className="verified-badge">
+            <ShieldCheck size={16} color="#22C55E" />
+            <span>Profil vérifié</span>
+          </div>
+        </div>
       </div>
 
-      {/* Badges Section */}
-      <div className="badges-section">
-        <h2 className="section-title">Badges</h2>
-        <div className="badges-scroll">
-          {badges.map((badge) => (
-            <div key={badge.id} className="badge-item">
-              <Award size={18} className="badge-icon" />
-              <span>{badge.name}</span>
+      <div className="profile-content">
+        {/* Bio Card */}
+        <div className="bio-card">
+          {!editing ? (
+            <p className="bio-text">{bio || '—'}</p>
+          ) : (
+            <textarea
+              value={bio}
+              onChange={e => setBio(e.target.value)}
+              placeholder="Bio..."
+              className="bio-textarea"
+            />
+          )}
+          <div className="bio-divider" />
+          <div className="member-since">
+            <Calendar size={16} color="#8E8E93" />
+            <span>Membre depuis 2024</span>
+          </div>
+          <div className="bio-actions">
+            {!editing ? (
+              <button className="edit-btn" onClick={() => setEditing(true)}>
+                <Pencil size={16} color="#FBBF24" />
+                <span>Modifier le profil</span>
+              </button>
+            ) : (
+              <div className="edit-save-cancel">
+                <button className="cancel-btn" onClick={() => setEditing(false)}>Annuler</button>
+                <button className="save-btn" onClick={() => setEditing(false)}>Enregistrer</button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Badges */}
+        <div className="section-title">Badges</div>
+        <div className="badges-grid">
+          {badges.map(b => (
+            <div key={b.id} className="badge-chip">
+              <span>{b.label}</span>
             </div>
           ))}
+          <div className="badge-chip badge-chip--add">
+            <Plus size={14} />
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="stats-row">
+          <div className="stat-item">
+            <span className="stat-num" style={{ color: '#FBBF24' }}>4.8</span>
+            <span className="stat-label">Fiabilité</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-num" style={{ color: '#8B5CF6' }}>{upcomingEvents.length}</span>
+            <span className="stat-label">À venir</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-num" style={{ color: '#9CA3AF' }}>0</span>
+            <span className="stat-label">No-shows</span>
+          </div>
+        </div>
+
+        {/* Sub Tabs */}
+        <div className="profile-tabs">
+          <button className={`p-tab ${activeTab === 'favorites' ? 'p-tab--active' : ''}`} onClick={() => setActiveTab('favorites')}>
+            <div className="p-tab-inner">
+              <Heart size={18} color={activeTab === 'favorites' ? '#FF4B81' : '#8E8E93'} />
+              <span>Favoris</span>
+              <span className="p-tab-badge" style={{ background: '#FF4B81' }}>{favoriteEvents.length}</span>
+            </div>
+          </button>
+          <button className={`p-tab ${activeTab === 'friends' ? 'p-tab--active' : ''}`} onClick={() => setActiveTab('friends')}>
+            <div className="p-tab-inner">
+              <Users size={18} color={activeTab === 'friends' ? '#8B5CF6' : '#8E8E93'} />
+              <span>Amis</span>
+              <span className="p-tab-badge" style={{ background: '#8B5CF6' }}>{friends.length}</span>
+            </div>
+          </button>
+          {isAdmin && (
+            <button className={`p-tab ${activeTab === 'reports' ? 'p-tab--active' : ''}`} onClick={() => setActiveTab('reports')}>
+              <div className="p-tab-inner">
+                <AlertTriangle size={18} color={activeTab === 'reports' ? '#EF4444' : '#8E8E93'} />
+                <span>Signalements</span>
+              </div>
+            </button>
+          )}
+          <button className={`p-tab ${activeTab === 'history' ? 'p-tab--active' : ''}`} onClick={() => setActiveTab('history')}>
+            <div className="p-tab-inner">
+              <Clock size={18} color={activeTab === 'history' ? '#6B7280' : '#8E8E93'} />
+              <span>Passés</span>
+              <span className="p-tab-badge" style={{ background: '#6B7280' }}>{historyEvents.length}</span>
+            </div>
+          </button>
+          <button className={`p-tab ${activeTab === 'notifications' ? 'p-tab--active' : ''}`} onClick={() => setActiveTab('notifications')}>
+            <div className="p-tab-inner">
+              <Bell size={18} color={activeTab === 'notifications' ? '#5AC8FA' : '#8E8E93'} />
+              <span>Notifications</span>
+            </div>
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        <div className="tab-container">
+          {activeTab === 'favorites' && (
+            <div className="favorites-list">
+              {favoriteEvents.map(e => (
+                <div key={e.id} className="p-event-row">
+                  <img src={e.imageUri} alt={e.title} className="p-event-img" />
+                  <div className="p-event-info">
+                    <div className="p-event-title">{e.title}</div>
+                    <div className="p-event-meta">{e.dateLabel} · {e.timeShort}</div>
+                  </div>
+                  <Heart size={20} fill="#FF4B81" color="#FF4B81" onClick={() => toggleEventFavorite(e.id)} style={{ cursor: 'pointer' }} />
+                </div>
+              ))}
+              {favoriteEvents.length === 0 && <div className="empty-hint">Aucun favori pour le moment.</div>}
+            </div>
+          )}
+
+          {activeTab === 'friends' && (
+            <div className="friends-list">
+              {friends.map(f => (
+                <div key={f.profilId} className="friend-card">
+                  <img src={f.imageUrl} alt={f.name} className="friend-av" />
+                  <div className="friend-info">
+                    <div className="friend-name">{f.name}</div>
+                    <div className="friend-sub">
+                      {f.age} ans · {f.city} · {f.eventsInCommon} communs
+                    </div>
+                  </div>
+                  <button className="view-btn">Voir</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'history' && (
+            <div className="history-list">
+              {historyEvents.map(e => (
+                <div key={e.id} className="p-event-row">
+                  <img src={e.imageUri} alt={e.title} className="p-event-img" />
+                  <div className="p-event-info">
+                    <div className="p-event-title">{e.title}</div>
+                    <div className="p-event-meta">{e.dateLabel} · {e.timeShort}</div>
+                  </div>
+                </div>
+              ))}
+              {historyEvents.length === 0 && <div className="empty-hint">Aucune activité passée.</div>}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="profile-tabs">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              className={`profile-tab ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              <Icon size={16} />
-              <span>{tab.label}</span>
-              {tab.count !== undefined && (
-                <span className={`tab-count ${tab.id}`}>{tab.count}</span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {/* Settings Modal */}
+      {settingsOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Paramètres</h3>
+              <button onClick={() => setSettingsOpen(false)}><X size={24} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="setting-section">
+                <div className="setting-item">
+                  <div className="setting-icon gold"><Crown size={20} /></div>
+                  <div className="setting-text">
+                    <div className="setting-label">Premium</div>
+                    <div className="setting-sub">Toutes les fonctionnalités débloquées</div>
+                  </div>
+                  <input type="checkbox" checked={isPremium} onChange={e => setIsPremium(e.target.checked)} className="switch" />
+                </div>
+                <div className="setting-item">
+                  <div className="setting-icon pink"><Shield size={20} color="#fff" /></div>
+                  <div className="setting-text">
+                    <div className="setting-label">Mode Admin</div>
+                    <div className="setting-sub">Accès aux outils de modération</div>
+                  </div>
+                  <input type="checkbox" checked={isAdmin} onChange={e => setIsAdmin(e.target.checked)} className="switch" />
+                </div>
+              </div>
 
-      {/* Tab Content */}
-      {renderTabContent()}
+              <div className="setting-section">
+                <button className="setting-btn">
+                  <Globe size={20} />
+                  <span>Langue : Français</span>
+                </button>
+                <button className="setting-btn">
+                  <FlaskConical size={20} />
+                  <span>Activer les fonctionnalités Bêta</span>
+                </button>
+              </div>
+
+              <div className="setting-section">
+                <button className="setting-btn danger">
+                  <LogOut size={20} />
+                  <span>Se déconnecter</span>
+                </button>
+                <button className="setting-btn danger">
+                  <Trash2 size={20} />
+                  <span>Supprimer mon compte</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

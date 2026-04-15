@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Crown, Eye, Heart, Plus, Search } from 'lucide-react';
+import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
 import {
   formatRelativeTime,
@@ -77,9 +78,10 @@ function FavoriteStripAvatar({ conversationId, gradient }: { conversationId: str
 }
 
 function FavoriteStripItem({ conversation }: { conversation: Conversation }) {
+  const { openDetail } = useNavigationStore();
   const label = truncateStoryLabel(conversation.title);
   return (
-    <button className="story-cell" aria-label={conversation.title}>
+    <button className="story-cell" aria-label={conversation.title} onClick={() => openDetail('chat', conversation.id)}>
       <div className="story-ring">
         <FavoriteStripAvatar conversationId={conversation.id} gradient={conversation.avatarGradient} />
         {conversation.unreadCount > 0 && (
@@ -127,9 +129,10 @@ function ListAvatar({ item }: { item: Conversation }) {
 }
 
 function ConversationRow({ item }: { item: Conversation }) {
+  const { openDetail } = useNavigationStore();
   const isGroup = item.type === 'group';
   return (
-    <button className="conv-row" aria-label={item.title}>
+    <button className="conv-row" aria-label={item.title} onClick={() => openDetail('chat', item.id)}>
       <div className="conv-row-inner">
         <div className="avatar-column">
           <ListAvatar item={item} />
@@ -180,6 +183,7 @@ function SubTabPill({
 /* ── Main ── */
 
 export function ChatPage() {
+  const { openDetail } = useNavigationStore();
   const { conversations, profileVisits, suggestions, favoriteConversationIds } = useMessagingStore();
   const [sub, setSub] = useState<SubTab>('messages');
   const [visitLikedById, setVisitLikedById] = useState<Record<string, boolean>>({});
@@ -281,7 +285,7 @@ export function ChatPage() {
               </div>
             </div>
             {sortedVisits.map((v) => (
-              <div key={v.id} className="visit-card">
+              <div key={v.id} className="visit-card" onClick={() => openDetail('profile', v.id)}>
                 <div className="visit-avatar-wrap">
                   <img src={v.avatarUrl} alt={v.name} className="visit-avatar" />
                   {v.friendRequest && (
@@ -318,7 +322,7 @@ export function ChatPage() {
                   const liked = !!suggestionLikedById[item.id];
                   return (
                     <div key={item.id} className="suggestion-card">
-                      <div className="suggestion-img-press">
+                      <div className="suggestion-img-press" onClick={() => openDetail('profile', item.id)}>
                         <img
                           src={item.imageUrl}
                           alt={item.pseudo}

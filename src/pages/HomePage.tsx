@@ -1,357 +1,148 @@
-import { Filter, X, List, MapPin, Calendar, ChevronDown, Locate, Menu } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { Search, SlidersHorizontal, X, Check } from 'lucide-react';
+import { useNavigationStore } from '../store/useNavigationStore';
+import { useMessagingStore } from '../store/useMessagingStore';
+import { EventCard } from '../components/EventCard';
+import { QuestionnaireModal } from '../components/QuestionnaireModal';
 import './HomePage.css';
 
-interface Event {
-  id: number;
-  title: string;
-  location: string;
-  time: string;
-  date: string;
-  price: string;
-  rating: string;
-  image: string;
-  lat: number;
-  lng: number;
-}
-
-interface Cluster {
-  lat: number;
-  lng: number;
-  events: Event[];
-  count: number;
-}
-
-const events: Event[] = [
-  {
-    id: 1,
-    title: 'Concert Jazz',
-    location: 'Centre-ville, Toulouse',
-    time: '20:00',
-    date: 'Jeu 10 Avr 2025',
-    price: '25€',
-    rating: '4.8',
-    image: 'jazz',
-    lat: 43.6047,
-    lng: 1.4442,
-  },
-  {
-    id: 2,
-    title: 'Festival de Musique',
-    location: 'Place du Capitole',
-    time: '18:00',
-    date: 'Ven 11 Avr 2025',
-    price: '30€',
-    rating: '4.9',
-    image: 'festival',
-    lat: 43.6045,
-    lng: 1.4440,
-  },
-  {
-    id: 3,
-    title: 'Exposition Art',
-    location: 'Musée des Abattoirs',
-    time: '14:00',
-    date: 'Sam 12 Avr 2025',
-    price: '15€',
-    rating: '4.7',
-    image: 'art',
-    lat: 43.6050,
-    lng: 1.4445,
-  },
-  {
-    id: 4,
-    title: 'Théâtre',
-    location: 'Théâtre du Capitole',
-    time: '19:30',
-    date: 'Dim 13 Avr 2025',
-    price: '35€',
-    rating: '4.9',
-    image: 'theatre',
-    lat: 43.6043,
-    lng: 1.4438,
-  },
-  {
-    id: 5,
-    title: 'Concert Rock',
-    location: 'Zénith, Toulouse',
-    time: '21:00',
-    date: 'Lun 14 Avr 2025',
-    price: '40€',
-    rating: '4.6',
-    image: 'rock',
-    lat: 43.6060,
-    lng: 1.4450,
-  },
-];
-
-// Distance de clustering en degrés (environ 200m)
-const CLUSTER_DISTANCE = 0.002;
-
-// Fonction pour calculer la distance entre deux points en degrés
-function getDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const dLat = lat2 - lat1;
-  const dLng = lng2 - lng1;
-  return Math.sqrt(dLat * dLat + dLng * dLng);
-}
-
-// Fonction de clustering
-function clusterEvents(events: Event[]): Cluster[] {
-  const clusters: Cluster[] = [];
-  const processed = new Set<number>();
-
-  events.forEach((event) => {
-    if (processed.has(event.id)) return;
-
-    const cluster: Cluster = {
-      lat: event.lat,
-      lng: event.lng,
-      events: [event],
-      count: 1,
-    };
-    processed.add(event.id);
-
-    // Chercher les événements proches
-    events.forEach((otherEvent) => {
-      if (processed.has(otherEvent.id)) return;
-      
-      const distance = getDistance(event.lat, event.lng, otherEvent.lat, otherEvent.lng);
-      if (distance < CLUSTER_DISTANCE) {
-        cluster.events.push(otherEvent);
-        cluster.count++;
-        processed.add(otherEvent.id);
-        
-        // Recalculer le centre du cluster
-        cluster.lat = cluster.events.reduce((sum, e) => sum + e.lat, 0) / cluster.events.length;
-        cluster.lng = cluster.events.reduce((sum, e) => sum + e.lng, 0) / cluster.events.length;
-      }
-    });
-
-    clusters.push(cluster);
-  });
-
-  return clusters;
-}
-
 export function HomePage() {
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
-  const [clusterEventIndex, setClusterEventIndex] = useState(0);
-  const [scrollCollapsed, setScrollCollapsed] = useState(false);
+  const { openDetail } = useNavigationStore();
+  const { events } = useMessagingStore();
+  const [searchDraft, setSearchDraft] = useState('');
+  const [committedSearch, setCommittedSearch] = useState('');
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
+  const [isQuestionnaireOpen, setIsQuestionnaireOpen] = useState(true); // Open on first load matching meetabit
 
-  // Calculer les clusters
-  const clusters = useMemo(() => clusterEvents(events), []);
+  // Mock tags matching meetabit
+  const tags = [
+    { id: '1', label: 'Tout' },
+    { id: '2', label: 'Sport' },
+    { id: '3', label: 'Sorties' },
+    { id: '4', label: 'Culture' },
+    { id: '5', label: 'Détente' },
+  ];
 
-  const handleClusterClick = (cluster: Cluster) => {
-    setScrollCollapsed(true);
-    if (cluster.count === 1) {
-      setSelectedEvent(cluster.events[0]);
-      setSelectedCluster(null);
-    } else {
-      // Si plusieurs événements, afficher le cluster avec scroll vertical
-      setSelectedCluster(cluster);
-      setSelectedEvent(cluster.events[0]);
-      setClusterEventIndex(0);
-    }
+  const filteredEvents = useMemo(() => {
+    return events.filter(e => {
+      const matchesSearch = e.title.toLowerCase().includes(committedSearch.toLowerCase()) || 
+                             e.location.toLowerCase().includes(committedSearch.toLowerCase());
+      // For now, tags are mock filtering
+      const matchesTag = !selectedTagId || selectedTagId === '1' || true; 
+      return matchesSearch && matchesTag;
+    });
+  }, [events, committedSearch, selectedTagId]);
+
+  const topEvents = useMemo(() => {
+    return [...filteredEvents]
+      .sort((a, b) => b.participantCount - a.participantCount)
+      .slice(0, 5);
+  }, [filteredEvents]);
+
+  // Group events by dateKey for the agenda
+  const groupedEvents = useMemo(() => {
+    const groups: Record<string, typeof events> = {};
+    filteredEvents.forEach(e => {
+      if (!groups[e.sectionDateLabel]) {
+        groups[e.sectionDateLabel] = [];
+      }
+      groups[e.sectionDateLabel].push(e);
+    });
+    return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filteredEvents]);
+
+  const handleApplySearch = () => {
+    setCommittedSearch(searchDraft);
   };
 
-  const handleEventCardClick = (event: Event) => {
-    setScrollCollapsed(true);
-    setSelectedEvent(event);
-    setSelectedCluster(null);
-    // Trouver le cluster correspondant
-    const cluster = clusters.find(c => c.events.some(e => e.id === event.id));
-    if (cluster && cluster.count > 1) {
-      setSelectedCluster(cluster);
-      setClusterEventIndex(cluster.events.findIndex(e => e.id === event.id));
-    }
-  };
-
-  const handleCloseInfo = () => {
-    setSelectedEvent(null);
-    setSelectedCluster(null);
-    setClusterEventIndex(0);
-    setScrollCollapsed(false);
-  };
-
-  const handleNextClusterEvent = () => {
-    if (selectedCluster && clusterEventIndex < selectedCluster.events.length - 1) {
-      const nextIndex = clusterEventIndex + 1;
-      setClusterEventIndex(nextIndex);
-      setSelectedEvent(selectedCluster.events[nextIndex]);
-    }
-  };
-
-  const handlePrevClusterEvent = () => {
-    if (selectedCluster && clusterEventIndex > 0) {
-      const prevIndex = clusterEventIndex - 1;
-      setClusterEventIndex(prevIndex);
-      setSelectedEvent(selectedCluster.events[prevIndex]);
-    }
-  };
-
-  // Convertir les coordonnées en pourcentage pour le positionnement
-  const getMarkerPosition = (lat: number, lng: number) => {
-    const centerLat = 43.6047;
-    const centerLng = 1.4442;
-    const latRange = 0.01; // Plage de latitude visible
-    const lngRange = 0.01; // Plage de longitude visible
-    
-    const left = 50 + ((lng - centerLng) / lngRange) * 40;
-    const top = 50 + ((centerLat - lat) / latRange) * 40;
-    
-    return { left: `${left}%`, top: `${top}%` };
+  const handleClearSearch = () => {
+    setSearchDraft('');
+    setCommittedSearch('');
   };
 
   return (
     <div className="home-page">
-      {/* Map Container */}
-      <div className="map-container">
-        {/* Header - Overlay on map */}
-        <header className="map-header home-map-header">
-          <button type="button" className="home-location-pill" aria-label="Changer de lieu">
-            <MapPin size={18} />
-            <span className="home-location-text">Toulouse</span>
-            <ChevronDown size={18} />
+      <header className="home-header">
+        <div className="search-row">
+          <div className="search-bar">
+            <Search size={20} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Rechercher une activité…"
+              value={searchDraft}
+              onChange={(e) => setSearchDraft(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleApplySearch()}
+            />
+            {searchDraft && (
+              <button className="clear-btn" onClick={handleClearSearch}>
+                <X size={18} />
+              </button>
+            )}
+            <button className="submit-btn" onClick={handleApplySearch}>
+              <Check size={20} />
+            </button>
+          </div>
+          <button className="filter-btn">
+            <SlidersHorizontal size={22} />
           </button>
-          <div className="home-header-actions">
-            <button type="button" className="home-header-icon-btn" aria-label="Ma position">
-              <Locate size={20} />
-            </button>
-            <button type="button" className="home-header-icon-btn" aria-label="Filtres">
-              <Filter size={20} />
-            </button>
-          </div>
-        </header>
-        <div className="map-placeholder">
-          <iframe
-            className="map-iframe"
-            src={`https://www.openstreetmap.org/export/embed.html?bbox=${1.4442 - 0.015},${43.6047 - 0.015},${1.4442 + 0.015},${43.6047 + 0.015}&layer=mapnik`}
-            width="100%"
-            height="100%"
-            frameBorder="0"
-            style={{ border: 0 }}
-            allowFullScreen
-          />
-          <div 
-            className="map-click-area" 
-            onClick={() => setScrollCollapsed(true)}
-          />
-          <div className="map-overlay">
-            <div className="map-content">
-              {clusters.map((cluster, index) => {
-                const position = getMarkerPosition(cluster.lat, cluster.lng);
-                const isSelected = selectedEvent && cluster.events.some(e => e.id === selectedEvent.id);
-                return (
-                  <div
-                    key={index}
-                    className={`event-marker ${isSelected ? 'selected' : ''} ${cluster.count > 1 ? 'cluster' : ''}`}
-                    style={position}
-                    onClick={() => handleClusterClick(cluster)}
-                  >
-                    <span className="marker-count">{cluster.count > 1 ? cluster.count : ''}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </div>
 
-        {/* Event Detail Card (style maquette: image gauche, infos droite, Next time / Going, pointeur) */}
-        {selectedEvent && (
-          <div className="event-detail-card event-detail-card-mock">
-            <button type="button" className="close-button" onClick={(e) => { e.stopPropagation(); handleCloseInfo(); }} aria-label="Fermer">
-              <X size={18} />
-            </button>
-            <div className="event-detail-card-top-actions">
-              {selectedCluster && selectedCluster.count > 1 && (
-                <div className="cluster-navigation">
-                  <button
-                    type="button"
-                    className="cluster-nav-button prev"
-                    onClick={(e) => { e.stopPropagation(); handlePrevClusterEvent(); }}
-                    disabled={clusterEventIndex === 0}
-                    aria-label="Précédent"
-                  >
-                    ←
-                  </button>
-                  <span className="cluster-counter">
-                    {clusterEventIndex + 1} / {selectedCluster.count}
-                  </span>
-                  <button
-                    type="button"
-                    className="cluster-nav-button next"
-                    onClick={(e) => { e.stopPropagation(); handleNextClusterEvent(); }}
-                    disabled={clusterEventIndex === selectedCluster.events.length - 1}
-                    aria-label="Suivant"
-                  >
-                    →
-                  </button>
-                </div>
-              )}
-              <button type="button" className="event-detail-menu-button" aria-label="Menu">
-                <Menu size={20} />
-              </button>
-            </div>
-            <div className="event-detail-card-inner">
-              <div className={`event-detail-thumb ${selectedEvent.image}`} />
-              <div className="event-detail-body">
-                <h3 className="event-detail-title">{selectedEvent.title}</h3>
-                <p className="event-detail-date">
-                  <Calendar size={14} />
-                  {selectedEvent.date}
-                </p>
-                <p className="event-detail-location">
-                  <MapPin size={14} />
-                  {selectedEvent.location}
-                </p>
-                <div className="event-detail-actions">
-                  <button type="button" className="action-button secondary next-time">Next time</button>
-                  <button type="button" className="action-button primary going">Going</button>
-                </div>
-              </div>
-            </div>
-            <div className="event-detail-pointer" aria-hidden />
-          </div>
-        )}
-      </div>
-
-      {/* Toggle List Button */}
-      {scrollCollapsed && (
-        <button 
-          className="toggle-list-button"
-          onClick={() => setScrollCollapsed(false)}
-          aria-label="Afficher la liste"
-        >
-          <List size={20} />
-        </button>
-      )}
-
-      {/* Events Horizontal Scroll */}
-      <div className={`events-horizontal-container ${scrollCollapsed ? 'collapsed' : ''}`}>
-        <div className="events-horizontal-scroll">
-          {events.map((event) => (
-            <div
-              key={event.id}
-              role="button"
-              tabIndex={0}
-              className={`event-card event-card-strip ${selectedEvent?.id === event.id ? 'selected' : ''}`}
-              onClick={(e) => { e.stopPropagation(); handleEventCardClick(event); }}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleEventCardClick(event); } }}
+        <div className="tags-scroll">
+          {tags.map(tag => (
+            <button
+              key={tag.id}
+              className={`tag-pill ${selectedTagId === tag.id ? 'active' : ''}`}
+              onClick={() => setSelectedTagId(tag.id === selectedTagId ? null : tag.id)}
             >
-              <div className={`event-card-image ${event.image}`} aria-hidden />
-              <div className="event-card-content">
-                <h3 className="event-card-title">{event.title}</h3>
-                <p className="event-card-location">
-                  <MapPin size={14} />
-                  {event.location}
-                </p>
-                <p className="event-card-rate">Rate <span className="event-card-rate-value">{event.rating}/5</span></p>
-              </div>
-            </div>
+              {tag.label}
+            </button>
           ))}
         </div>
-      </div>
+
+        {topEvents.length > 0 && (
+          <div className="top-section">
+            <h2 className="section-title">Top 5 Activités</h2>
+            <div className="top-scroll">
+              {topEvents.map(e => (
+                <div key={e.id} className="top-card-wrapper">
+                  <EventCard 
+                    item={e} 
+                    onToggleFavorite={() => {}} 
+                    onClick={() => openDetail('event', e.id)}
+                    width={280} 
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </header>
+
+      <main className="home-content">
+        <h2 className="section-title main-agenda-title">Agenda des activités</h2>
+        {groupedEvents.map(([date, items]) => (
+          <section key={date} className="agenda-group">
+            <h3 className="group-date-title">{date}</h3>
+            <div className="event-grid">
+              {items.map(e => (
+                <div key={e.id} className="grid-event-wrapper">
+                  <EventCard 
+                    item={e} 
+                    onToggleFavorite={() => {}} 
+                    onClick={() => openDetail('event', e.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </main>
+
+      {/* Questionnaire Trigger Logic could go here or in App */}
+      <QuestionnaireModal 
+        isOpen={isQuestionnaireOpen} 
+        onClose={() => setIsQuestionnaireOpen(false)} 
+      />
     </div>
   );
 }
