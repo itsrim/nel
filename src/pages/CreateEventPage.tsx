@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronUp,
   EyeOff,
+  Lock,
   FlaskConical,
   Loader2,
   MapPin,
@@ -88,7 +89,7 @@ function eventIsEditableByViewer(ev: Event): boolean {
   return (
     ev.hostedByViewer === true ||
     ev.hostName === 'Moi' ||
-    ev.hostAvatar.includes('nel-organizer')
+    (ev.hostAvatar?.includes('nel-organizer') ?? false)
   );
 }
 
@@ -121,6 +122,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const [coverImageNonce, setCoverImageNonce] = useState(0);
   const [uploadingEventCover, setUploadingEventCover] = useState(false);
   const [hideAddress, setHideAddress] = useState(false);
+  /** Coché = sortie privée (hors agenda public sauf admins / organisateur / inscrits). */
+  const [isPrivate, setIsPrivate] = useState(false);
   const [manualApproval, setManualApproval] = useState(false);
   const [markAsBeta, setMarkAsBeta] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -130,6 +133,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   useEffect(() => {
     if (!isEditMode) {
       setParticipantFloor(2);
+      setIsPrivate(false);
       return;
     }
     const ev = getEventById(formEventId);
@@ -145,6 +149,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     setEventDate(roundDateToQuarterHour(dateFromEvent(ev)));
     setImageUri(ev.imageUri);
     setHideAddress(ev.hideAddress ?? false);
+    setIsPrivate(ev.isPrivate ?? false);
     setManualApproval(ev.manualApproval ?? false);
     setMarkAsBeta(ev.isBeta ?? false);
     setParticipantFloor(Math.max(2, ev.participantCount));
@@ -283,6 +288,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           dateKey,
           sectionDateLabel,
           hideAddress,
+          isPrivate,
           manualApproval,
           isBeta: beta,
         });
@@ -301,6 +307,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           dateKey,
           sectionDateLabel,
           hideAddress,
+          isPrivate,
           manualApproval,
           isBeta: beta,
         });
@@ -318,6 +325,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     eventDate,
     imageUri,
     hideAddress,
+    isPrivate,
     manualApproval,
     markAsBeta,
     nelDemoIsAdmin,
@@ -537,6 +545,26 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
                   onChange={() => setHideAddress((h) => !h)}
                 />
                 <span className="ce-switch-slider" />
+              </label>
+            </div>
+            <div className="ce-option-row ce-option-row--border">
+              <div className="ce-option-bg ce-option-bg--indigo">
+                <Lock size={18} color="#fff" aria-hidden />
+              </div>
+              <div className="ce-option-text">
+                <span className="ce-option-label">Sortie privée</span>
+                <span className="ce-option-sublabel">
+                  Hors fil public : vous, les inscrits, vos admins et les administrateurs nel la voient.
+                </span>
+              </div>
+              <label className="ce-switch">
+                <input
+                  type="checkbox"
+                  checked={isPrivate}
+                  onChange={() => setIsPrivate((v) => !v)}
+                  aria-label="Sortie privée"
+                />
+                <span className="ce-switch-slider ce-switch-slider--indigo" />
               </label>
             </div>
             <div className={`ce-option-row ${nelDemoIsAdmin ? 'ce-option-row--border' : ''}`}>

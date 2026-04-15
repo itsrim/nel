@@ -5,11 +5,12 @@ import { useMessagingStore } from '../store/useMessagingStore';
 import { EventCard } from '../components/EventCard';
 import { QuestionnaireModal } from '../components/QuestionnaireModal';
 import { formatEventSectionTitle } from '../lib/eventDateKey';
+import { eventIsVisibleInDiscovery } from '../lib/eventVisibility';
 import './HomePage.css';
 
 export function HomePage() {
   const { openDetail } = useNavigationStore();
-  const { events } = useMessagingStore();
+  const { events, nelDemoIsAdmin } = useMessagingStore();
   const [searchDraft, setSearchDraft] = useState('');
   const [committedSearch, setCommittedSearch] = useState('');
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
@@ -25,14 +26,15 @@ export function HomePage() {
   ];
 
   const filteredEvents = useMemo(() => {
-    return events.filter(e => {
+    return events.filter((e) => {
+      if (!eventIsVisibleInDiscovery(e, nelDemoIsAdmin)) return false;
       const matchesSearch = e.title.toLowerCase().includes(committedSearch.toLowerCase()) || 
                              e.location.toLowerCase().includes(committedSearch.toLowerCase());
       // For now, tags are mock filtering
       const matchesTag = !selectedTagId || selectedTagId === '1' || true; 
       return matchesSearch && matchesTag;
     });
-  }, [events, committedSearch, selectedTagId]);
+  }, [events, committedSearch, selectedTagId, nelDemoIsAdmin]);
 
   const topEvents = useMemo(() => {
     return [...filteredEvents]

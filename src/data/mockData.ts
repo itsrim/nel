@@ -26,6 +26,8 @@ export interface Event {
   price: string;
   /** Options création (meetabit). */
   hideAddress?: boolean;
+  /** Hors agenda public sauf organisateur, inscrits et mode admin nel. */
+  isPrivate?: boolean;
   manualApproval?: boolean;
   /** Sortie créée depuis nel : hôte = profil visiteur (photo / prénom suivis en direct). */
   hostedByViewer?: boolean;

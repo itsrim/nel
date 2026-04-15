@@ -6,6 +6,7 @@ import { EventCard } from '../components/EventCard';
 import type { Event } from '../data/mockData';
 import { EVENT_THEME_TAG_OPTIONS } from '../constants/defaultEventCoverThemes';
 import { formatEventSectionTitle, parseDateKeyLocal } from '../lib/eventDateKey';
+import { eventIsVisibleInDiscovery } from '../lib/eventVisibility';
 import './EventsPage.css';
 
 /* ── Date helpers ── */
@@ -104,7 +105,7 @@ function CalendarWeekStrip({ weekStart, selectedDateKey, onSelectDateKey }: {
 /* ── Main ── */
 export function EventsPage() {
   const { openDetail } = useNavigationStore();
-  const { events, toggleEventFavorite } = useMessagingStore();
+  const { events, toggleEventFavorite, nelDemoIsAdmin } = useMessagingStore();
   const [viewportW, setViewportW] = useState(
     () => (typeof window !== 'undefined' ? window.innerWidth : EVENTS_LAYOUT_NARROW_PX),
   );
@@ -139,8 +140,13 @@ export function EventsPage() {
   }, []);
 
   const weekEvents = useMemo(
-    () => events.filter((e) => isDateKeyInWeek(e.dateKey, weekStartMonday)),
-    [events, weekStartMonday],
+    () =>
+      events.filter(
+        (e) =>
+          isDateKeyInWeek(e.dateKey, weekStartMonday) &&
+          eventIsVisibleInDiscovery(e, nelDemoIsAdmin),
+      ),
+    [events, weekStartMonday, nelDemoIsAdmin],
   );
 
   const filteredWeekEvents = useMemo(() => {

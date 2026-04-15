@@ -127,9 +127,13 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const viewerHosts =
     event.hostedByViewer === true ||
     event.hostName === 'Moi' ||
-    event.hostAvatar.includes('nel-organizer');
-  const hostAvatar = viewerHosts ? viewerProfileAvatarUrl : event.hostAvatar;
-  const hostName = viewerHosts ? viewerProfileDisplayName : event.hostName;
+    (event.hostAvatar?.includes('nel-organizer') ?? false);
+  const hostAvatar = viewerHosts
+    ? viewerProfileAvatarUrl
+    : (event.hostAvatar?.trim() || 'https://i.pravatar.cc/150?u=nel-host');
+  const hostName = viewerHosts
+    ? viewerProfileDisplayName
+    : (event.hostName?.trim() || 'Organisateur');
 
   const isInscribed = event.status === 'inscrit' || event.status === 'organisateur';
   const isFull = event.participantCount >= event.participantMax;

@@ -45,6 +45,7 @@ export type NewEventInput = {
   dateKey: string;
   sectionDateLabel: string;
   hideAddress?: boolean;
+  isPrivate?: boolean;
   manualApproval?: boolean;
   isBeta?: boolean;
 };
@@ -61,6 +62,7 @@ export type UpdateEventInput = {
   dateKey: string;
   sectionDateLabel: string;
   hideAddress?: boolean;
+  isPrivate?: boolean;
   manualApproval?: boolean;
   isBeta?: boolean;
 };
@@ -206,6 +208,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       hostAvatar: va,
       hostedByViewer: true,
       hideAddress: input.hideAddress,
+      isPrivate: input.isPrivate === true,
       manualApproval: input.manualApproval,
       invitedProfilIds: [],
     };
@@ -235,6 +238,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         imageUri: input.imageUri?.trim() || ev.imageUri,
         participantMax,
         hideAddress: input.hideAddress,
+        isPrivate: input.isPrivate === true,
         manualApproval: input.manualApproval,
         isBeta: input.isBeta === true,
       };

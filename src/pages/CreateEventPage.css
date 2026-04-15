@@ -508,6 +508,10 @@
   background: #ec4899;
 }
 
+.ce-option-bg--indigo {
+  background: #6366f1;
+}
+
 .ce-option-text {
   flex: 1;
   min-width: 0;
@@ -572,6 +576,10 @@
 
 .ce-switch input:checked + .ce-switch-slider.ce-switch-slider--pink {
   background: #ec4899;
+}
+
+.ce-switch input:checked + .ce-switch-slider.ce-switch-slider--indigo {
+  background: #6366f1;
 }
 
 .ce-switch input:checked + .ce-switch-slider::before {
