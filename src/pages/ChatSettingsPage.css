@@ -229,6 +229,18 @@
   flex-shrink: 0;
 }
 
+.cs-member-avatar--photo {
+  padding: 0;
+  overflow: hidden;
+}
+
+.cs-member-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .cs-member-name {
   flex: 1;
   color: #fff;

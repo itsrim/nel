@@ -12,9 +12,52 @@ import {
   type SuggestionProfile,
   type Friend,
   type Message,
+  type GroupMember,
 } from '../data/mockData';
 
+const LS_VIEWER_AVATAR = 'nel_viewer_profile_avatar_url';
+const LS_VIEWER_NAME = 'nel_viewer_profile_display_name';
+const DEFAULT_VIEWER_AVATAR =
+  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800';
+const DEFAULT_VIEWER_NAME = 'Jean J.';
+
+function readViewerStorage(key: string, fallback: string): string {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const v = localStorage.getItem(key);
+    return v != null && v.trim() !== '' ? v.trim() : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export type NewEventInput = {
+  conversationId: string;
+  title: string;
+  dateLabel: string;
+  location: string;
+  notes?: string;
+  timeShort?: string;
+  priceLabel?: string;
+  imageUri?: string;
+  participantMax?: number;
+  dateKey: string;
+  sectionDateLabel: string;
+  hideAddress?: boolean;
+  manualApproval?: boolean;
+  isBeta?: boolean;
+};
+
 interface MessagingState {
+  /** Synchronisé avec l’interrupteur « Mode admin » du profil (aperçu nel). */
+  nelDemoIsAdmin: boolean;
+  setNelDemoIsAdmin: (value: boolean) => void;
+  /** Photo de profil (hero) — même source que l’onglet Profil, persistée. */
+  viewerProfileAvatarUrl: string;
+  setViewerProfileAvatarUrl: (url: string) => void;
+  /** Prénom / pseudo affiché (hero, hôte, tuile « moi »). */
+  viewerProfileDisplayName: string;
+  setViewerProfileDisplayName: (name: string) => void;
   events: Event[];
   conversations: Conversation[];
   profileVisits: ProfileVisit[];
@@ -28,6 +71,9 @@ interface MessagingState {
   getEventByConversationId: (conversationId: string) => Event | undefined;
   sendMessage: (conversationId: string, text: string) => void;
   markAsRead: (conversationId: string) => void;
+  addEvent: (input: NewEventInput) => string;
+  createEmptyGroup: (title: string) => string;
+  postEventGroupWelcome: (conversationId: string, eventTitle: string) => void;
   addMemberToGroup: (conversationId: string, member: GroupMember) => void;
   removeMemberFromGroup: (conversationId: string, memberId: string) => void;
   leaveConversation: (conversationId: string) => void;
@@ -37,6 +83,30 @@ interface MessagingState {
 }
 
 export const useMessagingStore = create<MessagingState>((set, get) => ({
+  nelDemoIsAdmin: true,
+  setNelDemoIsAdmin: (value) => set({ nelDemoIsAdmin: value }),
+
+  viewerProfileAvatarUrl: readViewerStorage(LS_VIEWER_AVATAR, DEFAULT_VIEWER_AVATAR),
+  setViewerProfileAvatarUrl: (url) => {
+    try {
+      localStorage.setItem(LS_VIEWER_AVATAR, url);
+    } catch {
+      /* ignore */
+    }
+    set({ viewerProfileAvatarUrl: url });
+  },
+
+  viewerProfileDisplayName: readViewerStorage(LS_VIEWER_NAME, DEFAULT_VIEWER_NAME),
+  setViewerProfileDisplayName: (name) => {
+    const n = name.trim() || DEFAULT_VIEWER_NAME;
+    try {
+      localStorage.setItem(LS_VIEWER_NAME, n);
+    } catch {
+      /* ignore */
+    }
+    set({ viewerProfileDisplayName: n });
+  },
+
   events: MOCK_EVENTS,
   conversations: MOCK_CONVERSATIONS,
   profileVisits: MOCK_VISITS,
@@ -51,6 +121,95 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         e.id === eventId ? { ...e, isFavorite: !e.isFavorite } : e,
       ),
     })),
+
+  createEmptyGroup: (title) => {
+    const id = `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const conv: Conversation = {
+      id,
+      title,
+      type: 'group',
+      lastMessagePreview: '',
+      avatarGradient: ['#9B5DE5', '#C23B8E'] as const,
+      unreadCount: 0,
+      updatedAt: Date.now(),
+      isFavorite: false,
+      memberCount: 1,
+      members: [
+        { id: 'me', name: 'Moi', isSelf: true, avatarGradient: ['#78909C', '#546E7A'] },
+      ],
+    };
+    set((state) => ({
+      conversations: [conv, ...state.conversations],
+      messagesByConversation: {
+        ...state.messagesByConversation,
+        [id]: [],
+      },
+    }));
+    return id;
+  },
+
+  addEvent: (input) => {
+    const id = `e_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+    const priceLabel = input.priceLabel?.trim() || 'Gratuit';
+    const { viewerProfileDisplayName: vn, viewerProfileAvatarUrl: va } = get();
+    const hostName = vn.trim() || 'Moi';
+    const event: Event = {
+      id,
+      conversationId: input.conversationId,
+      title: input.title,
+      dateLabel: input.dateLabel,
+      sectionDateLabel: input.sectionDateLabel,
+      dateKey: input.dateKey,
+      timeShort: input.timeShort?.trim() || '10:00',
+      location: input.location,
+      notes: input.notes,
+      imageUri:
+        input.imageUri?.trim() ||
+        'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80',
+      priceLabel,
+      price: priceLabel,
+      participantCount: 1,
+      participantMax: Math.max(2, input.participantMax ?? 50),
+      isFavorite: false,
+      isBeta: input.isBeta === true,
+      status: 'organisateur',
+      visitsCount: 0,
+      category: 'Sortie',
+      hostName,
+      hostAvatar: va,
+      hostedByViewer: true,
+      hideAddress: input.hideAddress,
+      manualApproval: input.manualApproval,
+    };
+    set((state) => ({ events: [event, ...state.events] }));
+    return id;
+  },
+
+  postEventGroupWelcome: (conversationId, eventTitle) => {
+    const text = `La sortie « ${eventTitle} » est créée — discutez ici avec les participants.`;
+    const msg: Message = {
+      id: `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      conversationId,
+      authorName: 'Système',
+      text,
+      sentAt: Date.now(),
+      isOwn: false,
+    };
+    set((state) => {
+      const prevMsgs = state.messagesByConversation[conversationId] ?? [];
+      return {
+        messagesByConversation: {
+          ...state.messagesByConversation,
+          [conversationId]: [...prevMsgs, msg],
+        },
+        conversations: state.conversations.map((c) =>
+          c.id === conversationId
+            ? { ...c, lastMessagePreview: text.slice(0, 120), updatedAt: Date.now() }
+            : c,
+        ),
+      };
+    });
+  },
 
   toggleConversationFavorite: (conversationId) =>
     set((state) => {

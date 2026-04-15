@@ -24,6 +24,11 @@ export interface Event {
   hostName: string;
   hostAvatar: string;
   price: string;
+  /** Options création (meetabit). */
+  hideAddress?: boolean;
+  manualApproval?: boolean;
+  /** Sortie créée depuis nel : hôte = profil visiteur (photo / prénom suivis en direct). */
+  hostedByViewer?: boolean;
 }
 
 export interface Conversation {

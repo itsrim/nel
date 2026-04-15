@@ -1,0 +1,508 @@
+/* Aligné sur meetabit app/event/create.tsx (structure + tons). */
+
+.create-event-page {
+  position: fixed;
+  inset: 0;
+  z-index: 1250;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ce-bg-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #1a0f24 0%, #0d0d0f 35%, #000000 100%);
+  pointer-events: none;
+}
+
+.ce-header {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) 8px 12px;
+}
+
+.ce-header-btn {
+  min-width: 60px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 12px;
+  color: #fff;
+}
+
+.ce-header-btn:hover {
+  opacity: 0.85;
+}
+
+.ce-header-title {
+  flex: 1;
+  text-align: center;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+.ce-header-create {
+  min-width: 60px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  color: #9b5de5;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 12px;
+}
+
+.ce-header-create:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ce-scroll {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 16px calc(env(safe-area-inset-bottom, 0px) + 100px);
+}
+
+/* ── Photo couverture ── */
+.ce-photo-zone {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  border-radius: 24px;
+  overflow: hidden;
+  margin-bottom: 24px;
+  background: #1c1c1e;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0;
+  cursor: pointer;
+  display: block;
+}
+
+.ce-photo-zone:disabled {
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+.ce-photo-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ce-photo-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.ce-photo-icon-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ce-photo-hint {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ce-photo-edit-badge {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 6px 12px;
+  border-radius: 16px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.ce-photo-upload-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.ce-photo-upload-overlay span {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ce-photo-spinner {
+  animation: ce-spin 0.85s linear infinite;
+}
+
+@keyframes ce-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Cartes ── */
+.ce-card {
+  background: #1c1c1e;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+
+.ce-title-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 64px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  padding: 16px;
+  border: none;
+  background: transparent;
+  resize: none;
+  font-family: inherit;
+}
+
+.ce-title-input::placeholder {
+  color: rgba(142, 142, 147, 0.95);
+}
+
+.ce-block-label {
+  display: block;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 14px 16px 4px;
+}
+
+.ce-web-date-row {
+  display: flex;
+  gap: 12px;
+  padding: 0 16px 16px;
+}
+
+.ce-web-date-hint {
+  color: rgba(142, 142, 147, 0.95);
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.ce-web-date-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: #fff;
+  font-size: 15px;
+  background: rgba(0, 0, 0, 0.25);
+  color-scheme: dark;
+}
+
+/* Lieu + Max */
+.ce-lieu-max-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  align-items: flex-end;
+}
+
+.ce-lieu-col {
+  flex: 7;
+  min-width: 0;
+}
+
+.ce-max-col {
+  flex: 3;
+  min-width: 96px;
+}
+
+.ce-inline-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ce-inline-label {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ce-lieu-field {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1c1c1e;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 14px;
+  font-size: 16px;
+  color: #fff;
+}
+
+.ce-lieu-field::placeholder {
+  color: rgba(142, 142, 147, 0.95);
+}
+
+.ce-max-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1c1c1e;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding-left: 14px;
+  min-height: 52px;
+}
+
+.ce-max-field-value {
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.ce-stepper {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 4px;
+}
+
+.ce-stepper-btn {
+  border: none;
+  background: transparent;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.ce-stepper-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ce-stepper-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Sections À PROPOS / OPTIONS */
+.ce-card-section {
+  margin-bottom: 24px;
+}
+
+.ce-section-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: rgba(142, 142, 147, 0.95);
+  margin: 0 0 10px 16px;
+}
+
+.ce-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 100px;
+  font-size: 16px;
+  color: #fff;
+  padding: 12px 16px 16px;
+  border: none;
+  background: transparent;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.ce-textarea::placeholder {
+  color: rgba(142, 142, 147, 0.95);
+}
+
+.ce-option-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 14px;
+}
+
+.ce-option-row--border {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ce-option-bg {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #9b5de5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ce-option-bg--amber {
+  background: #f59e0b;
+}
+
+.ce-option-bg--pink {
+  background: #ec4899;
+}
+
+.ce-option-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ce-option-label {
+  display: block;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ce-option-sublabel {
+  display: block;
+  color: rgba(142, 142, 147, 0.95);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* Switch iOS-like */
+.ce-switch {
+  position: relative;
+  width: 51px;
+  height: 31px;
+  flex-shrink: 0;
+}
+
+.ce-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ce-switch-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #3a3a3c;
+  border-radius: 31px;
+  transition: background 0.2s;
+}
+
+.ce-switch-slider::before {
+  content: '';
+  position: absolute;
+  height: 27px;
+  width: 27px;
+  left: 2px;
+  bottom: 2px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.ce-switch input:checked + .ce-switch-slider {
+  background: #9b5de5;
+}
+
+.ce-switch input:checked + .ce-switch-slider.ce-switch-slider--amber {
+  background: #f59e0b;
+}
+
+.ce-switch input:checked + .ce-switch-slider.ce-switch-slider--pink {
+  background: #ec4899;
+}
+
+.ce-switch input:checked + .ce-switch-slider::before {
+  transform: translateX(20px);
+}
+
+.ce-switch input:focus-visible + .ce-switch-slider {
+  outline: 2px solid #7eb8ff;
+  outline-offset: 2px;
+}
+
+/* Bas : Annuler + Créer */
+.ce-bottom-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  margin-bottom: 16px;
+}
+
+.ce-cancel-btn {
+  flex: 1;
+  height: 56px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ce-create-btn {
+  flex: 2;
+  height: 56px;
+  border-radius: 18px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #5b2d8c, #7b2d7a, #c23b8e);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  box-shadow: 0 8px 24px rgba(194, 59, 142, 0.35);
+}
+
+.ce-create-btn:hover:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.ce-create-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

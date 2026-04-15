@@ -29,12 +29,44 @@
   background: linear-gradient(transparent, rgba(0,0,0,0.25) 70%, rgba(0,0,0,0.92));
 }
 
+.hero-upload-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.hero-upload-spinner {
+  animation: hero-upload-spin 0.85s linear infinite;
+}
+
+@keyframes hero-upload-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.hero-upload-loader-text {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 .hero-top-btns {
   position: absolute;
   top: calc(env(safe-area-inset-top, 20px) + 20px);
   left: 12px;
   right: 12px;
   display: flex;
+  z-index: 14;
 }
 
 .hero-icon-btn {
@@ -49,11 +81,17 @@
   cursor: pointer;
 }
 
+.hero-icon-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .hero-bottom-info {
   position: absolute;
   bottom: 20px;
   left: 20px;
   right: 20px;
+  z-index: 4;
 }
 
 .hero-name {

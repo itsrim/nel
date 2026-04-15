@@ -10,6 +10,7 @@ import {
   type Conversation,
   type SuggestionProfile,
 } from '../data/mockData';
+import { buildConversationMiniSlots } from '../lib/conversationMiniSlots';
 import './ChatPage.css';
 
 /* ── Helpers ── */
@@ -44,8 +45,31 @@ function buildMasonryColumns(items: SuggestionProfile[], columnCount: number): S
 
 type SubTab = 'suggestions' | 'messages' | 'visites';
 
-function FavoriteStripAvatar({ conversationId, gradient }: { conversationId: string; gradient: readonly [string, string] }) {
-  const v = groupStoryVariant(conversationId);
+function FavoriteStripAvatar({ conversation }: { conversation: Conversation }) {
+  const v = groupStoryVariant(conversation.id);
+  const { getEventByConversationId, friends, viewerProfileAvatarUrl } = useMessagingStore();
+  const linked = getEventByConversationId(conversation.id);
+  const memberN = conversation.members?.length ?? 0;
+  /** Comme la liste : ≤ 2 membres → deux demi-ronds côte à côte (pas une grille 2×2 qui déborde). */
+  const useDualStrip = v === 1 && memberN <= 2;
+  const count = v === 0 ? 2 : v === 1 ? (useDualStrip ? 2 : 4) : 3;
+  const slots = buildConversationMiniSlots(
+    conversation,
+    linked,
+    friends,
+    viewerProfileAvatarUrl,
+    count,
+  );
+  const gradient = conversation.avatarGradient;
+
+  const slotDiv = (i: number, className: string, fallbackBg: string) => {
+    const s = slots[i];
+    if (s?.hasImage && s.src) {
+      return <img key={i} className={`${className} chat-slot-img`} src={s.src} alt="" />;
+    }
+    return <div key={i} className={className} style={{ background: fallbackBg }} />;
+  };
+
   return (
     <div
       className="story-avatar"
@@ -53,24 +77,30 @@ function FavoriteStripAvatar({ conversationId, gradient }: { conversationId: str
     >
       {v === 0 && (
         <div className="story-split2">
-          <div className="story-split-half" style={{ background: 'rgba(0,0,0,0.28)' }} />
-          <div className="story-split-half" style={{ background: 'rgba(255,255,255,0.22)' }} />
+          {slotDiv(0, 'story-split-half', 'rgba(0,0,0,0.28)')}
+          {slotDiv(1, 'story-split-half', 'rgba(255,255,255,0.22)')}
         </div>
       )}
-      {v === 1 && (
+      {v === 1 && useDualStrip && (
+        <div className="story-split2">
+          {slotDiv(0, 'story-split-half', 'rgba(0,0,0,0.28)')}
+          {slotDiv(1, 'story-split-half', 'rgba(255,255,255,0.22)')}
+        </div>
+      )}
+      {v === 1 && !useDualStrip && (
         <div className="story-grid4">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="story-quad" style={{ background: `rgba(255,255,255,${0.22 + i * 0.08})` }} />
-          ))}
+          {[0, 1, 2, 3].map((i) =>
+            slotDiv(i, 'story-quad', `rgba(255,255,255,${0.22 + i * 0.08})`),
+          )}
         </div>
       )}
       {v === 2 && (
         <div className="story-triple">
           <div className="story-triple-top">
-            <div className="story-triple-mini" style={{ background: 'rgba(255,255,255,0.28)' }} />
-            <div className="story-triple-mini" style={{ background: 'rgba(0,0,0,0.2)' }} />
+            {slotDiv(0, 'story-triple-mini', 'rgba(255,255,255,0.28)')}
+            {slotDiv(1, 'story-triple-mini', 'rgba(0,0,0,0.2)')}
           </div>
-          <div className="story-triple-bottom" style={{ background: 'rgba(255,255,255,0.18)' }} />
+          {slotDiv(2, 'story-triple-bottom', 'rgba(255,255,255,0.18)')}
         </div>
       )}
     </div>
@@ -83,7 +113,7 @@ function FavoriteStripItem({ conversation }: { conversation: Conversation }) {
   return (
     <button className="story-cell" aria-label={conversation.title} onClick={() => openDetail('chat', conversation.id)}>
       <div className="story-ring">
-        <FavoriteStripAvatar conversationId={conversation.id} gradient={conversation.avatarGradient} />
+        <FavoriteStripAvatar conversation={conversation} />
         {conversation.unreadCount > 0 && (
           <span className="story-badge">{formatBadgeCount(conversation.unreadCount)}</span>
         )}
@@ -105,7 +135,11 @@ function NewGroupStripItem() {
 }
 
 function ListAvatar({ item }: { item: Conversation }) {
+  const { getEventByConversationId, friends, viewerProfileAvatarUrl } = useMessagingStore();
+  const linked = getEventByConversationId(item.id);
   const isGroup = item.type === 'group';
+  const slots = buildConversationMiniSlots(item, linked, friends, viewerProfileAvatarUrl, isGroup ? 2 : 1);
+
   return (
     <div className="list-avatar-wrap">
       <div
@@ -114,9 +148,27 @@ function ListAvatar({ item }: { item: Conversation }) {
       >
         {isGroup ? (
           <div className="group-split">
-            <div className="group-half" style={{ background: 'rgba(0,0,0,0.2)' }} />
-            <div className="group-half" style={{ background: 'rgba(255,255,255,0.25)' }} />
+            {[0, 1].map((i) => {
+              const s = slots[i];
+              return (
+                <div key={i} className="group-half">
+                  {s?.hasImage && s.src ? (
+                    <img className="chat-slot-img" src={s.src} alt="" />
+                  ) : (
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        background: i === 0 ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.25)',
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
+        ) : slots[0]?.hasImage && slots[0].src ? (
+          <img className="list-avatar-dm-img" src={slots[0].src} alt="" />
         ) : (
           <span className="list-avatar-letter">{item.title.slice(0, 1)}</span>
         )}

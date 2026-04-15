@@ -7,13 +7,33 @@ interface EventDetailPageProps {
   id: string;
 }
 
+function initialFromDisplayName(name: string): string {
+  const t = name.trim();
+  return t ? t.charAt(0).toUpperCase() : 'M';
+}
+
 export function EventDetailPage({ id }: EventDetailPageProps) {
   const { closeDetail, openDetail } = useNavigationStore();
-  const { events, toggleEventFavorite, joinEvent, leaveEvent } = useMessagingStore();
-  
+  const {
+    events,
+    toggleEventFavorite,
+    joinEvent,
+    leaveEvent,
+    viewerProfileAvatarUrl,
+    viewerProfileDisplayName,
+  } = useMessagingStore();
+
   const event = events.find(e => e.id === id);
 
   if (!event) return null;
+
+  /** Anciennes sorties nel sans flag : hôte « Moi » / pravatar fixe. */
+  const viewerHosts =
+    event.hostedByViewer === true ||
+    event.hostName === 'Moi' ||
+    event.hostAvatar.includes('nel-organizer');
+  const hostAvatar = viewerHosts ? viewerProfileAvatarUrl : event.hostAvatar;
+  const hostName = viewerHosts ? viewerProfileDisplayName : event.hostName;
 
   const isInscribed = event.status === 'inscrit' || event.status === 'organisateur';
   const isFull = event.participantCount >= event.participantMax;
@@ -64,8 +84,8 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           <span className="ed-category">{event.category || 'Activité'}</span>
           <h1 className="ed-title">{event.title}</h1>
           <div className="ed-host-row">
-            <img src={event.hostAvatar} alt={event.hostName} className="ed-host-avatar" />
-            <span className="ed-host-name">Proposé par {event.hostName}</span>
+            <img src={hostAvatar} alt={hostName} className="ed-host-avatar" />
+            <span className="ed-host-name">Proposé par {hostName}</span>
           </div>
         </div>
       </div>
@@ -101,7 +121,15 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           <div className="ed-participants-grid">
             {isInscribed && (
               <div className="ed-participant-avatar">
-                <div className="ed-avatar-me">M</div>
+                {viewerProfileAvatarUrl ? (
+                  <img
+                    src={viewerProfileAvatarUrl}
+                    alt=""
+                    className="ed-avatar-me-img"
+                  />
+                ) : (
+                  <div className="ed-avatar-me">{initialFromDisplayName(viewerProfileDisplayName)}</div>
+                )}
               </div>
             )}
             {Array.from({ length: Math.min(event.participantCount - (isInscribed ? 1 : 0), 21) }).map((_, i) => (

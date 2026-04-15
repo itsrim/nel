@@ -6,6 +6,9 @@ export const IMAGEKIT_PUBLIC_KEY = 'public_P8SHxtLXEslKtUwWs7gR+MAjBx0=';
 
 export const IMAGEKIT_UPLOAD_FOLDER = '/profile-avatars';
 
+/** Couvertures des sorties (un fichier par upload). */
+export const IMAGEKIT_EVENT_COVERS_FOLDER = '/event-covers';
+
 function avatarExtensionForMime(mime: string): string {
   const m = mime.toLowerCase();
   if (m.includes('png')) return 'png';
@@ -24,4 +27,13 @@ export function imageKitProfileAvatarFileName(userKey: string, mimeType?: string
   const mime = (mimeType ?? '').trim() || 'image/jpeg';
   const ext = avatarExtensionForMime(mime);
   return `${safe}_avatar.${ext}`;
+}
+
+/** Nom unique par couverture (pas d’overwrite). */
+export function imageKitEventCoverFileName(userKey: string, mimeType?: string | null): string {
+  const safe = userKey.trim().replace(/[^a-zA-Z0-9_-]/g, '_') || 'user';
+  const mime = (mimeType ?? '').trim() || 'image/jpeg';
+  const ext = avatarExtensionForMime(mime);
+  const u = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  return `${safe}_sortie_${u}.${ext}`;
 }

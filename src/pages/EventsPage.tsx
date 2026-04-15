@@ -268,8 +268,12 @@ export function EventsPage() {
         )}
       </div>
 
-      {/* FAB */}
-      <button className="events-fab" aria-label="Créer un événement">
+      {/* FAB — même flux que meetabit : /event/create */}
+      <button
+        type="button"
+        className="events-fab"
+        aria-label="Créer un événement"
+        onClick={() => openDetail('event_create', 'new')}>
         <Plus size={30} color="#000" />
       </button>
     </div>

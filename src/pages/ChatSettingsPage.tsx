@@ -13,13 +13,15 @@ interface ChatSettingsPageProps {
 
 export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
   const { closeDetail, openDetail } = useNavigationStore();
-  const { 
-    conversations, 
-    friends, 
-    addMemberToGroup, 
+  const {
+    conversations,
+    friends,
+    addMemberToGroup,
     removeMemberFromGroup,
     leaveConversation,
-    updateConversationSettings
+    updateConversationSettings,
+    viewerProfileAvatarUrl,
+    viewerProfileDisplayName,
   } = useMessagingStore();
   
   const conversation = conversations.find(c => c.id === id);
@@ -131,12 +133,24 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
             <div className="cs-members-list">
               {members.map(m => (
                 <div key={m.id} className="cs-member-row">
-                  <div className="cs-member-avatar" 
-                    style={{ background: m.isSelf ? '#78909C' : `linear-gradient(45deg, ${m.avatarGradient[0]}, ${m.avatarGradient[1]})` }}
-                  >
-                    {m.name[0]}
+                  <div
+                    className={`cs-member-avatar${m.isSelf && viewerProfileAvatarUrl ? ' cs-member-avatar--photo' : ''}`}
+                    style={
+                      m.isSelf && viewerProfileAvatarUrl
+                        ? undefined
+                        : {
+                            background: m.isSelf
+                              ? '#78909C'
+                              : `linear-gradient(45deg, ${m.avatarGradient[0]}, ${m.avatarGradient[1]})`,
+                          }
+                    }>
+                    {m.isSelf && viewerProfileAvatarUrl ? (
+                      <img src={viewerProfileAvatarUrl} alt="" className="cs-member-avatar-img" />
+                    ) : (
+                      m.name[0]
+                    )}
                   </div>
-                  <span className="cs-member-name">{m.name}</span>
+                  <span className="cs-member-name">{m.isSelf ? viewerProfileDisplayName : m.name}</span>
                   {!m.isSelf && (
                     <div className="cs-member-actions">
                       <button className="cs-member-icon-btn"><Bell size={20} color="#8E8E93" /></button>

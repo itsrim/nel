@@ -1,8 +1,10 @@
 import CryptoJS from 'crypto-js';
 
 import {
+  IMAGEKIT_EVENT_COVERS_FOLDER,
   IMAGEKIT_PUBLIC_KEY,
   IMAGEKIT_UPLOAD_FOLDER,
+  imageKitEventCoverFileName,
   imageKitProfileAvatarFileName,
 } from '../constants/imagekit';
 
@@ -115,6 +117,23 @@ export async function uploadLocalImageToImageKit(options: UploadImageKitOptions)
     folder: IMAGEKIT_UPLOAD_FOLDER,
     useUniqueFileName: false,
     overwriteFile: true,
+  });
+}
+
+/**
+ * Couverture d’événement : fichier unique dans `event-covers` (comme meetabit).
+ */
+export async function uploadLocalImageToImageKitEventCover(
+  options: UploadImageKitOptions,
+): Promise<string> {
+  const mime = resolveUploadMime(options);
+  const fileName = imageKitEventCoverFileName(options.userKey, mime);
+  return postImageKitUpload({
+    webFile: options.webFile,
+    fileName,
+    folder: IMAGEKIT_EVENT_COVERS_FOLDER,
+    useUniqueFileName: false,
+    overwriteFile: false,
   });
 }
 

@@ -5,6 +5,7 @@ import { EventsPage } from './pages/EventsPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ChatRoomPage } from './pages/ChatRoomPage'
 import { EventDetailPage } from './pages/EventDetailPage'
+import { CreateEventPage } from './pages/CreateEventPage'
 import { OtherProfilePage } from './pages/OtherProfilePage'
 import { ChatSettingsPage } from './pages/ChatSettingsPage'
 import './App.css'
@@ -34,6 +35,8 @@ function App() {
         return <ChatRoomPage id={currentDetail.id} />
       case 'event':
         return <EventDetailPage id={currentDetail.id} />
+      case 'event_create':
+        return <CreateEventPage />
       case 'profile':
         return <OtherProfilePage id={currentDetail.id} />
       case 'chat_settings':

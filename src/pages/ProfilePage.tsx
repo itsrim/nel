@@ -13,6 +13,7 @@ import {
   Bell,
   X,
   Plus,
+  Loader2,
   Crown,
   Shield,
   Trash2,
@@ -34,20 +35,27 @@ import './ProfilePage.css';
 type TabId = 'favorites' | 'friends' | 'history' | 'notifications' | 'reports';
 
 export function ProfilePage() {
-  const { events, friends, toggleEventFavorite } = useMessagingStore();
+  const {
+    events,
+    friends,
+    toggleEventFavorite,
+    nelDemoIsAdmin,
+    setNelDemoIsAdmin,
+    viewerProfileAvatarUrl,
+    setViewerProfileAvatarUrl,
+    viewerProfileDisplayName,
+    setViewerProfileDisplayName,
+  } = useMessagingStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<TabId>('favorites');
   const [editing, setEditing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Mock user state
-  const [displayName, setDisplayName] = useState('Jean J.');
+  // Mock user state (nom + photo partagés avec EventDetail / création de sortie)
   const [age, setAge] = useState('28');
   const [bio, setBio] = useState('Passionné de rando et de sorties culturelles sur Paris ! 🏔️🎭');
-  const [heroImg, setHeroImg] = useState('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [isPremium, setIsPremium] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(true);
 
   const favoriteEvents = useMemo(() => events.filter(e => e.isFavorite), [events]);
   const historyEvents = useMemo(() => events.filter(e => e.status === 'inscrit' || e.status === 'organisateur'), [events]);
@@ -73,7 +81,7 @@ export function ProfilePage() {
         mimeType: file.type || null,
         userKey,
       });
-      setHeroImg(withUrlUploadVersion(url));
+      setViewerProfileAvatarUrl(withUrlUploadVersion(url));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       window.alert(`Échec de l’envoi de la photo : ${msg}`);
@@ -95,11 +103,18 @@ export function ProfilePage() {
       {/* Hero Section */}
       <div className="profile-hero">
         <img
-          src={heroImg}
+          src={viewerProfileAvatarUrl}
           alt="Profile"
           className="hero-img"
         />
         <div className="hero-overlay" />
+
+        {uploadingPhoto ? (
+          <div className="hero-upload-loader" role="status" aria-live="polite" aria-label="Envoi de la photo en cours">
+            <Loader2 className="hero-upload-spinner" size={40} color="#fff" strokeWidth={2.2} aria-hidden />
+            <p className="hero-upload-loader-text">Envoi de la photo…</p>
+          </div>
+        ) : null}
         
         <div className="hero-top-btns">
           <button className="hero-icon-btn" onClick={() => setSettingsOpen(true)} aria-label="Settings">
@@ -113,7 +128,7 @@ export function ProfilePage() {
             disabled={uploadingPhoto}
             aria-label="Change photo"
             aria-busy={uploadingPhoto}>
-            <Camera size={22} color="#fff" style={{ opacity: uploadingPhoto ? 0.5 : 1 }} />
+            <Camera size={22} color="#fff" />
           </button>
         </div>
 
@@ -127,12 +142,12 @@ export function ProfilePage() {
 
         <div className="hero-bottom-info">
           {!editing ? (
-            <h1 className="hero-name">{displayName}{age ? `, ${age}` : ''}</h1>
+            <h1 className="hero-name">{viewerProfileDisplayName}{age ? `, ${age}` : ''}</h1>
           ) : (
             <div className="hero-edit-fields">
               <input 
-                value={displayName} 
-                onChange={e => setDisplayName(e.target.value)}
+                value={viewerProfileDisplayName} 
+                onChange={e => setViewerProfileDisplayName(e.target.value)}
                 placeholder="Nom"
                 className="hero-input"
               />
@@ -229,7 +244,7 @@ export function ProfilePage() {
               <span className="p-tab-badge" style={{ background: '#8B5CF6' }}>{friends.length}</span>
             </div>
           </button>
-          {isAdmin && (
+          {nelDemoIsAdmin && (
             <button className={`p-tab ${activeTab === 'reports' ? 'p-tab--active' : ''}`} onClick={() => setActiveTab('reports')}>
               <div className="p-tab-inner">
                 <AlertTriangle size={18} color={activeTab === 'reports' ? '#EF4444' : '#8E8E93'} />
@@ -328,7 +343,7 @@ export function ProfilePage() {
                     <div className="setting-label">Mode Admin</div>
                     <div className="setting-sub">Accès aux outils de modération</div>
                   </div>
-                  <input type="checkbox" checked={isAdmin} onChange={e => setIsAdmin(e.target.checked)} className="switch" />
+                  <input type="checkbox" checked={nelDemoIsAdmin} onChange={e => setNelDemoIsAdmin(e.target.checked)} className="switch" />
                 </div>
               </div>
 
