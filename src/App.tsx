@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react'
 import { useNavigationStore, type DetailState } from './store/useNavigationStore'
 import { useMessagingStore } from './store/useMessagingStore'
 import { BottomNavigation } from './components/BottomNavigation'
@@ -31,6 +32,16 @@ function renderDetailContent(detail: DetailState) {
 function App() {
   const { activeTab, detailStack } = useNavigationStore()
   const toast = useMessagingStore((s) => s.toast)
+  const mainRef = useRef<HTMLElement>(null)
+
+  /** Chaque onglet repart du haut (pas la position de scroll de la page précédente). */
+  useLayoutEffect(() => {
+    const main = mainRef.current
+    if (main) main.scrollTop = 0
+    window.scrollTo(0, 0)
+    const se = document.scrollingElement
+    if (se) se.scrollTop = 0
+  }, [activeTab])
 
   const renderTab = () => {
     switch (activeTab) {
@@ -75,7 +86,7 @@ function App() {
 
   return (
     <div className="app dark">
-      <main className="app-content">
+      <main ref={mainRef} className="app-content">
         {renderTab()}
         {renderDetailStack()}
       </main>

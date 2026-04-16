@@ -12,13 +12,25 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  background: rgba(25, 30, 25, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(44, 44, 48, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 28px;
   padding: 6px 8px;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+}
+
+/* Pas de scale : sur mobile ça ressemble à un zoom / bouge la mise en page */
+@keyframes ftb-tab-select {
+  0% {
+    opacity: 0.65;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 .ftb-item {
@@ -29,38 +41,59 @@
   border: none;
   border-radius: 22px;
   background: transparent;
-  color: #8E8E93;
+  color: #fff;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
-  transition: all 0.25s ease;
+  transition: background 0.2s ease, box-shadow 0.22s ease, color 0.18s ease;
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 }
 
 .ftb-item:hover {
-  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Anneau focus : utile souris / clavier, pas sur mobile tactile */
+@media (hover: hover) and (pointer: fine) {
+  .ftb-item:focus-visible {
+    outline: 2px solid rgba(255, 214, 10, 0.65);
+    outline-offset: 2px;
+  }
 }
 
 .ftb-item--active {
-  background: #FFD700;
-  color: #000;
+  background: linear-gradient(145deg, #fde047, #fbbf24);
+  color: #0a0a0a;
+  box-shadow: 0 2px 12px rgba(251, 191, 36, 0.35);
+  animation: ftb-tab-select 0.28s ease-out both;
 }
 
 .ftb-item--active:hover {
-  color: #000;
+  color: #0a0a0a;
+  background: linear-gradient(145deg, #fde047, #f59e0b);
 }
 
 .ftb-item--active .ftb-icon {
-  color: #000;
+  color: #0a0a0a;
 }
 
 .ftb-icon {
   flex-shrink: 0;
+  color: currentColor;
 }
 
 .ftb-label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ftb-item {
+    transition-duration: 0.01ms;
+  }
+  .ftb-item--active {
+    animation: none;
+  }
 }

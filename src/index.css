@@ -11,12 +11,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Prevent auto-zoom on iOS */
+/* Évite le zoom auto au focus sur iOS (champs < 16px) ; max(…) si un parent réduit 1em */
 input,
 select,
 textarea,
 button {
-  font-size: 16px;
+  font-size: max(16px, 1em);
   -webkit-text-size-adjust: 100%;
 }
 
