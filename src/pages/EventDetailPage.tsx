@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState } from "react";
 import {
   ChevronLeft,
   MapPin,
@@ -11,18 +11,25 @@ import {
   Info,
   X,
   AlertTriangle,
-} from 'lucide-react';
-import { useNavigationStore } from '../store/useNavigationStore';
-import { useMessagingStore } from '../store/useMessagingStore';
-import { isEventDateBeforeToday } from '../lib/eventDateKey';
-import type { Friend } from '../data/mockData';
-import { ReportModal } from '../components/ReportModal';
-import './EventDetailPage.css';
+} from "lucide-react";
+import { useNavigationStore } from "../store/useNavigationStore";
+import { useTranslation } from "../i18n/useTranslation";
+import { useMessagingStore } from "../store/useMessagingStore";
+import { isEventDateBeforeToday } from "../lib/eventDateKey";
+import type { Friend } from "../data/mockData";
+import { ReportModal } from "../components/ReportModal";
+import "./EventDetailPage.css";
 
 type ParticipantSlot =
-  | { kind: 'viewer'; key: string }
-  | { kind: 'profile'; profilId: string; imageUrl: string; name: string; key: string }
-  | { kind: 'anonymous'; seed: number; key: string };
+  | { kind: "viewer"; key: string }
+  | {
+      kind: "profile";
+      profilId: string;
+      imageUrl: string;
+      name: string;
+      key: string;
+    }
+  | { kind: "anonymous"; seed: number; key: string };
 
 interface EventDetailPageProps {
   id: string;
@@ -30,11 +37,12 @@ interface EventDetailPageProps {
 
 function initialFromDisplayName(name: string): string {
   const t = name.trim();
-  return t ? t.charAt(0).toUpperCase() : 'M';
+  return t ? t.charAt(0).toUpperCase() : "M";
 }
 
 export function EventDetailPage({ id }: EventDetailPageProps) {
   const { closeDetail, openDetail, setActiveTab } = useNavigationStore();
+  const { t } = useTranslation();
   const {
     events,
     conversations,
@@ -50,11 +58,11 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
 
-  const event = events.find(e => e.id === id);
+  const event = events.find((e) => e.id === id);
 
   const waitlist = event?.waitlistEntries ?? [];
-  const waitlistPending = waitlist.some((w) => w.reason === 'en_attente');
-  const waitlistOverflow = waitlist.some((w) => w.reason === 'overflow');
+  const waitlistPending = waitlist.some((w) => w.reason === "en_attente");
+  const waitlistOverflow = waitlist.some((w) => w.reason === "overflow");
 
   const resolveWaitlistPhoto = (entry: (typeof waitlist)[number]) => {
     if (entry.imageUrl?.trim()) return entry.imageUrl;
@@ -70,14 +78,14 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const participantSlots = useMemo((): ParticipantSlot[] => {
     if (!event) return [];
     const isInscribed =
-      event.status === 'inscrit' || event.status === 'organisateur';
+      event.status === "inscrit" || event.status === "organisateur";
     const slots: ParticipantSlot[] = [];
     const othersLimit = Math.min(
       Math.max(0, event.participantCount - (isInscribed ? 1 : 0)),
       21,
     );
     if (isInscribed) {
-      slots.push({ kind: 'viewer', key: 'viewer' });
+      slots.push({ kind: "viewer", key: "viewer" });
     }
     const conv = conversations.find((c) => c.id === event.conversationId);
     const fromConv =
@@ -87,9 +95,10 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
       if (used >= othersLimit) break;
       const friend = friends.find((f) => f.profilId === m.profilId);
       const imageUrl =
-        friend?.imageUrl ?? `https://i.pravatar.cc/100?u=${encodeURIComponent(m.profilId!)}`;
+        friend?.imageUrl ??
+        `https://i.pravatar.cc/100?u=${encodeURIComponent(m.profilId!)}`;
       slots.push({
-        kind: 'profile',
+        kind: "profile",
         profilId: m.profilId!,
         imageUrl,
         name: m.name,
@@ -100,7 +109,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     let anon = 0;
     while (used < othersLimit) {
       slots.push({
-        kind: 'anonymous',
+        kind: "anonymous",
         seed: anon + (isInscribed ? 50 : 0),
         key: `anon-${anon}`,
       });
@@ -129,18 +138,19 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   /** Anciennes sorties nel sans flag : hôte « Moi » / pravatar fixe. */
   const viewerHosts =
     event.hostedByViewer === true ||
-    event.hostName === 'Moi' ||
-    (event.hostAvatar?.includes('nel-organizer') ?? false);
+    event.hostName === "Moi" ||
+    (event.hostAvatar?.includes("nel-organizer") ?? false);
   const hostAvatar = viewerHosts
     ? viewerProfileAvatarUrl
-    : (event.hostAvatar?.trim() || 'https://i.pravatar.cc/150?u=nel-host');
+    : event.hostAvatar?.trim() || "https://i.pravatar.cc/150?u=nel-host";
   const hostName = viewerHosts
     ? viewerProfileDisplayName
-    : (event.hostName?.trim() || 'Organisateur');
+    : event.hostName?.trim() || "Organisateur";
 
-  const isInscribed = event.status === 'inscrit' || event.status === 'organisateur';
+  const isInscribed =
+    event.status === "inscrit" || event.status === "organisateur";
   const isFull = event.participantCount >= event.participantMax;
-  const isHostOrganizer = viewerHosts && event.status === 'organisateur';
+  const isHostOrganizer = viewerHosts && event.status === "organisateur";
   const isPastEvent = isEventDateBeforeToday(event.dateKey);
 
   const handleInviteFriend = (f: Friend) => {
@@ -148,8 +158,10 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   };
 
   const handleJoinToggle = () => {
-    if (event.status === 'inscrit') {
-      if (confirm('Voulez-vous vraiment vous désinscrire de cette activité ?')) {
+    if (event.status === "inscrit") {
+      if (
+        confirm("Voulez-vous vraiment vous désinscrire de cette activité ?")
+      ) {
         leaveEvent(event.id);
       }
     } else {
@@ -159,13 +171,15 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
 
   const handleShare = () => {
     if (navigator.share) {
-      navigator.share({
-        title: event.title,
-        text: event.notes,
-        url: window.location.href,
-      }).catch(console.error);
+      navigator
+        .share({
+          title: event.title,
+          text: event.notes,
+          url: window.location.href,
+        })
+        .catch(console.error);
     } else {
-      alert('Lien copié dans le presse-papier !');
+      alert("Lien copié dans le presse-papier !");
     }
   };
 
@@ -174,7 +188,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
       <div className="ed-hero">
         <img src={event.imageUri} alt={event.title} className="ed-hero-image" />
         <div className="ed-hero-gradient" />
-        
+
         <header className="ed-header">
           <button
             type="button"
@@ -186,16 +200,27 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             <ChevronLeft size={28} color="#fff" />
           </button>
           <div className="ed-header-actions">
-            <button type="button" className="ed-icon-btn" onClick={handleShare} aria-label="Partager">
+            <button
+              type="button"
+              className="ed-icon-btn"
+              onClick={handleShare}
+              aria-label="Partager"
+            >
               <Share2 size={24} color="#fff" />
             </button>
             <button
               type="button"
               className="ed-icon-btn"
               onClick={() => toggleEventFavorite(event.id)}
-              aria-label={event.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              aria-label={
+                event.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"
+              }
             >
-              <Heart size={24} color={event.isFavorite ? "#FF2D55" : "#fff"} fill={event.isFavorite ? "#FF2D55" : "none"} />
+              <Heart
+                size={24}
+                color={event.isFavorite ? "#FF2D55" : "#fff"}
+                fill={event.isFavorite ? "#FF2D55" : "none"}
+              />
             </button>
             <button
               type="button"
@@ -209,7 +234,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
         </header>
 
         <div className="ed-hero-content">
-          <span className="ed-category">{event.category || 'Activité'}</span>
+          <span className="ed-category">{event.category || "Activité"}</span>
           <h1 className="ed-title">{event.title}</h1>
           <div className="ed-host-row">
             <img src={hostAvatar} alt={hostName} className="ed-host-avatar" />
@@ -221,14 +246,18 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
       <div className="ed-content">
         <div className="ed-info-card">
           <div className="ed-info-item">
-            <div className="ed-info-icon"><Clock size={20} color="#FFD60A" /></div>
+            <div className="ed-info-icon">
+              <Clock size={20} color="#FFD60A" />
+            </div>
             <div className="ed-info-texts">
               <span className="ed-info-label">{event.timeShort}</span>
               <span className="ed-info-sub">{event.sectionDateLabel}</span>
             </div>
           </div>
           <div className="ed-info-item">
-            <div className="ed-info-icon"><MapPin size={20} color="#FFD60A" /></div>
+            <div className="ed-info-icon">
+              <MapPin size={20} color="#FFD60A" />
+            </div>
             <div className="ed-info-texts">
               <span className="ed-info-label">{event.location}</span>
               <span className="ed-info-sub">Paris, France</span>
@@ -237,20 +266,28 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
         </div>
 
         <div className="ed-section">
-          <h2 className="ed-section-title">À propos de l'activité</h2>
-          <p className="ed-description">{event.notes || "Venez nombreux pour cette activité passionnante ! C\'est l\'occasion idéale de faire de nouvelles rencontres et de partager un bon moment ensemble."}</p>
+          <h2 className="ed-section-title">{t("aboutActivity")}</h2>
+          <p className="ed-description">
+            {event.notes ||
+              "Venez nombreux pour cette activité passionnante ! C\'est l\'occasion idéale de faire de nouvelles rencontres et de partager un bon moment ensemble."}
+          </p>
         </div>
 
         <div className="ed-section">
           <div className="ed-section-header">
-            <h2 className="ed-section-title">Participants</h2>
-            <div className="ed-count-stack" aria-label={`${event.participantCount} inscrits sur ${event.participantMax}, ${waitlist.length} en liste d’attente`}>
+            <h2 className="ed-section-title">{t("participants")}</h2>
+            <div
+              className="ed-count-stack"
+              aria-label={`${event.participantCount} inscrits sur ${event.participantMax}, ${waitlist.length} en liste d’attente`}
+            >
               <span className="ed-count-pair">
                 {event.participantCount ?? 0}/{event.participantMax ?? 0}
               </span>
               <span
                 className={
-                  waitlist.length > 0 ? 'ed-count-wait-sub' : 'ed-count-wait-sub ed-count-wait-sub--quiet'
+                  waitlist.length > 0
+                    ? "ed-count-wait-sub"
+                    : "ed-count-wait-sub ed-count-wait-sub--quiet"
                 }
               >
                 Liste d’attente · {waitlist.length}
@@ -259,13 +296,13 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           </div>
           <div className="ed-participants-grid">
             {participantSlots.map((slot) => {
-              if (slot.kind === 'viewer') {
+              if (slot.kind === "viewer") {
                 return (
                   <button
                     key={slot.key}
                     type="button"
                     className="ed-participant-avatar ed-participant-avatar--clickable"
-                    onClick={() => setActiveTab('profile')}
+                    onClick={() => setActiveTab("profile")}
                     aria-label="Voir mon profil"
                   >
                     {viewerProfileAvatarUrl ? (
@@ -275,18 +312,20 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                         className="ed-avatar-me-img"
                       />
                     ) : (
-                      <div className="ed-avatar-me">{initialFromDisplayName(viewerProfileDisplayName)}</div>
+                      <div className="ed-avatar-me">
+                        {initialFromDisplayName(viewerProfileDisplayName)}
+                      </div>
                     )}
                   </button>
                 );
               }
-              if (slot.kind === 'profile') {
+              if (slot.kind === "profile") {
                 return (
                   <button
                     key={slot.key}
                     type="button"
                     className="ed-participant-avatar ed-participant-avatar--clickable"
-                    onClick={() => openDetail('profile', slot.profilId)}
+                    onClick={() => openDetail("profile", slot.profilId)}
                     aria-label={`Voir le profil de ${slot.name}`}
                   >
                     <img src={slot.imageUrl} alt="" />
@@ -294,13 +333,21 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                 );
               }
               return (
-                <div key={slot.key} className="ed-participant-avatar" aria-hidden>
-                  <img src={`https://i.pravatar.cc/100?u=p${slot.seed}`} alt="" />
+                <div
+                  key={slot.key}
+                  className="ed-participant-avatar"
+                  aria-hidden
+                >
+                  <img
+                    src={`https://i.pravatar.cc/100?u=p${slot.seed}`}
+                    alt=""
+                  />
                 </div>
               );
             })}
-            {event.participantCount < event.participantMax && !isPastEvent && (
-              isHostOrganizer ? (
+            {event.participantCount < event.participantMax &&
+              !isPastEvent &&
+              (isHostOrganizer ? (
                 <button
                   type="button"
                   className="ed-participant-placeholder ed-participant-placeholder--invite"
@@ -314,8 +361,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                 <div className="ed-participant-placeholder" aria-hidden>
                   <Users size={20} color="#8E8E93" />
                 </div>
-              )
-            )}
+              ))}
           </div>
         </div>
 
@@ -327,20 +373,20 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             </div>
             <p className="ed-waitlist-intro">
               {waitlistPending && waitlistOverflow
-                ? 'Certaines demandes attendent la validation de l’organisateur ; d’autres suivent alors que la capacité est atteinte.'
+                ? "Certaines demandes attendent la validation de l’organisateur ; d’autres suivent alors que la capacité est atteinte."
                 : waitlistPending
                   ? event.manualApproval
-                    ? 'Inscriptions soumises à validation par l’organisateur avant confirmation.'
-                    : 'Demandes en attente de validation.'
-                  : 'La capacité maximale est atteinte — ces profils sont en liste d’attente.'}
+                    ? "Inscriptions soumises à validation par l’organisateur avant confirmation."
+                    : "Demandes en attente de validation."
+                  : t("maxCapacityReachedWaitlist")}
             </p>
             <div className="ed-waitlist-list" role="list">
               {waitlist.map((w) => {
                 const photo = resolveWaitlistPhoto(w);
                 const tag =
-                  w.reason === 'en_attente'
-                    ? 'En attente de validation'
-                    : 'Capacité complète';
+                  w.reason === "en_attente"
+                    ? "En attente de validation"
+                    : "Capacité complète";
                 const inner = (
                   <>
                     <img src={photo} alt="" className="ed-waitlist-av" />
@@ -356,7 +402,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                       <button
                         type="button"
                         className="ed-waitlist-row-inner ed-waitlist-row-inner--click"
-                        onClick={() => openDetail('profile', w.profilId!)}
+                        onClick={() => openDetail("profile", w.profilId!)}
                         aria-label={`Voir le profil de ${w.name}`}
                       >
                         {inner}
@@ -375,7 +421,8 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           <div className="ed-warning-box">
             <Info size={18} color="#FF9F0A" />
             <p className="ed-warning-text">
-              Pour voir les messages de cette sortie, vous devez en faire partie.
+              Pour voir les messages de cette sortie, vous devez en faire
+              partie.
             </p>
           </div>
         )}
@@ -392,24 +439,28 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
               <button
                 type="button"
                 className="ed-chat-btn"
-                onClick={() => openDetail('chat', event.conversationId)}
+                onClick={() => openDetail("chat", event.conversationId)}
                 aria-label="Ouvrir la discussion"
               >
                 <MessageCircle size={24} />
               </button>
               <button
                 type="button"
-                className={`ed-join-btn ${isInscribed || isHostOrganizer ? 'joined' : ''} ${!isInscribed && !isHostOrganizer && isFull ? 'full' : ''}`}
-                onClick={isHostOrganizer ? () => openDetail('event_create', event.id) : handleJoinToggle}
+                className={`ed-join-btn ${isInscribed || isHostOrganizer ? "joined" : ""} ${!isInscribed && !isHostOrganizer && isFull ? "full" : ""}`}
+                onClick={
+                  isHostOrganizer
+                    ? () => openDetail("event_create", event.id)
+                    : handleJoinToggle
+                }
                 disabled={!isHostOrganizer && !isInscribed && isFull}
               >
                 {isHostOrganizer
-                  ? 'Modifier la sortie'
-                  : event.status === 'inscrit'
-                    ? 'Se désinscrire'
+                  ? "Modifier la sortie"
+                  : event.status === "inscrit"
+                    ? "Se désinscrire"
                     : isFull
-                      ? 'Complet'
-                      : 'Participer'}
+                      ? "Complet"
+                      : "Participer"}
               </button>
             </>
           )}
@@ -425,7 +476,12 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             aria-label="Fermer"
             onClick={() => setInviteOpen(false)}
           />
-          <div className="ed-invite-sheet" role="dialog" aria-modal="true" aria-labelledby="ed-invite-title">
+          <div
+            className="ed-invite-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ed-invite-title"
+          >
             <div className="ed-invite-sheet-head">
               <h2 id="ed-invite-title" className="ed-invite-sheet-title">
                 Inviter des amis
@@ -445,7 +501,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             </p>
             <div className="ed-invite-list">
               {invitableFriends.length === 0 ? (
-                <p className="ed-invite-empty">Tous vos amis sont déjà dans le groupe ou invités.</p>
+                <p className="ed-invite-empty">
+                  Tous vos amis sont déjà dans le groupe ou invités.
+                </p>
               ) : (
                 invitableFriends.map((f) => (
                   <button

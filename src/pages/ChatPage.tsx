@@ -1,7 +1,16 @@
-import { useState, useMemo, useCallback } from 'react';
-import { Crown, Eye, Heart, HeartCrack, Plus, Search, UserPlus } from 'lucide-react';
-import { useNavigationStore } from '../store/useNavigationStore';
-import { useMessagingStore } from '../store/useMessagingStore';
+import { useState, useMemo, useCallback } from "react";
+import {
+  Crown,
+  Eye,
+  Heart,
+  HeartCrack,
+  Plus,
+  Search,
+  UserPlus,
+} from "lucide-react";
+import { useNavigationStore } from "../store/useNavigationStore";
+import { useMessagingStore } from "../store/useMessagingStore";
+import { useTranslation } from "../i18n/useTranslation";
 import {
   formatRelativeTime,
   formatVisitTimeAgo,
@@ -9,9 +18,9 @@ import {
   formatSuggestionCaption,
   type Conversation,
   type SuggestionProfile,
-} from '../data/mockData';
-import { buildConversationMiniSlots } from '../lib/conversationMiniSlots';
-import './ChatPage.css';
+} from "../data/mockData";
+import { buildConversationMiniSlots } from "../lib/conversationMiniSlots";
+import "./ChatPage.css";
 
 /* ── Helpers ── */
 
@@ -31,8 +40,14 @@ function groupStoryVariant(id: string): 0 | 1 | 2 {
   return s as 0 | 1 | 2;
 }
 
-function buildMasonryColumns(items: SuggestionProfile[], columnCount: number): SuggestionProfile[][] {
-  const cols: SuggestionProfile[][] = Array.from({ length: columnCount }, () => []);
+function buildMasonryColumns(
+  items: SuggestionProfile[],
+  columnCount: number,
+): SuggestionProfile[][] {
+  const cols: SuggestionProfile[][] = Array.from(
+    { length: columnCount },
+    () => [],
+  );
   const heights = Array(columnCount).fill(0);
   for (const item of items) {
     const w = 1 / item.aspectRatio;
@@ -48,11 +63,12 @@ function buildMasonryColumns(items: SuggestionProfile[], columnCount: number): S
 
 /* ── Sub-components ── */
 
-type SubTab = 'suggestions' | 'messages' | 'visites';
+type SubTab = "suggestions" | "messages" | "visites";
 
 function FavoriteStripAvatar({ conversation }: { conversation: Conversation }) {
   const v = groupStoryVariant(conversation.id);
-  const { getEventByConversationId, friends, viewerProfileAvatarUrl } = useMessagingStore();
+  const { getEventByConversationId, friends, viewerProfileAvatarUrl } =
+    useMessagingStore();
   const linked = getEventByConversationId(conversation.id);
   const memberN = conversation.members?.length ?? 0;
   /** Comme la liste : ≤ 2 membres → deux demi-ronds côte à côte (pas une grille 2×2 qui déborde). */
@@ -70,42 +86,53 @@ function FavoriteStripAvatar({ conversation }: { conversation: Conversation }) {
   const slotDiv = (i: number, className: string, fallbackBg: string) => {
     const s = slots[i];
     if (s?.hasImage && s.src) {
-      return <img key={i} className={`${className} chat-slot-img`} src={s.src} alt="" />;
+      return (
+        <img
+          key={i}
+          className={`${className} chat-slot-img`}
+          src={s.src}
+          alt=""
+        />
+      );
     }
-    return <div key={i} className={className} style={{ background: fallbackBg }} />;
+    return (
+      <div key={i} className={className} style={{ background: fallbackBg }} />
+    );
   };
 
   return (
     <div
       className="story-avatar"
-      style={{ background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})` }}
+      style={{
+        background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})`,
+      }}
     >
       {v === 0 && (
         <div className="story-split2">
-          {slotDiv(0, 'story-split-half', 'rgba(0,0,0,0.28)')}
-          {slotDiv(1, 'story-split-half', 'rgba(255,255,255,0.22)')}
+          {slotDiv(0, "story-split-half", "rgba(0,0,0,0.28)")}
+          {slotDiv(1, "story-split-half", "rgba(255,255,255,0.22)")}
         </div>
       )}
       {v === 1 && useDualStrip && (
         <div className="story-split2">
-          {slotDiv(0, 'story-split-half', 'rgba(0,0,0,0.28)')}
-          {slotDiv(1, 'story-split-half', 'rgba(255,255,255,0.22)')}
+          {slotDiv(0, "story-split-half", "rgba(0,0,0,0.28)")}
+          {slotDiv(1, "story-split-half", "rgba(255,255,255,0.22)")}
         </div>
       )}
       {v === 1 && !useDualStrip && (
         <div className="story-grid4">
           {[0, 1, 2, 3].map((i) =>
-            slotDiv(i, 'story-quad', `rgba(255,255,255,${0.22 + i * 0.08})`),
+            slotDiv(i, "story-quad", `rgba(255,255,255,${0.22 + i * 0.08})`),
           )}
         </div>
       )}
       {v === 2 && (
         <div className="story-triple">
           <div className="story-triple-top">
-            {slotDiv(0, 'story-triple-mini', 'rgba(255,255,255,0.28)')}
-            {slotDiv(1, 'story-triple-mini', 'rgba(0,0,0,0.2)')}
+            {slotDiv(0, "story-triple-mini", "rgba(255,255,255,0.28)")}
+            {slotDiv(1, "story-triple-mini", "rgba(0,0,0,0.2)")}
           </div>
-          {slotDiv(2, 'story-triple-bottom', 'rgba(255,255,255,0.18)')}
+          {slotDiv(2, "story-triple-bottom", "rgba(255,255,255,0.18)")}
         </div>
       )}
     </div>
@@ -116,11 +143,17 @@ function FavoriteStripItem({ conversation }: { conversation: Conversation }) {
   const { openDetail } = useNavigationStore();
   const label = truncateStoryLabel(conversation.title);
   return (
-    <button className="story-cell" aria-label={conversation.title} onClick={() => openDetail('chat', conversation.id)}>
+    <button
+      className="story-cell"
+      aria-label={conversation.title}
+      onClick={() => openDetail("chat", conversation.id)}
+    >
       <div className="story-ring">
         <FavoriteStripAvatar conversation={conversation} />
         {conversation.unreadCount > 0 && (
-          <span className="story-badge">{formatBadgeCount(conversation.unreadCount)}</span>
+          <span className="story-badge">
+            {formatBadgeCount(conversation.unreadCount)}
+          </span>
         )}
       </div>
       <span className="story-label">{label}</span>
@@ -140,16 +173,25 @@ function NewGroupStripItem() {
 }
 
 function ListAvatar({ item }: { item: Conversation }) {
-  const { getEventByConversationId, friends, viewerProfileAvatarUrl } = useMessagingStore();
+  const { getEventByConversationId, friends, viewerProfileAvatarUrl } =
+    useMessagingStore();
   const linked = getEventByConversationId(item.id);
-  const isGroup = item.type === 'group';
-  const slots = buildConversationMiniSlots(item, linked, friends, viewerProfileAvatarUrl, isGroup ? 2 : 1);
+  const isGroup = item.type === "group";
+  const slots = buildConversationMiniSlots(
+    item,
+    linked,
+    friends,
+    viewerProfileAvatarUrl,
+    isGroup ? 2 : 1,
+  );
 
   return (
     <div className="list-avatar-wrap">
       <div
         className="list-avatar"
-        style={{ background: `linear-gradient(135deg, ${item.avatarGradient[0]}, ${item.avatarGradient[1]})` }}
+        style={{
+          background: `linear-gradient(135deg, ${item.avatarGradient[0]}, ${item.avatarGradient[1]})`,
+        }}
       >
         {isGroup ? (
           <div className="group-split">
@@ -162,9 +204,12 @@ function ListAvatar({ item }: { item: Conversation }) {
                   ) : (
                     <div
                       style={{
-                        width: '100%',
-                        height: '100%',
-                        background: i === 0 ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.25)',
+                        width: "100%",
+                        height: "100%",
+                        background:
+                          i === 0
+                            ? "rgba(0,0,0,0.2)"
+                            : "rgba(255,255,255,0.25)",
                       }}
                     />
                   )}
@@ -187,9 +232,13 @@ function ListAvatar({ item }: { item: Conversation }) {
 
 function ConversationRow({ item }: { item: Conversation }) {
   const { openDetail } = useNavigationStore();
-  const isGroup = item.type === 'group';
+  const isGroup = item.type === "group";
   return (
-    <button className="conv-row" aria-label={item.title} onClick={() => openDetail('chat', item.id)}>
+    <button
+      className="conv-row"
+      aria-label={item.title}
+      onClick={() => openDetail("chat", item.id)}
+    >
       <div className="conv-row-inner">
         <div className="avatar-column">
           <ListAvatar item={item} />
@@ -200,7 +249,9 @@ function ConversationRow({ item }: { item: Conversation }) {
               <span className="conv-name">{item.title}</span>
               {isGroup && <span className="groupe-tag">Groupe</span>}
             </div>
-            <span className="conv-time">{formatRelativeTime(conversationRecency(item))}</span>
+            <span className="conv-time">
+              {formatRelativeTime(conversationRecency(item))}
+            </span>
           </div>
           <p className="conv-preview">{item.lastMessagePreview}</p>
         </div>
@@ -210,22 +261,33 @@ function ConversationRow({ item }: { item: Conversation }) {
 }
 
 function SubTabPill({
-  label, active, onPress, badge, badgeVariant, icon: Icon,
+  label,
+  active,
+  onPress,
+  badge,
+  badgeVariant,
+  icon: Icon,
 }: {
   label: string;
   active: boolean;
   onPress: () => void;
   badge?: number;
-  badgeVariant?: 'red' | 'gold';
+  badgeVariant?: "red" | "gold";
   icon?: React.ComponentType<{ size?: number; color?: string }>;
 }) {
   return (
-    <button type="button" className={`sub-tab ${active ? 'sub-tab--active' : ''}`} onClick={onPress}>
+    <button
+      type="button"
+      className={`sub-tab ${active ? "sub-tab--active" : ""}`}
+      onClick={onPress}
+    >
       <div className="sub-tab-inner">
-        {Icon && <Icon size={16} color={active ? '#fff' : '#8E8E93'} />}
+        {Icon && <Icon size={16} color={active ? "#fff" : "#8E8E93"} />}
         <span className="sub-tab-label">{label}</span>
         {badge != null && badge > 0 && (
-          <span className={`sub-tab-badge ${badgeVariant === 'gold' ? 'sub-tab-badge--gold' : 'sub-tab-badge--red'}`}>
+          <span
+            className={`sub-tab-badge ${badgeVariant === "gold" ? "sub-tab-badge--gold" : "sub-tab-badge--red"}`}
+          >
             {formatBadgeCount(badge)}
           </span>
         )}
@@ -238,6 +300,7 @@ function SubTabPill({
 
 export function ChatPage() {
   const { openDetail } = useNavigationStore();
+  const { t } = useTranslation();
   const {
     conversations,
     profileVisits,
@@ -249,11 +312,12 @@ export function ChatPage() {
     sendFriendRequest,
     moderationHiddenProfilIds,
   } = useMessagingStore();
-  const [sub, setSub] = useState<SubTab>('messages');
+  const [sub, setSub] = useState<SubTab>("messages");
 
   /** Ami mutuel (cœur rose) — distinct du simple fait d’être dans l’annuaire « Amis » nel. */
   const isMutualFriend = useCallback(
-    (profilId: string) => friends.find((f) => f.profilId === profilId)?.mutualFriend === true,
+    (profilId: string) =>
+      friends.find((f) => f.profilId === profilId)?.mutualFriend === true,
     [friends],
   );
 
@@ -280,11 +344,19 @@ export function ChatPage() {
       }
       sendFriendRequest(profilId);
     },
-    [isMutualFriend, hasSentFriendRequest, hasRejectedFriendRequest, sendFriendRequest],
+    [
+      isMutualFriend,
+      hasSentFriendRequest,
+      hasRejectedFriendRequest,
+      sendFriendRequest,
+    ],
   );
 
   const sorted = useMemo(
-    () => [...conversations].sort((a, b) => conversationRecency(b) - conversationRecency(a)),
+    () =>
+      [...conversations].sort(
+        (a, b) => conversationRecency(b) - conversationRecency(a),
+      ),
     [conversations],
   );
 
@@ -293,7 +365,9 @@ export function ChatPage() {
     const list = favoriteConversationIds
       .map((id) => byId.get(id))
       .filter((c): c is Conversation => c !== undefined);
-    return [...list].sort((a, b) => conversationRecency(b) - conversationRecency(a));
+    return [...list].sort(
+      (a, b) => conversationRecency(b) - conversationRecency(a),
+    );
   }, [conversations, favoriteConversationIds]);
 
   const messagesTabBadge = useMemo(
@@ -302,13 +376,15 @@ export function ChatPage() {
   );
 
   const profileVisitsVisible = useMemo(
-    () => profileVisits.filter((v) => !moderationHiddenProfilIds.includes(v.id)),
+    () =>
+      profileVisits.filter((v) => !moderationHiddenProfilIds.includes(v.id)),
     [profileVisits, moderationHiddenProfilIds],
   );
 
   const visitesTabBadge = useMemo(
     () =>
-      profileVisitsVisible.filter((v) => v.friendRequest).length + profileVisitsVisible.length,
+      profileVisitsVisible.filter((v) => v.friendRequest).length +
+      profileVisitsVisible.length,
     [profileVisitsVisible],
   );
 
@@ -323,12 +399,13 @@ export function ChatPage() {
   );
 
   const sortedVisits = useMemo(
-    () => [...profileVisitsVisible].sort((a, b) => {
-      const ra = a.friendRequest ? 1 : 0;
-      const rb = b.friendRequest ? 1 : 0;
-      if (rb !== ra) return rb - ra;
-      return b.lastVisitAt - a.lastVisitAt;
-    }),
+    () =>
+      [...profileVisitsVisible].sort((a, b) => {
+        const ra = a.friendRequest ? 1 : 0;
+        const rb = b.friendRequest ? 1 : 0;
+        if (rb !== ra) return rb - ra;
+        return b.lastVisitAt - a.lastVisitAt;
+      }),
     [profileVisitsVisible],
   );
 
@@ -337,7 +414,7 @@ export function ChatPage() {
       {/* Header gradient with favorite conversations */}
       <div className="chat-header-gradient">
         <div className="favorites-section">
-          <p className="favorites-title">Conversations favoris</p>
+          <p className="favorites-title">{t("favoriteChatConversations")}</p>
           <div className="stories-wrap">
             <div className="stories-scroll">
               {favoriteConversationsStrip.map((c) => (
@@ -353,9 +430,26 @@ export function ChatPage() {
       {/* Sub-tab bar */}
       <div className="sub-tab-bar">
         <div className="sub-tab-scroll">
-          <SubTabPill label="Messages" active={sub === 'messages'} onPress={() => setSub('messages')} badge={messagesTabBadge} badgeVariant="red" />
-          <SubTabPill label="Suggestions" active={sub === 'suggestions'} onPress={() => setSub('suggestions')} />
-          <SubTabPill label="Visites" active={sub === 'visites'} onPress={() => setSub('visites')} badge={visitesTabBadge} badgeVariant="gold" icon={Eye} />
+          <SubTabPill
+            label="Messages"
+            active={sub === "messages"}
+            onPress={() => setSub("messages")}
+            badge={messagesTabBadge}
+            badgeVariant="red"
+          />
+          <SubTabPill
+            label="Suggestions"
+            active={sub === "suggestions"}
+            onPress={() => setSub("suggestions")}
+          />
+          <SubTabPill
+            label="Visites"
+            active={sub === "visites"}
+            onPress={() => setSub("visites")}
+            badge={visitesTabBadge}
+            badgeVariant="gold"
+            icon={Eye}
+          />
         </div>
         <button className="search-btn-small" aria-label="Rechercher">
           <Search size={22} color="#8E8E93" />
@@ -364,7 +458,7 @@ export function ChatPage() {
 
       {/* Content */}
       <div className="chat-content">
-        {sub === 'messages' && (
+        {sub === "messages" && (
           <div className="conv-list">
             {sorted.map((item) => (
               <ConversationRow key={item.id} item={item} />
@@ -372,7 +466,7 @@ export function ChatPage() {
           </div>
         )}
 
-        {sub === 'visites' && (
+        {sub === "visites" && (
           <div className="visits-list">
             {/* Premium banner */}
             <div className="premium-banner">
@@ -380,31 +474,50 @@ export function ChatPage() {
                 <Crown size={28} color="#fff" />
               </div>
               <div className="premium-banner-texts">
-                <span className="premium-banner-title">Fonctionnalité Premium</span>
-                <span className="premium-banner-sub">{profileVisitsVisible.length} personnes ont visité votre profil.</span>
+                <span className="premium-banner-title">
+                  Fonctionnalité Premium
+                </span>
+                <span className="premium-banner-sub">
+                  {profileVisitsVisible.length} personnes ont visité votre
+                  profil.
+                </span>
               </div>
             </div>
             {sortedVisits.map((v) => (
-              <div key={v.id} className="visit-card" onClick={() => openDetail('profile', v.id)}>
+              <div
+                key={v.id}
+                className="visit-card"
+                onClick={() => openDetail("profile", v.id)}
+              >
                 <div className="visit-avatar-wrap">
-                  <img src={v.avatarUrl} alt={v.name} className="visit-avatar" />
+                  <img
+                    src={v.avatarUrl}
+                    alt={v.name}
+                    className="visit-avatar"
+                  />
                   {v.friendRequest && (
                     <span className="visit-friend-badge">Demande d'ami</span>
                   )}
                   {v.visitMultiplier && v.visitMultiplier > 1 && (
-                    <span className="visit-mult-badge">×{v.visitMultiplier}</span>
+                    <span className="visit-mult-badge">
+                      ×{v.visitMultiplier}
+                    </span>
                   )}
                 </div>
                 <div className="visit-card-body">
-                  <span className="visit-name-age">{v.name}, {v.age}</span>
+                  <span className="visit-name-age">
+                    {v.name}, {v.age}
+                  </span>
                   <div className="visit-meta-row">
                     <Eye size={14} color="#8E8E93" />
-                    <span className="visit-time">{formatVisitTimeAgo(v.lastVisitAt)}</span>
+                    <span className="visit-time">
+                      {formatVisitTimeAgo(v.lastVisitAt)}
+                    </span>
                   </div>
                 </div>
                 <button
                   type="button"
-                  className={`visit-like-btn${hasSentFriendRequest(v.id) ? ' visit-like-btn--sent' : ''}${isMutualFriend(v.id) ? ' visit-like-btn--friend' : ''}${hasRejectedFriendRequest(v.id) ? ' visit-like-btn--rejected' : ''}`}
+                  className={`visit-like-btn${hasSentFriendRequest(v.id) ? " visit-like-btn--sent" : ""}${isMutualFriend(v.id) ? " visit-like-btn--friend" : ""}${hasRejectedFriendRequest(v.id) ? " visit-like-btn--rejected" : ""}`}
                   disabled={
                     isMutualFriend(v.id) ||
                     hasSentFriendRequest(v.id) ||
@@ -413,16 +526,21 @@ export function ChatPage() {
                   onClick={(e) => handleFriendRequest(e, v.id)}
                   aria-label={
                     isMutualFriend(v.id)
-                      ? 'Ami·e'
+                      ? "Ami·e"
                       : hasRejectedFriendRequest(v.id)
-                        ? 'Demande d’ami refusée'
+                        ? "Demande d’ami refusée"
                         : hasSentFriendRequest(v.id)
-                          ? 'Demande d’ami envoyée'
-                          : 'Envoyer une demande d’ami'
+                          ? "Demande d’ami envoyée"
+                          : "Envoyer une demande d’ami"
                   }
                 >
                   {isMutualFriend(v.id) ? (
-                    <Heart size={18} color="#FF4081" fill="#FF4081" aria-hidden />
+                    <Heart
+                      size={18}
+                      color="#FF4081"
+                      fill="#FF4081"
+                      aria-hidden
+                    />
                   ) : hasRejectedFriendRequest(v.id) ? (
                     <HeartCrack size={18} color="#FF9F0A" aria-hidden />
                   ) : (
@@ -430,12 +548,12 @@ export function ChatPage() {
                   )}
                   <span>
                     {isMutualFriend(v.id)
-                      ? 'Ami·e'
+                      ? "Ami·e"
                       : hasRejectedFriendRequest(v.id)
-                        ? 'Refusée'
+                        ? "Refusée"
                         : hasSentFriendRequest(v.id)
-                          ? 'Envoyée'
-                          : 'Ajouter'}
+                          ? "Envoyée"
+                          : "Ajouter"}
                   </span>
                 </button>
               </div>
@@ -443,7 +561,7 @@ export function ChatPage() {
           </div>
         )}
 
-        {sub === 'suggestions' && (
+        {sub === "suggestions" && (
           <div className="suggestions-masonry">
             {suggestionColumns.map((col, ci) => (
               <div key={ci} className="suggestion-col">
@@ -453,7 +571,10 @@ export function ChatPage() {
                   const rejected = hasRejectedFriendRequest(item.id);
                   return (
                     <div key={item.id} className="suggestion-card">
-                      <div className="suggestion-img-press" onClick={() => openDetail('profile', item.id)}>
+                      <div
+                        className="suggestion-img-press"
+                        onClick={() => openDetail("profile", item.id)}
+                      >
                         <img
                           src={item.imageUrl}
                           alt={item.pseudo}
@@ -468,21 +589,26 @@ export function ChatPage() {
                       </div>
                       <button
                         type="button"
-                        className={`suggestion-add-friend-btn${sent ? ' suggestion-add-friend-btn--sent' : ''}${mutual ? ' suggestion-add-friend-btn--friend' : ''}${rejected ? ' suggestion-add-friend-btn--rejected' : ''}`}
+                        className={`suggestion-add-friend-btn${sent ? " suggestion-add-friend-btn--sent" : ""}${mutual ? " suggestion-add-friend-btn--friend" : ""}${rejected ? " suggestion-add-friend-btn--rejected" : ""}`}
                         disabled={mutual || sent || rejected}
                         onClick={(e) => handleFriendRequest(e, item.id)}
                         aria-label={
                           mutual
-                            ? 'Ami·e'
+                            ? "Ami·e"
                             : rejected
-                              ? 'Demande d’ami refusée'
+                              ? "Demande d’ami refusée"
                               : sent
-                                ? 'Demande d’ami envoyée'
-                                : 'Envoyer une demande d’ami'
+                                ? "Demande d’ami envoyée"
+                                : "Envoyer une demande d’ami"
                         }
                       >
                         {mutual ? (
-                          <Heart size={22} color="#FF4081" fill="#FF4081" aria-hidden />
+                          <Heart
+                            size={22}
+                            color="#FF4081"
+                            fill="#FF4081"
+                            aria-hidden
+                          />
                         ) : rejected ? (
                           <HeartCrack size={22} color="#FF9F0A" aria-hidden />
                         ) : (

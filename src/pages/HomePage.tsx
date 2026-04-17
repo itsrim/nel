@@ -1,40 +1,53 @@
-import { useState, useMemo, useCallback } from 'react';
-import { Search, SlidersHorizontal, X, Check } from 'lucide-react';
-import { useNavigationStore } from '../store/useNavigationStore';
-import { useMessagingStore } from '../store/useMessagingStore';
-import { EventCard } from '../components/EventCard';
-import { QuestionnaireModal } from '../components/QuestionnaireModal';
-import { formatEventSectionTitle } from '../lib/eventDateKey';
-import { eventIsVisibleInDiscovery } from '../lib/eventVisibility';
-import './HomePage.css';
+import { useState, useMemo, useCallback } from "react";
+import { Search, SlidersHorizontal, X, Check } from "lucide-react";
+import { useNavigationStore } from "../store/useNavigationStore";
+import { useMessagingStore } from "../store/useMessagingStore";
+import { useTranslation } from "../i18n/useTranslation";
+import { EventCard } from "../components/EventCard";
+import { QuestionnaireModal } from "../components/QuestionnaireModal";
+import { formatEventSectionTitle } from "../lib/eventDateKey";
+import { eventIsVisibleInDiscovery } from "../lib/eventVisibility";
+import "./HomePage.css";
 
 export function HomePage() {
   const { openDetail } = useNavigationStore();
-  const { events, nelDemoIsAdmin, moderationHiddenEventIds } = useMessagingStore();
-  const [searchDraft, setSearchDraft] = useState('');
-  const [committedSearch, setCommittedSearch] = useState('');
+  const { events, nelDemoIsAdmin, moderationHiddenEventIds } =
+    useMessagingStore();
+  const { t } = useTranslation();
+  const [searchDraft, setSearchDraft] = useState("");
+  const [committedSearch, setCommittedSearch] = useState("");
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   const [isQuestionnaireOpen, setIsQuestionnaireOpen] = useState(true); // Open on first load matching meetabit
 
   // Mock tags matching meetabit
   const tags = [
-    { id: '1', label: 'Tout' },
-    { id: '2', label: 'Sport' },
-    { id: '3', label: 'Sorties' },
-    { id: '4', label: 'Culture' },
-    { id: '5', label: 'Détente' },
+    { id: "1", label: t("all") },
+    { id: "2", label: t("sport") },
+    { id: "3", label: t("outings") },
+    { id: "4", label: t("culture") },
+    { id: "5", label: t("culture") }, // Détente placeholder
   ];
 
   const filteredEvents = useMemo(() => {
     return events.filter((e) => {
-      if (!eventIsVisibleInDiscovery(e, nelDemoIsAdmin, moderationHiddenEventIds)) return false;
-      const matchesSearch = e.title.toLowerCase().includes(committedSearch.toLowerCase()) || 
-                             e.location.toLowerCase().includes(committedSearch.toLowerCase());
+      if (
+        !eventIsVisibleInDiscovery(e, nelDemoIsAdmin, moderationHiddenEventIds)
+      )
+        return false;
+      const matchesSearch =
+        e.title.toLowerCase().includes(committedSearch.toLowerCase()) ||
+        e.location.toLowerCase().includes(committedSearch.toLowerCase());
       // For now, tags are mock filtering
-      const matchesTag = !selectedTagId || selectedTagId === '1' || true; 
+      const matchesTag = !selectedTagId || selectedTagId === "1" || true;
       return matchesSearch && matchesTag;
     });
-  }, [events, committedSearch, selectedTagId, nelDemoIsAdmin, moderationHiddenEventIds]);
+  }, [
+    events,
+    committedSearch,
+    selectedTagId,
+    nelDemoIsAdmin,
+    moderationHiddenEventIds,
+  ]);
 
   const topEvents = useMemo(() => {
     return [...filteredEvents]
@@ -63,8 +76,8 @@ export function HomePage() {
   };
 
   const handleClearSearch = () => {
-    setSearchDraft('');
-    setCommittedSearch('');
+    setSearchDraft("");
+    setCommittedSearch("");
   };
 
   return (
@@ -75,10 +88,10 @@ export function HomePage() {
             <Search size={20} className="search-icon" />
             <input
               type="text"
-              placeholder="Rechercher une activité…"
+              placeholder={t("searchActivity")}
               value={searchDraft}
               onChange={(e) => setSearchDraft(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleApplySearch()}
+              onKeyDown={(e) => e.key === "Enter" && handleApplySearch()}
             />
             {searchDraft && (
               <button className="clear-btn" onClick={handleClearSearch}>
@@ -95,11 +108,13 @@ export function HomePage() {
         </div>
 
         <div className="tags-scroll">
-          {tags.map(tag => (
+          {tags.map((tag) => (
             <button
               key={tag.id}
-              className={`tag-pill ${selectedTagId === tag.id ? 'active' : ''}`}
-              onClick={() => setSelectedTagId(tag.id === selectedTagId ? null : tag.id)}
+              className={`tag-pill ${selectedTagId === tag.id ? "active" : ""}`}
+              onClick={() =>
+                setSelectedTagId(tag.id === selectedTagId ? null : tag.id)
+              }
             >
               {tag.label}
             </button>
@@ -108,15 +123,15 @@ export function HomePage() {
 
         {topEvents.length > 0 && (
           <div className="top-section">
-            <h2 className="section-title">Top 5 Activités</h2>
+            <h2 className="section-title">{t("topActivities")}</h2>
             <div className="top-scroll">
-              {topEvents.map(e => (
+              {topEvents.map((e) => (
                 <div key={e.id} className="top-card-wrapper">
-                  <EventCard 
-                    item={e} 
-                    onToggleFavorite={() => {}} 
-                    onClick={() => openDetail('event', e.id)}
-                    width={280} 
+                  <EventCard
+                    item={e}
+                    onToggleFavorite={() => {}}
+                    onClick={() => openDetail("event", e.id)}
+                    width={280}
                   />
                 </div>
               ))}
@@ -126,17 +141,19 @@ export function HomePage() {
       </header>
 
       <main className="home-content">
-        <h2 className="section-title main-agenda-title">Agenda des activités</h2>
+        <h2 className="section-title main-agenda-title">
+          {t("activitiesSchedule")}
+        </h2>
         {groupedEvents.map(({ dateKey, title, items }) => (
           <section key={dateKey} className="agenda-group">
             <h3 className="group-date-title">{title}</h3>
             <div className="event-grid">
-              {items.map(e => (
+              {items.map((e) => (
                 <div key={e.id} className="grid-event-wrapper">
-                  <EventCard 
-                    item={e} 
-                    onToggleFavorite={() => {}} 
-                    onClick={() => openDetail('event', e.id)}
+                  <EventCard
+                    item={e}
+                    onToggleFavorite={() => {}}
+                    onClick={() => openDetail("event", e.id)}
                   />
                 </div>
               ))}
@@ -146,9 +163,9 @@ export function HomePage() {
       </main>
 
       {/* Questionnaire Trigger Logic could go here or in App */}
-      <QuestionnaireModal 
-        isOpen={isQuestionnaireOpen} 
-        onClose={() => setIsQuestionnaireOpen(false)} 
+      <QuestionnaireModal
+        isOpen={isQuestionnaireOpen}
+        onClose={() => setIsQuestionnaireOpen(false)}
       />
     </div>
   );

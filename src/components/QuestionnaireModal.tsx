@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { X, Check } from 'lucide-react';
-import './QuestionnaireModal.css';
+import { useState, useMemo } from "react";
+import { X, Check } from "lucide-react";
+import { useTranslation } from "../i18n/useTranslation";
+import "./QuestionnaireModal.css";
 
 interface QuestionnaireModalProps {
   isOpen: boolean;
@@ -8,28 +9,44 @@ interface QuestionnaireModalProps {
 }
 
 const EMOJIS = [
-  { emoji: '😄', key: 'great' },
-  { emoji: '😊', key: 'good' },
-  { emoji: '😐', key: 'ok' },
-  { emoji: '😔', key: 'low' },
-  { emoji: '😢', key: 'sad' },
-  { emoji: '🥰', key: 'loved' },
-  { emoji: '😴', key: 'tired' },
-  { emoji: '😤', key: 'tense' },
-  { emoji: '🌟', key: 'hope' },
+  { emoji: "😄", key: "great" },
+  { emoji: "😊", key: "good" },
+  { emoji: "😐", key: "ok" },
+  { emoji: "😔", key: "low" },
+  { emoji: "😢", key: "sad" },
+  { emoji: "🥰", key: "loved" },
+  { emoji: "😴", key: "tired" },
+  { emoji: "😤", key: "tense" },
+  { emoji: "🌟", key: "hope" },
 ];
 
-const BADGES = [
-  'Travail', 'Argent', 'Aide', 'Santé', 'Fatigue', 'Douleur', 
-  'Bonheur', 'Famille', 'Amour', 'Sport', 'Amis', 'Stress', 
-  'Calme', 'Nature', 'Créativité'
+const BADGE_KEYS = [
+  "work",
+  "money",
+  "help",
+  "health",
+  "fatigue",
+  "pain",
+  "happiness",
+  "family",
+  "love",
+  "sports",
+  "friends",
+  "stress",
+  "calm",
+  "nature",
+  "creativity",
 ];
 
-export function QuestionnaireModal({ isOpen, onClose }: QuestionnaireModalProps) {
+export function QuestionnaireModal({
+  isOpen,
+  onClose,
+}: QuestionnaireModalProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
   const [selectedBadge, setSelectedBadge] = useState<string | null>(null);
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState("");
 
   // Generate random stars for the background
   const stars = useMemo(() => {
@@ -38,7 +55,7 @@ export function QuestionnaireModal({ isOpen, onClose }: QuestionnaireModalProps)
       left: Math.random() * 100,
       top: Math.random() * 100,
       size: Math.random() * 2 + 1,
-      opacity: Math.random() * 0.5 + 0.3
+      opacity: Math.random() * 0.5 + 0.3,
     }));
   }, []);
 
@@ -60,17 +77,17 @@ export function QuestionnaireModal({ isOpen, onClose }: QuestionnaireModalProps)
   return (
     <div className="q-modal-overlay">
       <div className="q-modal-twilight">
-        {stars.map(star => (
-          <div 
-            key={star.id} 
-            className="q-star" 
-            style={{ 
-              left: `${star.left}%`, 
-              top: `${star.top}%`, 
-              width: `${star.size}px`, 
+        {stars.map((star) => (
+          <div
+            key={star.id}
+            className="q-star"
+            style={{
+              left: `${star.left}%`,
+              top: `${star.top}%`,
+              width: `${star.size}px`,
               height: `${star.size}px`,
-              opacity: star.opacity
-            }} 
+              opacity: star.opacity,
+            }}
           />
         ))}
       </div>
@@ -84,29 +101,34 @@ export function QuestionnaireModal({ isOpen, onClose }: QuestionnaireModalProps)
         </header>
 
         <div className="q-body">
-          <p className="q-kicker">Comment ça va ?</p>
-          <p className="q-step-badge">ÉTAPE {step} SUR 3</p>
-          
+          <p className="q-kicker">{t("howAreYou")}</p>
+          <p className="q-step-badge">
+            {t("step")} {step} {t("of")} 3
+          </p>
+
           <h2 className="q-title">
-            {step === 1 && "Quelle est votre humeur ?"}
-            {step === 2 && "Qu'est-ce qui occupe votre esprit ?"}
-            {step === 3 && "Une petite note pour vous-même ?"}
+            {step === 1 && t("moodQuestion")}
+            {step === 2 && t("mindQuestion")}
+            {step === 3 && t("noteQuestion")}
           </h2>
-          
+
           <p className="q-subtitle">
-            {step === 1 && "Choisissez l'emoji qui vous ressemble le plus aujourd'hui."}
-            {step === 2 && "Sélectionnez un thème qui a marqué votre journée."}
-            {step === 3 && "C'est privé, juste pour votre historique."}
+            {step === 1 && t("moodSubtitle")}
+            {step === 2 && t("mindSubtitle")}
+            {step === 3 && t("noteSubtitle")}
           </p>
 
           <div className="q-options-container">
             {step === 1 && (
               <div className="emoji-grid">
-                {EMOJIS.map(e => (
-                  <button 
-                    key={e.key} 
-                    className={`emoji-btn ${selectedEmoji === e.key ? 'active' : ''}`}
-                    onClick={() => { setSelectedEmoji(e.key); handleNext(); }}
+                {EMOJIS.map((e) => (
+                  <button
+                    key={e.key}
+                    className={`emoji-btn ${selectedEmoji === e.key ? "active" : ""}`}
+                    onClick={() => {
+                      setSelectedEmoji(e.key);
+                      handleNext();
+                    }}
                   >
                     {e.emoji}
                   </button>
@@ -116,22 +138,25 @@ export function QuestionnaireModal({ isOpen, onClose }: QuestionnaireModalProps)
 
             {step === 2 && (
               <div className="badge-wrap">
-                {BADGES.map(b => (
-                  <button 
-                    key={b} 
-                    className={`badge-chip ${selectedBadge === b ? 'active' : ''}`}
-                    onClick={() => { setSelectedBadge(b); handleNext(); }}
+                {BADGE_KEYS.map((key) => (
+                  <button
+                    key={key}
+                    className={`badge-chip ${selectedBadge === key ? "active" : ""}`}
+                    onClick={() => {
+                      setSelectedBadge(key);
+                      handleNext();
+                    }}
                   >
-                    {b}
+                    {t(key as any)}
                   </button>
                 ))}
               </div>
             )}
 
             {step === 3 && (
-              <textarea 
+              <textarea
                 className="q-textarea"
-                placeholder="Écrivez quelque chose ici..."
+                placeholder={t("questionPlaceholder")}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
@@ -141,20 +166,15 @@ export function QuestionnaireModal({ isOpen, onClose }: QuestionnaireModalProps)
           <div className="q-actions">
             {step === 3 && (
               <button className="q-primary-btn" onClick={handleNext}>
-                Continuer <Check size={22} style={{marginLeft: 8}} />
+                {t("continue")} <Check size={22} style={{ marginLeft: 8 }} />
               </button>
             )}
             <button className="q-skip-btn" onClick={handleSkip}>
-              Passer
+              {t("skip")}
             </button>
           </div>
         </div>
       </div>
     </div>
   );
-}
-
-// Helper hook for memoization if needed, but here we can just use useMemo if available
-function useMemo<T>(factory: () => T, deps: any[]): T {
-  return useState(factory)[0];
 }

@@ -1,5 +1,6 @@
 import { Heart, Check, Plus, Clock, MapPin } from 'lucide-react';
 import type { Event } from '../data/mockData';
+import { useTranslation } from '../i18n/useTranslation';
 import './EventCard.css';
 
 interface EventCardProps {
@@ -10,6 +11,7 @@ interface EventCardProps {
 }
 
 export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardProps) {
+  const { t } = useTranslation();
   const CARD_IMAGE_ASPECT = 2.05;
   const imgH = width ? Math.round(width / CARD_IMAGE_ASPECT) : 90;
 
@@ -26,23 +28,23 @@ export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardP
         <div className="ecard-img-top">
           <div className="ecard-tags-left">
             {item.isBeta && (
-              <span className="ecard-tag ecard-tag--beta">Bêta</span>
+              <span className="ecard-tag ecard-tag--beta">{t('beta')}</span>
             )}
             {item.status === 'inscrit' && (
               <span className="ecard-tag ecard-tag--blue">
-                <Check size={10} /> Inscrit
+                <Check size={10} /> {t('registered')}
               </span>
             )}
             {item.status === 'inscrire' && (
               <span className="ecard-tag ecard-tag--join">
-                <Plus size={10} /> S'inscrire
+                <Plus size={10} /> {t('register')}
               </span>
             )}
             {item.status === 'organisateur' && (
-              <span className="ecard-tag ecard-tag--pink">Organisateur</span>
+              <span className="ecard-tag ecard-tag--pink">{t('organizer')}</span>
             )}
             {item.status === 'en_attente' && (
-              <span className="ecard-tag ecard-tag--pending">En attente</span>
+              <span className="ecard-tag ecard-tag--pending">{t('pending')}</span>
             )}
           </div>
           <span className="ecard-price">{item.priceLabel}</span>
@@ -64,7 +66,7 @@ export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardP
           <button
             className="ecard-fav-btn"
             onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
-            aria-label={item.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            aria-label={item.isFavorite ? t('removeFavorite') : t('addFavorite')}
           >
             <Heart
               size={16}
