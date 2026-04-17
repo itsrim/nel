@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Camera,
   ChevronDown,
@@ -13,18 +13,22 @@ import {
   Trash2,
   Users,
   X,
-} from 'lucide-react';
-import { useNavigationStore } from '../store/useNavigationStore';
-import { useMessagingStore } from '../store/useMessagingStore';
-import type { Event } from '../data/mockData';
-import { getNelProfileImageKitUserKey, uploadLocalImageToImageKitEventCover } from '../lib/imagekitUpload';
-import { withUrlUploadVersion } from '../lib/versionRemoteAssetUrl';
+} from "lucide-react";
+import { useNavigationStore } from "../store/useNavigationStore";
+import { useMessagingStore } from "../store/useMessagingStore";
+import { useTranslation } from "../i18n/useTranslation";
+import type { Event } from "../data/mockData";
+import {
+  getNelProfileImageKitUserKey,
+  uploadLocalImageToImageKitEventCover,
+} from "../lib/imagekitUpload";
+import { withUrlUploadVersion } from "../lib/versionRemoteAssetUrl";
 import {
   DEFAULT_EVENT_COVER_THEMES,
   findDefaultCoverThemeByImageUrl,
   type DefaultEventCoverTheme,
-} from '../constants/defaultEventCoverThemes';
-import './CreateEventPage.css';
+} from "../constants/defaultEventCoverThemes";
+import "./CreateEventPage.css";
 
 const MAX_PARTICIPANTS_CAP = 150;
 const MAX_TITLE_LEN = 50;
@@ -32,27 +36,27 @@ const MAX_DESCRIPTION_LEN = 300;
 const MAX_LOCATION_LEN = 99;
 
 function foldNorm(s: string): string {
-  return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
 function toIsoDateKey(d: Date): string {
   const y = d.getFullYear();
-  const mo = String(d.getMonth() + 1).padStart(2, '0');
-  const da = String(d.getDate()).padStart(2, '0');
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
   return `${y}-${mo}-${da}`;
 }
 
 function frenchShortDate(d: Date): string {
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 }
 
 /** Même convention que `formatEventSectionTitle` / mock événements (jour + mois + année). */
 function frenchSectionLabel(d: Date): string {
-  const raw = d.toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
+  const raw = d.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
   });
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
@@ -63,12 +67,12 @@ function roundDateToQuarterHour(d: Date): Date {
 }
 
 function dateFromEvent(ev: Event): Date {
-  const p = ev.dateKey.split('-').map((x) => parseInt(x, 10));
+  const p = ev.dateKey.split("-").map((x) => parseInt(x, 10));
   const y = p[0];
   const mo = p[1];
   const da = p[2];
-  const time = ev.timeShort || '12:00';
-  const [hh, mm] = time.split(':').map((x) => parseInt(x, 10));
+  const time = ev.timeShort || "12:00";
+  const [hh, mm] = time.split(":").map((x) => parseInt(x, 10));
   if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(da)) {
     return new Date();
   }
@@ -85,11 +89,11 @@ function dateFromEvent(ev: Event): Date {
 
 /** Même logique que la fiche événement : sorties dont vous êtes l’organisateur affiché comme « vous ». */
 function eventIsEditableByViewer(ev: Event): boolean {
-  if (ev.status !== 'organisateur') return false;
+  if (ev.status !== "organisateur") return false;
   return (
     ev.hostedByViewer === true ||
-    ev.hostName === 'Moi' ||
-    (ev.hostAvatar?.includes('nel-organizer') ?? false)
+    ev.hostName === "Moi" ||
+    (ev.hostAvatar?.includes("nel-organizer") ?? false)
   );
 }
 
@@ -100,6 +104,7 @@ export interface CreateEventPageProps {
 
 export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const { closeDetail, popDetails } = useNavigationStore();
+  const { t } = useTranslation();
   const {
     addEvent,
     updateEvent,
@@ -110,14 +115,16 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     getEventById,
   } = useMessagingStore();
 
-  const isEditMode = formEventId !== 'new';
+  const isEditMode = formEventId !== "new";
 
   const coverInputRef = useRef<HTMLInputElement>(null);
-  const [title, setTitle] = useState('');
-  const [location, setLocation] = useState('');
-  const [description, setDescription] = useState('');
-  const [maxParticipants, setMaxParticipants] = useState('50');
-  const [eventDate, setEventDate] = useState(() => roundDateToQuarterHour(new Date()));
+  const [title, setTitle] = useState("");
+  const [location, setLocation] = useState("");
+  const [description, setDescription] = useState("");
+  const [maxParticipants, setMaxParticipants] = useState("50");
+  const [eventDate, setEventDate] = useState(() =>
+    roundDateToQuarterHour(new Date()),
+  );
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [coverImageNonce, setCoverImageNonce] = useState(0);
   const [uploadingEventCover, setUploadingEventCover] = useState(false);
@@ -144,7 +151,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     }
     setTitle(ev.title.slice(0, MAX_TITLE_LEN));
     setLocation(ev.location.slice(0, MAX_LOCATION_LEN));
-    setDescription((ev.notes ?? '').slice(0, MAX_DESCRIPTION_LEN));
+    setDescription((ev.notes ?? "").slice(0, MAX_DESCRIPTION_LEN));
     setMaxParticipants(String(ev.participantMax));
     setEventDate(roundDateToQuarterHour(dateFromEvent(ev)));
     setImageUri(ev.imageUri);
@@ -158,7 +165,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const dateInputValue = useMemo(() => toIsoDateKey(eventDate), [eventDate]);
   const timeInputValue = useMemo(
     () =>
-      `${String(eventDate.getHours()).padStart(2, '0')}:${String(eventDate.getMinutes()).padStart(2, '0')}`,
+      `${String(eventDate.getHours()).padStart(2, "0")}:${String(eventDate.getMinutes()).padStart(2, "0")}`,
     [eventDate],
   );
 
@@ -170,18 +177,24 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     return findDefaultCoverThemeByImageUrl(imageUri)?.id ?? null;
   }, [imageUri]);
 
-  const bumpMax = useCallback((delta: number) => {
-    setMaxParticipants((p) => {
-      const n = parseInt(p, 10);
-      const cur = Number.isFinite(n) ? n : MAX_PARTICIPANTS_CAP;
-      const next = Math.min(MAX_PARTICIPANTS_CAP, Math.max(participantFloor, cur + delta));
-      return String(next);
-    });
-  }, [participantFloor]);
+  const bumpMax = useCallback(
+    (delta: number) => {
+      setMaxParticipants((p) => {
+        const n = parseInt(p, 10);
+        const cur = Number.isFinite(n) ? n : MAX_PARTICIPANTS_CAP;
+        const next = Math.min(
+          MAX_PARTICIPANTS_CAP,
+          Math.max(participantFloor, cur + delta),
+        );
+        return String(next);
+      });
+    },
+    [participantFloor],
+  );
 
   const onDateChange = useCallback((v: string) => {
     if (!v) return;
-    const d = new Date(v + 'T12:00:00');
+    const d = new Date(v + "T12:00:00");
     if (Number.isNaN(d.getTime())) return;
     setEventDate((prev) => {
       const nd = new Date(prev);
@@ -191,8 +204,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   }, []);
 
   const onTimeChange = useCallback((v: string) => {
-    if (!v?.includes(':')) return;
-    const [h, m] = v.split(':');
+    if (!v?.includes(":")) return;
+    const [h, m] = v.split(":");
     const hh = parseInt(h, 10);
     const mm = parseInt(m, 10);
     if (!Number.isFinite(hh) || !Number.isFinite(mm)) return;
@@ -216,49 +229,61 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
       if (foldNorm(prev).includes(foldNorm(tagToken))) return prev;
       const base = prev.trimEnd();
       const next = `${base}\n\n${tagToken}`;
-      return next.length > MAX_DESCRIPTION_LEN ? next.slice(0, MAX_DESCRIPTION_LEN) : next;
+      return next.length > MAX_DESCRIPTION_LEN
+        ? next.slice(0, MAX_DESCRIPTION_LEN)
+        : next;
     });
   }, []);
 
-  const onCoverFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !file.type.startsWith('image/')) return;
+  const onCoverFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file || !file.type.startsWith("image/")) return;
 
-    setUploadingEventCover(true);
-    try {
-      const userKey = getNelProfileImageKitUserKey();
-      const uploadedUrl = await uploadLocalImageToImageKitEventCover({
-        webFile: file,
-        mimeType: file.type || null,
-        userKey,
-      });
-      setImageUri(withUrlUploadVersion(uploadedUrl));
-      setCoverImageNonce((n) => n + 1);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      window.alert(msg || 'Échec de l’envoi de l’image.');
-    } finally {
-      setUploadingEventCover(false);
-    }
-  }, []);
+      setUploadingEventCover(true);
+      try {
+        const userKey = getNelProfileImageKitUserKey();
+        const uploadedUrl = await uploadLocalImageToImageKitEventCover({
+          webFile: file,
+          mimeType: file.type || null,
+          userKey,
+        });
+        setImageUri(withUrlUploadVersion(uploadedUrl));
+        setCoverImageNonce((n) => n + 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        window.alert(msg || "Échec de l’envoi de l’image.");
+      } finally {
+        setUploadingEventCover(false);
+      }
+    },
+    [],
+  );
 
   const submit = useCallback(() => {
     const t = title.trim().slice(0, MAX_TITLE_LEN);
     const l = location.trim().slice(0, MAX_LOCATION_LEN);
     const parsed = eventDate;
-    const timeShortStr = eventDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const timeShortStr = eventDate.toLocaleTimeString("fr-FR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
     const maxParsed = parseInt(maxParticipants.trim(), 10);
 
     if (!t) {
-      window.alert('Indiquez un titre pour votre événement.');
+      window.alert("Indiquez un titre pour votre événement.");
       return;
     }
     if (!l) {
-      window.alert('Indiquez un lieu ou un point de rendez-vous.');
+      window.alert("Indiquez un lieu ou un point de rendez-vous.");
       return;
     }
-    if (!Number.isFinite(maxParsed) || maxParsed < participantFloor || maxParsed > MAX_PARTICIPANTS_CAP) {
+    if (
+      !Number.isFinite(maxParsed) ||
+      maxParsed < participantFloor ||
+      maxParsed > MAX_PARTICIPANTS_CAP
+    ) {
       window.alert(
         `Le nombre de participants doit être entre ${participantFloor} et ${MAX_PARTICIPANTS_CAP}.`,
       );
@@ -272,8 +297,10 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
       const sectionDateLabel = frenchSectionLabel(parsed);
       const dateLabel = frenchShortDate(parsed);
       const notesTrim = description.trim();
-      const notesVal = notesTrim ? notesTrim.slice(0, MAX_DESCRIPTION_LEN) : undefined;
-      const timeShortVal = timeShortStr || '19:00';
+      const notesVal = notesTrim
+        ? notesTrim.slice(0, MAX_DESCRIPTION_LEN)
+        : undefined;
+      const timeShortVal = timeShortStr || "19:00";
       const beta = nelDemoIsAdmin && markAsBeta;
 
       if (isEditMode) {
@@ -301,7 +328,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           location: l,
           notes: notesVal,
           timeShort: timeShortVal,
-          priceLabel: 'Gratuit',
+          priceLabel: "Gratuit",
           imageUri: imageUri ?? undefined,
           participantMax: cappedMax,
           dateKey,
@@ -343,7 +370,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     if (!isEditMode) return;
     if (
       !window.confirm(
-        'Annuler définitivement cette sortie ? Elle disparaîtra de la liste et le groupe de discussion sera supprimé.',
+        "Annuler définitivement cette sortie ? Elle disparaîtra de la liste et le groupe de discussion sera supprimé.",
       )
     ) {
       return;
@@ -357,17 +384,25 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
       <div className="ce-bg-gradient" aria-hidden />
 
       <header className="ce-header">
-        <button type="button" className="ce-header-btn" onClick={closeDetail} aria-label="Fermer">
+        <button
+          type="button"
+          className="ce-header-btn"
+          onClick={closeDetail}
+          aria-label="Fermer"
+        >
           <X size={26} color="#fff" />
         </button>
-        <h1 className="ce-header-title">{isEditMode ? 'Modifier la sortie' : 'Nouvelle sortie'}</h1>
+        <h1 className="ce-header-title">
+          {isEditMode ? t("editEventTitle") : t("createEventTitle")}
+        </h1>
         <button
           type="button"
           className="ce-header-create"
           onClick={submit}
           disabled={submitting || uploadingEventCover}
-          aria-label={isEditMode ? 'Enregistrer' : 'Créer'}>
-          {isEditMode ? 'Enregistrer' : 'Créer'}
+          aria-label={isEditMode ? t("saveButton") : t("createButton")}
+        >
+          {isEditMode ? t("saveButton") : t("createButton")}
         </button>
       </header>
 
@@ -376,24 +411,34 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           ref={coverInputRef}
           type="file"
           accept="image/*"
-          style={{ display: 'none' }}
+          style={{ display: "none" }}
           onChange={onCoverFileChange}
         />
 
         <div className="ce-cover-default-block">
-          <p className="ce-cover-default-label">Ou une image par thème</p>
-          <div className="ce-cover-default-scroll" role="list" aria-label="Couvertures suggérées par thème">
+          <p className="ce-cover-default-label">{t("coverThemeIntro")}</p>
+          <div
+            className="ce-cover-default-scroll"
+            role="list"
+            aria-label="Couvertures suggérées par thème"
+          >
             {DEFAULT_EVENT_COVER_THEMES.map((theme) => {
               const selected = selectedDefaultCoverId === theme.id;
               return (
                 <button
                   key={theme.id}
                   type="button"
-                  className={`ce-cover-default-chip${selected ? ' ce-cover-default-chip--selected' : ''}`}
+                  className={`ce-cover-default-chip${selected ? " ce-cover-default-chip--selected" : ""}`}
                   onClick={() => selectThemeCover(theme)}
                   aria-pressed={selected}
-                  aria-label={`Couverture ${theme.tag}`}>
-                  <img src={theme.imageUrl} alt="" className="ce-cover-default-thumb" loading="lazy" />
+                  aria-label={`Couverture ${theme.tag}`}
+                >
+                  <img
+                    src={theme.imageUrl}
+                    alt=""
+                    className="ce-cover-default-thumb"
+                    loading="lazy"
+                  />
                   <span className="ce-cover-default-tag">#{theme.tag}</span>
                 </button>
               );
@@ -406,7 +451,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           className="ce-photo-zone"
           onClick={pickImage}
           disabled={uploadingEventCover}
-          aria-label="Ajouter une photo de couverture">
+          aria-label="Ajouter une photo de couverture"
+        >
           {imageUri ? (
             <>
               <img
@@ -430,7 +476,12 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           )}
           {uploadingEventCover ? (
             <div className="ce-photo-upload-overlay">
-              <Loader2 className="ce-photo-spinner" size={36} color="#fff" aria-hidden />
+              <Loader2
+                className="ce-photo-spinner"
+                size={36}
+                color="#fff"
+                aria-hidden
+              />
               <span>Envoi…</span>
             </div>
           ) : null}
@@ -498,7 +549,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
                   className="ce-stepper-btn"
                   onClick={() => bumpMax(1)}
                   disabled={maxValid >= MAX_PARTICIPANTS_CAP}
-                  aria-label="Augmenter le maximum">
+                  aria-label="Augmenter le maximum"
+                >
                   <ChevronUp size={18} color="#fff" />
                 </button>
                 <button
@@ -506,7 +558,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
                   className="ce-stepper-btn"
                   onClick={() => bumpMax(-1)}
                   disabled={maxValid <= participantFloor}
-                  aria-label="Diminuer le maximum">
+                  aria-label="Diminuer le maximum"
+                >
                   <ChevronDown size={18} color="#fff" />
                 </button>
               </div>
@@ -515,7 +568,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
         </div>
 
         <div className="ce-card-section">
-          <h2 className="ce-section-title">À PROPOS</h2>
+          <h2 className="ce-section-title">{t("aboutSectionTitle")}</h2>
           <div className="ce-card" style={{ paddingTop: 4, paddingBottom: 4 }}>
             <textarea
               className="ce-textarea"
@@ -528,7 +581,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
         </div>
 
         <div className="ce-card-section">
-          <h2 className="ce-section-title">OPTIONS</h2>
+          <h2 className="ce-section-title">{t("optionsSectionTitle")}</h2>
           <div className="ce-card" style={{ marginBottom: 0 }}>
             <div className="ce-option-row ce-option-row--border">
               <div className="ce-option-bg">
@@ -536,7 +589,9 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
               </div>
               <div className="ce-option-text">
                 <span className="ce-option-label">Masquer l&apos;adresse</span>
-                <span className="ce-option-sublabel">Visible uniquement par les inscrits</span>
+                <span className="ce-option-sublabel">
+                  Visible uniquement par les inscrits
+                </span>
               </div>
               <label className="ce-switch">
                 <input
@@ -552,9 +607,11 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
                 <Lock size={18} color="#fff" aria-hidden />
               </div>
               <div className="ce-option-text">
-                <span className="ce-option-label">Sortie privée</span>
+                <span className="ce-option-label">
+                  {t("privateEventToggle")}
+                </span>
                 <span className="ce-option-sublabel">
-                  Hors fil public : vous, les inscrits, vos admins et les administrateurs nel la voient.
+                  {t("privateEventHint")}
                 </span>
               </div>
               <label className="ce-switch">
@@ -562,18 +619,22 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
                   type="checkbox"
                   checked={isPrivate}
                   onChange={() => setIsPrivate((v) => !v)}
-                  aria-label="Sortie privée"
+                  aria-label={t("privateEventToggle")}
                 />
                 <span className="ce-switch-slider ce-switch-slider--indigo" />
               </label>
             </div>
-            <div className={`ce-option-row ${nelDemoIsAdmin ? 'ce-option-row--border' : ''}`}>
+            <div
+              className={`ce-option-row ${nelDemoIsAdmin ? "ce-option-row--border" : ""}`}
+            >
               <div className="ce-option-bg ce-option-bg--amber">
                 <ShieldCheck size={18} color="#fff" aria-hidden />
               </div>
               <div className="ce-option-text">
                 <span className="ce-option-label">Validation manuelle</span>
-                <span className="ce-option-sublabel">Valider chaque inscription</span>
+                <span className="ce-option-sublabel">
+                  Valider chaque inscription
+                </span>
               </div>
               <label className="ce-switch">
                 <input
@@ -591,7 +652,9 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
                 </div>
                 <div className="ce-option-text">
                   <span className="ce-option-label">Sortie bêta</span>
-                  <span className="ce-option-sublabel">Marquer comme pilote (admin)</span>
+                  <span className="ce-option-sublabel">
+                    Marquer comme pilote (admin)
+                  </span>
                 </div>
                 <label className="ce-switch">
                   <input
@@ -608,25 +671,35 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
 
         {isEditMode ? (
           <div className="ce-cancel-sortie-block">
-            <button type="button" className="ce-cancel-sortie-btn" onClick={handleCancelSortie}>
+            <button
+              type="button"
+              className="ce-cancel-sortie-btn"
+              onClick={handleCancelSortie}
+            >
               <Trash2 size={18} color="#ff453a" aria-hidden />
               <span>Annuler la sortie</span>
             </button>
-            <p className="ce-cancel-sortie-hint">Action définitive : la sortie et son groupe de chat sont supprimés.</p>
+            <p className="ce-cancel-sortie-hint">
+              Action définitive : la sortie et son groupe de chat sont
+              supprimés.
+            </p>
           </div>
         ) : null}
 
         <div className="ce-bottom-actions">
           <button type="button" className="ce-cancel-btn" onClick={closeDetail}>
-            {isEditMode ? 'Fermer' : 'Annuler'}
+            {isEditMode ? "Fermer" : "Annuler"}
           </button>
           <button
             type="button"
             className="ce-create-btn"
             onClick={submit}
             disabled={submitting || uploadingEventCover}
-            aria-label={isEditMode ? 'Enregistrer les modifications' : "Créer l'événement"}>
-            {isEditMode ? '✨ Enregistrer' : "✨ Créer l'événement"}
+            aria-label={
+              isEditMode ? "Enregistrer les modifications" : "Créer l'événement"
+            }
+          >
+            {isEditMode ? "✨ Enregistrer" : "✨ Créer l'événement"}
           </button>
         </div>
       </div>

@@ -195,7 +195,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             className="ed-back-btn"
             onMouseDown={(e) => e.preventDefault()}
             onClick={closeDetail}
-            aria-label="Retour"
+            aria-label={t("backButton")}
           >
             <ChevronLeft size={28} color="#fff" />
           </button>
@@ -204,7 +204,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
               type="button"
               className="ed-icon-btn"
               onClick={handleShare}
-              aria-label="Partager"
+              aria-label={t("shareButton")}
             >
               <Share2 size={24} color="#fff" />
             </button>
@@ -213,7 +213,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
               className="ed-icon-btn"
               onClick={() => toggleEventFavorite(event.id)}
               aria-label={
-                event.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"
+                event.isFavorite
+                  ? t("removeFavoriteButton")
+                  : t("addFavoriteButton")
               }
             >
               <Heart
@@ -226,7 +228,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
               type="button"
               className="ed-icon-btn"
               onClick={() => setReportOpen(true)}
-              aria-label="Signaler cette sortie"
+              aria-label={t("reportButton")}
             >
               <AlertTriangle size={24} color="#FFCC00" />
             </button>
@@ -234,11 +236,15 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
         </header>
 
         <div className="ed-hero-content">
-          <span className="ed-category">{event.category || "Activité"}</span>
+          <span className="ed-category">
+            {event.category || t("defaultActivity")}
+          </span>
           <h1 className="ed-title">{event.title}</h1>
           <div className="ed-host-row">
             <img src={hostAvatar} alt={hostName} className="ed-host-avatar" />
-            <span className="ed-host-name">Proposé par {hostName}</span>
+            <span className="ed-host-name">
+              {t("proposedByPrefix")} {hostName}
+            </span>
           </div>
         </div>
       </div>
@@ -260,7 +266,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             </div>
             <div className="ed-info-texts">
               <span className="ed-info-label">{event.location}</span>
-              <span className="ed-info-sub">Paris, France</span>
+              <span className="ed-info-sub">{t("locationLabel")}</span>
             </div>
           </div>
         </div>
@@ -278,7 +284,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             <h2 className="ed-section-title">{t("participants")}</h2>
             <div
               className="ed-count-stack"
-              aria-label={`${event.participantCount} inscrits sur ${event.participantMax}, ${waitlist.length} en liste d’attente`}
+              aria-label={`${event.participantCount} ${t("participantsCountAriaLabel")} sur ${event.participantMax}, ${waitlist.length} en liste d'attente`}
             >
               <span className="ed-count-pair">
                 {event.participantCount ?? 0}/{event.participantMax ?? 0}
@@ -290,7 +296,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                     : "ed-count-wait-sub ed-count-wait-sub--quiet"
                 }
               >
-                Liste d’attente · {waitlist.length}
+                {t("waitlistTitle")} · {waitlist.length}
               </span>
             </div>
           </div>
@@ -303,7 +309,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                     type="button"
                     className="ed-participant-avatar ed-participant-avatar--clickable"
                     onClick={() => setActiveTab("profile")}
-                    aria-label="Voir mon profil"
+                    aria-label={t("viewMyProfileButton")}
                   >
                     {viewerProfileAvatarUrl ? (
                       <img
@@ -326,7 +332,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                     type="button"
                     className="ed-participant-avatar ed-participant-avatar--clickable"
                     onClick={() => openDetail("profile", slot.profilId)}
-                    aria-label={`Voir le profil de ${slot.name}`}
+                    aria-label={`${t("viewProfileLabel")} ${slot.name}`}
                   >
                     <img src={slot.imageUrl} alt="" />
                   </button>
@@ -353,7 +359,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                   className="ed-participant-placeholder ed-participant-placeholder--invite"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => setInviteOpen(true)}
-                  aria-label="Inviter des amis à cette sortie"
+                  aria-label={t("inviteFriendsToEventButton")}
                 >
                   <UserPlus size={20} color="#FFD60A" />
                 </button>
@@ -368,25 +374,25 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
         {waitlist.length > 0 && (
           <div className="ed-section ed-waitlist-section">
             <div className="ed-section-header">
-              <h2 className="ed-section-title">Liste d’attente</h2>
+              <h2 className="ed-section-title">{t("waitlistTitle")}</h2>
               <span className="ed-count ed-count--sub">{waitlist.length}</span>
             </div>
             <p className="ed-waitlist-intro">
               {waitlistPending && waitlistOverflow
-                ? "Certaines demandes attendent la validation de l’organisateur ; d’autres suivent alors que la capacité est atteinte."
+                ? t("waitlistBothPendingAndOverflow")
                 : waitlistPending
                   ? event.manualApproval
-                    ? "Inscriptions soumises à validation par l’organisateur avant confirmation."
-                    : "Demandes en attente de validation."
-                  : t("maxCapacityReachedWaitlist")}
+                    ? t("waitlistAwaitingValidation")
+                    : t("waitlistManualApproval")
+                  : t("waitlistOverflowOnly")}
             </p>
             <div className="ed-waitlist-list" role="list">
               {waitlist.map((w) => {
                 const photo = resolveWaitlistPhoto(w);
                 const tag =
                   w.reason === "en_attente"
-                    ? "En attente de validation"
-                    : "Capacité complète";
+                    ? t("awaitingValidationTag")
+                    : t("capacityFullTag");
                 const inner = (
                   <>
                     <img src={photo} alt="" className="ed-waitlist-av" />
@@ -403,7 +409,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                         type="button"
                         className="ed-waitlist-row-inner ed-waitlist-row-inner--click"
                         onClick={() => openDetail("profile", w.profilId!)}
-                        aria-label={`Voir le profil de ${w.name}`}
+                        aria-label={`${t("viewProfileLabel")} ${w.name}`}
                       >
                         {inner}
                       </button>
@@ -420,10 +426,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
         {!isInscribed && !isPastEvent && (
           <div className="ed-warning-box">
             <Info size={18} color="#FF9F0A" />
-            <p className="ed-warning-text">
-              Pour voir les messages de cette sortie, vous devez en faire
-              partie.
-            </p>
+            <p className="ed-warning-text">{t("mustJoinToViewMessages")}</p>
           </div>
         )}
       </div>
@@ -432,7 +435,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
         <div className="ed-footer-row">
           <div className="ed-price-info">
             <span className="ed-price-amount">{event.price}</span>
-            <span className="ed-price-label">par personne</span>
+            <span className="ed-price-label">{t("pricePerPerson")}</span>
           </div>
           {!isPastEvent && (
             <>
@@ -455,16 +458,18 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                 disabled={!isHostOrganizer && !isInscribed && isFull}
               >
                 {isHostOrganizer
-                  ? "Modifier la sortie"
+                  ? t("editEventButton")
                   : event.status === "inscrit"
-                    ? "Se désinscrire"
+                    ? t("unregisterButton")
                     : isFull
-                      ? "Complet"
-                      : "Participer"}
+                      ? t("completeEventButton")
+                      : t("joinEventButton")}
               </button>
             </>
           )}
-          {isPastEvent && <span className="ed-past-hint">Sortie passée</span>}
+          {isPastEvent && (
+            <span className="ed-past-hint">{t("pastEventLabel")}</span>
+          )}
         </div>
       </footer>
 
@@ -473,7 +478,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           <button
             type="button"
             className="ed-invite-backdrop"
-            aria-label="Fermer"
+            aria-label={t("close")}
             onClick={() => setInviteOpen(false)}
           />
           <div
@@ -484,21 +489,19 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           >
             <div className="ed-invite-sheet-head">
               <h2 id="ed-invite-title" className="ed-invite-sheet-title">
-                Inviter des amis
+                {t("inviteSheetTitle")}
               </h2>
               <button
                 type="button"
                 className="ed-invite-close"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setInviteOpen(false)}
-                aria-label="Fermer"
+                aria-label={t("close")}
               >
                 <X size={22} color="#8E8E93" />
               </button>
             </div>
-            <p className="ed-invite-hint">
-              Vos amis recevront une notification pour rejoindre cette sortie.
-            </p>
+            <p className="ed-invite-hint">{t("inviteHint")}</p>
             <div className="ed-invite-list">
               {invitableFriends.length === 0 ? (
                 <p className="ed-invite-empty">

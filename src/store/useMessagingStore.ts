@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 import {
   MOCK_EVENTS,
   MOCK_CONVERSATIONS,
@@ -15,19 +15,19 @@ import {
   type GroupMember,
   type AppNotification,
   type AdminReportEntry,
-} from '../data/mockData';
+} from "../data/mockData";
 
-const LS_VIEWER_AVATAR = 'nel_viewer_profile_avatar_url';
-const LS_VIEWER_NAME = 'nel_viewer_profile_display_name';
+const LS_VIEWER_AVATAR = "nel_viewer_profile_avatar_url";
+const LS_VIEWER_NAME = "nel_viewer_profile_display_name";
 const DEFAULT_VIEWER_AVATAR =
-  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800';
-const DEFAULT_VIEWER_NAME = 'Jean J.';
+  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800";
+const DEFAULT_VIEWER_NAME = "Jean J.";
 
 function readViewerStorage(key: string, fallback: string): string {
-  if (typeof window === 'undefined') return fallback;
+  if (typeof window === "undefined") return fallback;
   try {
     const v = localStorage.getItem(key);
-    return v != null && v.trim() !== '' ? v.trim() : fallback;
+    return v != null && v.trim() !== "" ? v.trim() : fallback;
   } catch {
     return fallback;
   }
@@ -99,7 +99,7 @@ interface MessagingState {
   /** File admin : signalements profils / sorties (onglet Signalements). */
   adminReports: AdminReportEntry[];
   submitAdminReport: (input: {
-    kind: 'profile' | 'event';
+    kind: "profile" | "event";
     subjectId: string;
     subjectLabel: string;
     explanation: string;
@@ -133,7 +133,10 @@ interface MessagingState {
   addMemberToGroup: (conversationId: string, member: GroupMember) => void;
   removeMemberFromGroup: (conversationId: string, memberId: string) => void;
   leaveConversation: (conversationId: string) => void;
-  updateConversationSettings: (conversationId: string, settings: { muteSounds?: boolean; blockNotifications?: boolean }) => void;
+  updateConversationSettings: (
+    conversationId: string,
+    settings: { muteSounds?: boolean; blockNotifications?: boolean },
+  ) => void;
   joinEvent: (eventId: string) => void;
   leaveEvent: (eventId: string) => void;
   /** Organisateur : invite un ami (notif in-app + message système dans le chat de la sortie). */
@@ -141,6 +144,10 @@ interface MessagingState {
   /** Toast global (invitation, etc.). */
   toast: { id: number; message: string } | null;
   showToast: (message: string) => void;
+  /** Load demo data for demo account (user_demo_001) */
+  loadDemoData: () => void;
+  /** Reset data to empty state (for new users) */
+  resetData: () => void;
 }
 
 export const useMessagingStore = create<MessagingState>((set, get) => ({
@@ -149,7 +156,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
   nelDemoIsPremium: true,
   setNelDemoIsPremium: (value) => set({ nelDemoIsPremium: value }),
 
-  viewerProfileAvatarUrl: readViewerStorage(LS_VIEWER_AVATAR, DEFAULT_VIEWER_AVATAR),
+  viewerProfileAvatarUrl: readViewerStorage(
+    LS_VIEWER_AVATAR,
+    DEFAULT_VIEWER_AVATAR,
+  ),
   setViewerProfileAvatarUrl: (url) => {
     try {
       localStorage.setItem(LS_VIEWER_AVATAR, url);
@@ -159,7 +169,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     set({ viewerProfileAvatarUrl: url });
   },
 
-  viewerProfileDisplayName: readViewerStorage(LS_VIEWER_NAME, DEFAULT_VIEWER_NAME),
+  viewerProfileDisplayName: readViewerStorage(
+    LS_VIEWER_NAME,
+    DEFAULT_VIEWER_NAME,
+  ),
   setViewerProfileDisplayName: (name) => {
     const n = name.trim() || DEFAULT_VIEWER_NAME;
     try {
@@ -170,35 +183,41 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     set({ viewerProfileDisplayName: n });
   },
 
-  events: MOCK_EVENTS,
-  conversations: MOCK_CONVERSATIONS,
+  events: [],
+  conversations: [],
   profileVisits: MOCK_VISITS,
   suggestions: MOCK_SUGGESTIONS,
   friends: MOCK_FRIENDS,
   friendRequestSentProfilIds: [],
   /** Quelques refus simulés pour l’aperçu (cœur brisé dans Suggestions). */
-  friendRequestRejectedProfilIds: ['u050', 'u051', 'u052'],
+  friendRequestRejectedProfilIds: ["u050", "u051", "u052"],
   sendFriendRequest: (profilId) => {
     const id = profilId.trim();
     if (!id) return;
-    const { friends, friendRequestSentProfilIds, friendRequestRejectedProfilIds } = get();
+    const {
+      friends,
+      friendRequestSentProfilIds,
+      friendRequestRejectedProfilIds,
+    } = get();
     if (friends.find((f) => f.profilId === id)?.mutualFriend === true) return;
     if (friendRequestRejectedProfilIds.includes(id)) return;
     if (friendRequestSentProfilIds.includes(id)) {
       return;
     }
     set({ friendRequestSentProfilIds: [...friendRequestSentProfilIds, id] });
-    get().showToast('Demande d’ami envoyée.');
+    get().showToast("Demande d’ami envoyée.");
   },
   removeMutualFriend: (profilId) => {
     const id = profilId.trim();
     if (!id) return;
     set((state) => ({
       friends: state.friends.map((f) =>
-        f.profilId === id && f.mutualFriend === true ? { ...f, mutualFriend: false } : f,
+        f.profilId === id && f.mutualFriend === true
+          ? { ...f, mutualFriend: false }
+          : f,
       ),
     }));
-    get().showToast('Retiré de vos amis.');
+    get().showToast("Retiré de vos amis.");
   },
   appNotifications: [],
   adminReports: [],
@@ -209,16 +228,19 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       createdAt: Date.now(),
       kind,
       subjectId: subjectId.trim(),
-      subjectLabel: subjectLabel.trim() || (kind === 'profile' ? 'Profil' : 'Sortie'),
+      subjectLabel:
+        subjectLabel.trim() || (kind === "profile" ? "Profil" : "Sortie"),
       explanation: explanation.trim(),
       read: false,
     };
     set((s) => ({ adminReports: [entry, ...s.adminReports] }));
-    get().showToast('Signalement envoyé. Merci.');
+    get().showToast("Signalement envoyé. Merci.");
   },
   markAllAdminReportsRead: () =>
     set((s) => ({
-      adminReports: s.adminReports.map((r) => (r.read ? r : { ...r, read: true })),
+      adminReports: s.adminReports.map((r) =>
+        r.read ? r : { ...r, read: true },
+      ),
     })),
   moderationHiddenEventIds: [],
   moderationHiddenProfilIds: [],
@@ -235,7 +257,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     const newMessage: Message = {
       id: `mod_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
       conversationId: tid,
-      authorName: 'Modération Nel',
+      authorName: "Modération Nel",
       text: body,
       sentAt: Date.now(),
       isOwn: false,
@@ -248,7 +270,13 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
           [tid]: [...currentMessages, newMessage],
         },
         conversations: state.conversations.map((c) =>
-          c.id === tid ? { ...c, lastMessagePreview: body.slice(0, 72), updatedAt: Date.now() } : c,
+          c.id === tid
+            ? {
+                ...c,
+                lastMessagePreview: body.slice(0, 72),
+                updatedAt: Date.now(),
+              }
+            : c,
         ),
       };
     });
@@ -260,13 +288,15 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     if (!report) return;
 
     const notice =
-      'Suite à un signalement, l’équipe vous informe qu’un problème a été remonté sur ce contenu. Merci de respecter les règles de la communauté Nel.';
+      "Suite à un signalement, l’équipe vous informe qu’un problème a été remonté sur ce contenu. Merci de respecter les règles de la communauté Nel.";
 
-    if (report.kind === 'event') {
+    if (report.kind === "event") {
       const ev = get().events.find((e) => e.id === report.subjectId);
       set((s) => ({
         adminReports: s.adminReports.filter((r) => r.id !== id),
-        moderationHiddenEventIds: s.moderationHiddenEventIds.includes(report.subjectId)
+        moderationHiddenEventIds: s.moderationHiddenEventIds.includes(
+          report.subjectId,
+        )
           ? s.moderationHiddenEventIds
           : [...s.moderationHiddenEventIds, report.subjectId],
       }));
@@ -276,7 +306,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
           `Sortie retirée de l’agenda public. Un message a été envoyé dans le fil du groupe « ${ev.title} ».`,
         );
       } else {
-        get().showToast('Sortie retirée de l’agenda public.');
+        get().showToast("Sortie retirée de l’agenda public.");
       }
       return;
     }
@@ -284,20 +314,26 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     const f = get().friends.find((fr) => fr.profilId === report.subjectId);
     set((s) => ({
       adminReports: s.adminReports.filter((r) => r.id !== id),
-      moderationHiddenProfilIds: s.moderationHiddenProfilIds.includes(report.subjectId)
+      moderationHiddenProfilIds: s.moderationHiddenProfilIds.includes(
+        report.subjectId,
+      )
         ? s.moderationHiddenProfilIds
         : [...s.moderationHiddenProfilIds, report.subjectId],
     }));
     if (f?.mainChatConversationId) {
       get().postModerationNotice(f.mainChatConversationId, notice);
-      get().showToast(`Profil retiré des suggestions. Message envoyé à ${report.subjectLabel}.`);
+      get().showToast(
+        `Profil retiré des suggestions. Message envoyé à ${report.subjectLabel}.`,
+      );
     } else {
       get().showToast(
         `Profil retiré des suggestions. Aucun fil privé avec ${report.subjectLabel} pour un message automatique (démo).`,
       );
     }
   },
-  favoriteConversationIds: MOCK_CONVERSATIONS.filter((c) => c.isFavorite).map((c) => c.id),
+  favoriteConversationIds: MOCK_CONVERSATIONS.filter((c) => c.isFavorite).map(
+    (c) => c.id,
+  ),
   messagesByConversation: MOCK_MESSAGES,
 
   toast: null,
@@ -306,7 +342,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     if (!text) return;
     const toastId = Date.now();
     set({ toast: { id: toastId, message: text } });
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       window.setTimeout(() => {
         set((s) => (s.toast?.id === toastId ? { toast: null } : {}));
       }, 3200);
@@ -325,15 +361,20 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     const conv: Conversation = {
       id,
       title,
-      type: 'group',
-      lastMessagePreview: '',
-      avatarGradient: ['#9B5DE5', '#C23B8E'] as const,
+      type: "group",
+      lastMessagePreview: "",
+      avatarGradient: ["#9B5DE5", "#C23B8E"] as const,
       unreadCount: 0,
       updatedAt: Date.now(),
       isFavorite: false,
       memberCount: 1,
       members: [
-        { id: 'me', name: 'Moi', isSelf: true, avatarGradient: ['#78909C', '#546E7A'] },
+        {
+          id: "me",
+          name: "Moi",
+          isSelf: true,
+          avatarGradient: ["#78909C", "#546E7A"],
+        },
       ],
     };
     set((state) => ({
@@ -348,9 +389,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
 
   addEvent: (input) => {
     const id = `e_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
-    const priceLabel = input.priceLabel?.trim() || 'Gratuit';
+    const priceLabel = input.priceLabel?.trim() || "Gratuit";
     const { viewerProfileDisplayName: vn, viewerProfileAvatarUrl: va } = get();
-    const hostName = vn.trim() || 'Moi';
+    const hostName = vn.trim() || "Moi";
     const event: Event = {
       id,
       conversationId: input.conversationId,
@@ -358,21 +399,21 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       dateLabel: input.dateLabel,
       sectionDateLabel: input.sectionDateLabel,
       dateKey: input.dateKey,
-      timeShort: input.timeShort?.trim() || '10:00',
+      timeShort: input.timeShort?.trim() || "10:00",
       location: input.location,
       notes: input.notes,
       imageUri:
         input.imageUri?.trim() ||
-        'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80',
+        "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80",
       priceLabel,
       price: priceLabel,
       participantCount: 1,
       participantMax: Math.max(2, input.participantMax ?? 50),
       isFavorite: false,
       isBeta: input.isBeta === true,
-      status: 'organisateur',
+      status: "organisateur",
       visitsCount: 0,
-      category: 'Sortie',
+      category: "Sortie",
       hostName,
       hostAvatar: va,
       hostedByViewer: true,
@@ -389,12 +430,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     set((state) => {
       const ev = state.events.find((e) => e.id === eventId);
       if (!ev) return state;
-      const cappedMax = Math.min(
-        Math.max(2, input.participantMax),
-        150,
-      );
+      const cappedMax = Math.min(Math.max(2, input.participantMax), 150);
       const participantMax = Math.max(cappedMax, ev.participantCount);
-      const priceLabel = ev.priceLabel?.trim() || 'Gratuit';
       const next: Event = {
         ...ev,
         title: input.title.trim(),
@@ -431,7 +468,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         events: state.events.filter((e) => e.id !== eventId),
         conversations: state.conversations.filter((c) => c.id !== cid),
         messagesByConversation: restMsgs,
-        favoriteConversationIds: state.favoriteConversationIds.filter((id) => id !== cid),
+        favoriteConversationIds: state.favoriteConversationIds.filter(
+          (id) => id !== cid,
+        ),
       };
     });
   },
@@ -441,7 +480,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     const msg: Message = {
       id: `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
       conversationId,
-      authorName: 'Système',
+      authorName: "Système",
       text,
       sentAt: Date.now(),
       isOwn: false,
@@ -455,7 +494,11 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         },
         conversations: state.conversations.map((c) =>
           c.id === conversationId
-            ? { ...c, lastMessagePreview: text.slice(0, 120), updatedAt: Date.now() }
+            ? {
+                ...c,
+                lastMessagePreview: text.slice(0, 120),
+                updatedAt: Date.now(),
+              }
             : c,
         ),
       };
@@ -468,32 +511,33 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       const newFavs = isFavorite
         ? state.favoriteConversationIds.filter((id) => id !== conversationId)
         : [...state.favoriteConversationIds, conversationId];
-      
+
       return {
         favoriteConversationIds: newFavs,
         conversations: state.conversations.map((c) =>
-          c.id === conversationId ? { ...c, isFavorite: !isFavorite } : c
+          c.id === conversationId ? { ...c, isFavorite: !isFavorite } : c,
         ),
       };
     }),
 
   getEventById: (id) => get().events.find((e) => e.id === id),
 
-  getEventByConversationId: (conversationId) => 
+  getEventByConversationId: (conversationId) =>
     get().events.find((e) => e.conversationId === conversationId),
 
   sendMessage: (conversationId, text) => {
     const newMessage: Message = {
       id: Math.random().toString(36).substring(7),
       conversationId,
-      authorName: 'Moi',
+      authorName: "Moi",
       text,
       sentAt: Date.now(),
       isOwn: true,
     };
 
     set((state) => {
-      const currentMessages = state.messagesByConversation[conversationId] || [];
+      const currentMessages =
+        state.messagesByConversation[conversationId] || [];
       return {
         messagesByConversation: {
           ...state.messagesByConversation,
@@ -509,7 +553,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
   },
 
   markAsRead: (conversationId) => {
-    const conv = get().conversations.find(c => c.id === conversationId);
+    const conv = get().conversations.find((c) => c.id === conversationId);
     if (!conv || conv.unreadCount === 0) return;
 
     set((state) => ({
@@ -535,10 +579,12 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         c.id === conversationId
           ? {
               ...c,
-              members: [...c.members.filter(m => m.id !== member.id), member],
-              memberCount: (c.memberCount || 0) + (c.members.some(m => m.id === member.id) ? 0 : 1)
+              members: [...c.members.filter((m) => m.id !== member.id), member],
+              memberCount:
+                (c.memberCount || 0) +
+                (c.members.some((m) => m.id === member.id) ? 0 : 1),
             }
-          : c
+          : c,
       ),
     }));
   },
@@ -550,9 +596,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
           ? {
               ...c,
               members: c.members.filter((m) => m.id !== memberId),
-              memberCount: Math.max(0, (c.memberCount || 1) - 1)
+              memberCount: Math.max(0, (c.memberCount || 1) - 1),
             }
-          : c
+          : c,
       ),
     }));
   },
@@ -566,21 +612,25 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
   updateConversationSettings: (conversationId, settings) => {
     set((state) => ({
       conversations: state.conversations.map((c) =>
-        c.id === conversationId ? { ...c, ...settings } : c
+        c.id === conversationId ? { ...c, ...settings } : c,
       ),
     }));
   },
 
   joinEvent: (eventId) => {
-    const event = get().events.find(e => e.id === eventId);
+    const event = get().events.find((e) => e.id === eventId);
     if (event) {
       // Ensure conversation is added back if missing
-      const convExists = get().conversations.some(c => c.id === event.conversationId);
+      const convExists = get().conversations.some(
+        (c) => c.id === event.conversationId,
+      );
       if (!convExists) {
-        const originalConv = MOCK_CONVERSATIONS.find(c => c.id === event.conversationId);
+        const originalConv = MOCK_CONVERSATIONS.find(
+          (c) => c.id === event.conversationId,
+        );
         if (originalConv) {
-          set(state => ({
-            conversations: [originalConv, ...state.conversations]
+          set((state) => ({
+            conversations: [originalConv, ...state.conversations],
           }));
         }
       }
@@ -591,16 +641,19 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         e.id === eventId
           ? {
               ...e,
-              status: 'inscrit',
-              participantCount: Math.min(e.participantMax, e.participantCount + 1),
+              status: "inscrit",
+              participantCount: Math.min(
+                e.participantMax,
+                e.participantCount + 1,
+              ),
             }
-          : e
+          : e,
       ),
     }));
   },
 
   leaveEvent: (eventId) => {
-    const event = get().events.find(e => e.id === eventId);
+    const event = get().events.find((e) => e.id === eventId);
     if (event) {
       // Remove associated conversation
       get().leaveConversation(event.conversationId);
@@ -611,10 +664,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         e.id === eventId
           ? {
               ...e,
-              status: 'inscrire',
+              status: "inscrire",
               participantCount: Math.max(0, e.participantCount - 1),
             }
-          : e
+          : e,
       ),
     }));
   },
@@ -631,14 +684,14 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     );
     if (alreadyMember) return;
 
-    const hostName = state.viewerProfileDisplayName.trim() || 'L’organisateur';
+    const hostName = state.viewerProfileDisplayName.trim() || "L’organisateur";
     const firstName = friend.name.trim().split(/\s+/)[0] || friend.name;
     const systemText = `${hostName} a invité ${firstName} — une notification lui a été envoyée pour « ${event.title} ».`;
 
     const notif: AppNotification = {
       id: `n_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
       createdAt: Date.now(),
-      kind: 'event_invite_sent',
+      kind: "event_invite_sent",
       eventId: event.id,
       eventTitle: event.title,
       inviteeName: friend.name,
@@ -648,7 +701,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     const msg: Message = {
       id: `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
       conversationId: event.conversationId,
-      authorName: 'Système',
+      authorName: "Système",
       text: systemText,
       sentAt: Date.now(),
       isOwn: false,
@@ -659,7 +712,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         e.id === eventId
           ? {
               ...e,
-              invitedProfilIds: [...(e.invitedProfilIds ?? []), friend.profilId],
+              invitedProfilIds: [
+                ...(e.invitedProfilIds ?? []),
+                friend.profilId,
+              ],
             }
           : e,
       ),
@@ -684,5 +740,27 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     const inviteeFirst =
       friend.name.trim().split(/\s+/)[0] || friend.name.trim() || friend.name;
     get().showToast(`Invitation envoyée à ${inviteeFirst}`);
+  },
+
+  loadDemoData: () => {
+    set({
+      events: MOCK_EVENTS,
+      conversations: MOCK_CONVERSATIONS,
+    });
+  },
+
+  resetData: () => {
+    set({
+      events: [],
+      conversations: [],
+      messagesByConversation: {},
+      favoriteConversationIds: [],
+      friendRequestSentProfilIds: [],
+      friendRequestRejectedProfilIds: ["u050", "u051", "u052"],
+      appNotifications: [],
+      adminReports: [],
+      moderationHiddenEventIds: [],
+      moderationHiddenProfilIds: [],
+    });
   },
 }));

@@ -24,6 +24,7 @@ import {
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useLanguageStore } from "../store/useLanguageStore";
+import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
 import {
   getNelProfileImageKitUserKey,
@@ -71,6 +72,7 @@ function compensateScrollAfterTabStripLayout(
 export function ProfilePage() {
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguageStore();
+  const { logout } = useAuthStore();
   const {
     events,
     friends,
@@ -779,7 +781,7 @@ export function ProfilePage() {
               </div>
 
               <div className="setting-section">
-                <button className="setting-btn danger">
+                <button className="setting-btn danger" onClick={() => logout()}>
                   <LogOut size={20} />
                   <span>{t("logout")}</span>
                 </button>

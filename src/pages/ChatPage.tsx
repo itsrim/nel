@@ -431,19 +431,19 @@ export function ChatPage() {
       <div className="sub-tab-bar">
         <div className="sub-tab-scroll">
           <SubTabPill
-            label="Messages"
+            label={t("chatMessages")}
             active={sub === "messages"}
             onPress={() => setSub("messages")}
             badge={messagesTabBadge}
             badgeVariant="red"
           />
           <SubTabPill
-            label="Suggestions"
+            label={t("chatSuggestions")}
             active={sub === "suggestions"}
             onPress={() => setSub("suggestions")}
           />
           <SubTabPill
-            label="Visites"
+            label={t("chatVisits")}
             active={sub === "visites"}
             onPress={() => setSub("visites")}
             badge={visitesTabBadge}
@@ -451,7 +451,7 @@ export function ChatPage() {
             icon={Eye}
           />
         </div>
-        <button className="search-btn-small" aria-label="Rechercher">
+        <button className="search-btn-small" aria-label={t("searchButton")}>
           <Search size={22} color="#8E8E93" />
         </button>
       </div>
@@ -475,11 +475,10 @@ export function ChatPage() {
               </div>
               <div className="premium-banner-texts">
                 <span className="premium-banner-title">
-                  Fonctionnalité Premium
+                  {t("premiumFeature")}
                 </span>
                 <span className="premium-banner-sub">
-                  {profileVisitsVisible.length} personnes ont visité votre
-                  profil.
+                  {profileVisitsVisible.length} {t("visitsPlaceholder")}
                 </span>
               </div>
             </div>
@@ -496,11 +495,14 @@ export function ChatPage() {
                     className="visit-avatar"
                   />
                   {v.friendRequest && (
-                    <span className="visit-friend-badge">Demande d'ami</span>
+                    <span className="visit-friend-badge">
+                      {t("friendRequestBadge")}
+                    </span>
                   )}
                   {v.visitMultiplier && v.visitMultiplier > 1 && (
                     <span className="visit-mult-badge">
-                      ×{v.visitMultiplier}
+                      {t("visitMultiplier")}
+                      {v.visitMultiplier}
                     </span>
                   )}
                 </div>
@@ -526,12 +528,12 @@ export function ChatPage() {
                   onClick={(e) => handleFriendRequest(e, v.id)}
                   aria-label={
                     isMutualFriend(v.id)
-                      ? "Ami·e"
+                      ? t("friendLabel")
                       : hasRejectedFriendRequest(v.id)
-                        ? "Demande d’ami refusée"
+                        ? t("requestRejected")
                         : hasSentFriendRequest(v.id)
-                          ? "Demande d’ami envoyée"
-                          : "Envoyer une demande d’ami"
+                          ? t("requestSent")
+                          : t("sendFriendRequest")
                   }
                 >
                   {isMutualFriend(v.id) ? (
@@ -548,12 +550,12 @@ export function ChatPage() {
                   )}
                   <span>
                     {isMutualFriend(v.id)
-                      ? "Ami·e"
+                      ? t("friendLabel")
                       : hasRejectedFriendRequest(v.id)
-                        ? "Refusée"
+                        ? t("rejectedRequest")
                         : hasSentFriendRequest(v.id)
-                          ? "Envoyée"
-                          : "Ajouter"}
+                          ? t("sentRequest")
+                          : t("addFriendButton")}
                   </span>
                 </button>
               </div>
@@ -594,12 +596,12 @@ export function ChatPage() {
                         onClick={(e) => handleFriendRequest(e, item.id)}
                         aria-label={
                           mutual
-                            ? "Ami·e"
+                            ? t("friendLabel")
                             : rejected
-                              ? "Demande d’ami refusée"
+                              ? t("requestRejected")
                               : sent
-                                ? "Demande d’ami envoyée"
-                                : "Envoyer une demande d’ami"
+                                ? t("requestSent")
+                                : t("sendFriendRequest")
                         }
                       >
                         {mutual ? (
