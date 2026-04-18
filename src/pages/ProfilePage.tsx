@@ -153,20 +153,17 @@ export function ProfilePage() {
     () =>
       events.filter(
         (e) =>
+          e.hostedByViewer &&
           (e.isFavorite || e.status === "organisateur") &&
           !isEventDateBeforeToday(e.dateKey),
       ),
     [events],
   );
-  /** Passés : avant aujourd’hui parmi inscrit / organisateur / favori. */
+  /** Passés : avant aujourd'hui parmi créés par l'utilisateur. */
   const historyEvents = useMemo(
     () =>
       events.filter(
-        (e) =>
-          isEventDateBeforeToday(e.dateKey) &&
-          (e.status === "inscrit" ||
-            e.status === "organisateur" ||
-            e.isFavorite),
+        (e) => e.hostedByViewer && isEventDateBeforeToday(e.dateKey),
       ),
     [events],
   );

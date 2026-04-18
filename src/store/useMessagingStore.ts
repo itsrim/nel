@@ -183,7 +183,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     set({ viewerProfileDisplayName: n });
   },
 
-  events: [],
+  events: MOCK_EVENTS,
   conversations: [],
   profileVisits: MOCK_VISITS,
   suggestions: MOCK_SUGGESTIONS,
@@ -417,6 +417,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       hostName,
       hostAvatar: va,
       hostedByViewer: true,
+      creatorId: hostName,
       hideAddress: input.hideAddress,
       isPrivate: input.isPrivate === true,
       manualApproval: input.manualApproval,
@@ -744,19 +745,23 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
 
   loadDemoData: () => {
     set({
-      events: MOCK_EVENTS,
       conversations: MOCK_CONVERSATIONS,
+      friends: MOCK_FRIENDS,
+      suggestions: MOCK_SUGGESTIONS,
+      friendRequestRejectedProfilIds: ["u050", "u051", "u052"],
     });
   },
 
   resetData: () => {
+    // For new users: empty friends, but keep all suggestions (no mutual friends)
     set({
-      events: [],
       conversations: [],
       messagesByConversation: {},
+      friends: [],
+      suggestions: MOCK_SUGGESTIONS,
       favoriteConversationIds: [],
       friendRequestSentProfilIds: [],
-      friendRequestRejectedProfilIds: ["u050", "u051", "u052"],
+      friendRequestRejectedProfilIds: [],
       appNotifications: [],
       adminReports: [],
       moderationHiddenEventIds: [],

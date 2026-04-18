@@ -1,6 +1,6 @@
 /* ── Mock Data ─────────────────────────────────────────────────── */
 
-import { buildAppSeed } from './generateAppSeed';
+import { buildAppSeed } from "./generateAppSeed";
 
 // ── Types ──
 
@@ -8,9 +8,9 @@ export interface Event {
   id: string;
   title: string;
   location: string;
-  dateKey: string;          // "YYYY-MM-DD"
-  timeShort: string;        // "HH:MM"
-  dateLabel: string;        // e.g. "Lundi 23 mars"
+  dateKey: string; // "YYYY-MM-DD"
+  timeShort: string; // "HH:MM"
+  dateLabel: string; // e.g. "Lundi 23 mars"
   sectionDateLabel: string; // aligné sur `formatEventSectionTitle` (fr-FR, ex. "Lundi 23 mars 2026")
   imageUri: string;
   priceLabel: string;
@@ -18,7 +18,7 @@ export interface Event {
   participantMax: number;
   isFavorite: boolean;
   isBeta: boolean;
-  status: 'inscrit' | 'inscrire' | 'organisateur' | 'en_attente';
+  status: "inscrit" | "inscrire" | "organisateur" | "en_attente";
   notes?: string;
   conversationId: string;
   visitsCount?: number;
@@ -32,8 +32,8 @@ export interface Event {
   isPrivate?: boolean;
   manualApproval?: boolean;
   /** Sortie créée depuis nel : hôte = profil visiteur (photo / prénom suivis en direct). */
-  hostedByViewer?: boolean;
-  /**
+  hostedByViewer?: boolean; /** Identifiant du créateur de l'event (pour visibility des privés). */
+  creatorId?: string; /**
    * File d’attente : demandes non validées (`en_attente` si validation manuelle)
    * ou inscrits au-delà de la capacité (`overflow`).
    */
@@ -42,7 +42,7 @@ export interface Event {
     name: string;
     imageUrl?: string;
     profilId?: string;
-    reason: 'en_attente' | 'overflow';
+    reason: "en_attente" | "overflow";
   }>;
   /** Amis à qui l’organisateur a envoyé une invitation (démo nel + filtre doublons). */
   invitedProfilIds?: string[];
@@ -52,7 +52,7 @@ export interface Event {
 export interface AppNotification {
   id: string;
   createdAt: number;
-  kind: 'event_invite_sent';
+  kind: "event_invite_sent";
   eventId: string;
   eventTitle: string;
   inviteeName: string;
@@ -63,7 +63,7 @@ export interface AppNotification {
 export interface AdminReportEntry {
   id: string;
   createdAt: number;
-  kind: 'profile' | 'event';
+  kind: "profile" | "event";
   /** `profilId` ou id de sortie. */
   subjectId: string;
   subjectLabel: string;
@@ -74,7 +74,7 @@ export interface AdminReportEntry {
 export interface Conversation {
   id: string;
   title: string;
-  type: 'dm' | 'group';
+  type: "dm" | "group";
   lastMessagePreview: string;
   avatarGradient: readonly [string, string];
   unreadCount: number;
@@ -83,7 +83,7 @@ export interface Conversation {
   lastOpenedAt?: number;
   isFavorite: boolean;
   members: GroupMember[];
-  memberCount?: number; 
+  memberCount?: number;
   muteSounds?: boolean;
   blockNotifications?: boolean;
 }
@@ -157,30 +157,34 @@ export const MOCK_MESSAGES: Record<string, Message[]> = _appSeed.messages;
 /** 99 profils complets (f1–f5 + u006–u099) — onglet Amis & fiches profil. */
 export const MOCK_FRIENDS: Friend[] = _appSeed.friends;
 
-export const MOCK_VISITS: ProfileVisit[] = _appSeed.friends.slice(40, 52).map((f, i) => ({
-  id: f.profilId,
-  name: f.pseudo || f.name.split(' ')[0],
-  age: f.age ?? 25,
-  avatarUrl: f.imageUrl,
-  lastVisitAt: Date.now() - (i + 1) * 90_000,
-  friendRequest: i % 5 === 0,
-  visitMultiplier: (i % 4) + 1,
-}));
+export const MOCK_VISITS: ProfileVisit[] = _appSeed.friends
+  .slice(40, 52)
+  .map((f, i) => ({
+    id: f.profilId,
+    name: f.pseudo || f.name.split(" ")[0],
+    age: f.age ?? 25,
+    avatarUrl: f.imageUrl,
+    lastVisitAt: Date.now() - (i + 1) * 90_000,
+    friendRequest: i % 5 === 0,
+    visitMultiplier: (i % 4) + 1,
+  }));
 
 /** Grille Suggestions : tout le monde (y compris les profils déjà dans « Amis »). */
-export const MOCK_SUGGESTIONS: SuggestionProfile[] = _appSeed.friends.map((f, i) => ({
-  id: f.profilId,
-  pseudo: f.pseudo || f.name.split(' ')[0],
-  age: f.age ?? 26,
-  imageUrl: f.imageUrl,
-  aspectRatio: Math.round((0.62 + (i % 11) * 0.07) * 100) / 100,
-}));
+export const MOCK_SUGGESTIONS: SuggestionProfile[] = _appSeed.friends.map(
+  (f, i) => ({
+    id: f.profilId,
+    pseudo: f.pseudo || f.name.split(" ")[0],
+    age: f.age ?? 26,
+    imageUrl: f.imageUrl,
+    aspectRatio: Math.round((0.62 + (i % 11) * 0.07) * 100) / 100,
+  }),
+);
 
 // ── Helpers ──
 export function formatRelativeTime(ts: number): string {
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return 'À l\'instant';
+  if (mins < 1) return "À l'instant";
   if (mins < 60) return `${mins} min`;
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h`;
@@ -191,7 +195,7 @@ export function formatRelativeTime(ts: number): string {
 export function formatVisitTimeAgo(ts: number): string {
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return 'À l\'instant';
+  if (mins < 1) return "À l'instant";
   if (mins < 60) return `Il y a ${mins} min`;
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `Il y a ${hours}h`;
@@ -200,7 +204,7 @@ export function formatVisitTimeAgo(ts: number): string {
 }
 
 export function formatBadgeCount(n: number): string {
-  if (n > 99) return '99+';
+  if (n > 99) return "99+";
   return String(n);
 }
 

@@ -11,8 +11,12 @@ import "./HomePage.css";
 
 export function HomePage() {
   const { openDetail } = useNavigationStore();
-  const { events, nelDemoIsAdmin, moderationHiddenEventIds } =
-    useMessagingStore();
+  const {
+    events,
+    nelDemoIsAdmin,
+    moderationHiddenEventIds,
+    viewerProfileDisplayName,
+  } = useMessagingStore();
   const { t } = useTranslation();
   const [searchDraft, setSearchDraft] = useState("");
   const [committedSearch, setCommittedSearch] = useState("");
@@ -31,7 +35,12 @@ export function HomePage() {
   const filteredEvents = useMemo(() => {
     return events.filter((e) => {
       if (
-        !eventIsVisibleInDiscovery(e, nelDemoIsAdmin, moderationHiddenEventIds)
+        !eventIsVisibleInDiscovery(
+          e,
+          nelDemoIsAdmin,
+          moderationHiddenEventIds,
+          viewerProfileDisplayName,
+        )
       )
         return false;
       const matchesSearch =
@@ -47,6 +56,7 @@ export function HomePage() {
     selectedTagId,
     nelDemoIsAdmin,
     moderationHiddenEventIds,
+    viewerProfileDisplayName,
   ]);
 
   const topEvents = useMemo(() => {

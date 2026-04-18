@@ -152,6 +152,7 @@ export function EventsPage() {
     toggleEventFavorite,
     nelDemoIsAdmin,
     moderationHiddenEventIds,
+    viewerProfileDisplayName,
   } = useMessagingStore();
   const { t } = useTranslation();
   const [viewportW, setViewportW] = useState(() =>
@@ -202,9 +203,16 @@ export function EventsPage() {
             e,
             nelDemoIsAdmin,
             moderationHiddenEventIds,
+            viewerProfileDisplayName,
           ),
       ),
-    [events, weekStartMonday, nelDemoIsAdmin, moderationHiddenEventIds],
+    [
+      events,
+      weekStartMonday,
+      nelDemoIsAdmin,
+      moderationHiddenEventIds,
+      viewerProfileDisplayName,
+    ],
   );
 
   const filteredWeekEvents = useMemo(() => {
