@@ -16,6 +16,10 @@ import {
   type AppNotification,
   type AdminReportEntry,
 } from "../data/mockData";
+import * as Y from "yjs";
+import { WebRtcProvider } from "y-webrtc";
+import { loadHistory, saveHistory } from "../lib/chatPersistence";
+
 
 const LS_VIEWER_AVATAR = "nel_viewer_profile_avatar_url";
 const LS_VIEWER_NAME = "nel_viewer_profile_display_name";
@@ -147,8 +151,21 @@ interface MessagingState {
   /** Load demo data for demo account (user_demo_001) */
   loadDemoData: () => void;
   /** Reset data to empty state (for new users) */
-  resetData: () => void;
 }
+
+// --- Yjs / WebRTC Setup ---
+const ydoc = new Y.Doc();
+// Room name should be unique enough for the app
+const provider = new WebRtcProvider("nel-app-chat-v1", ydoc, {
+  signaling: [
+    "wss://y-webrtc-signaling-ws.herokuapp.com",
+    "wss://y-webrtc-signaling-p2p.herokuapp.com",
+    "wss://signaling.yjs.dev",
+  ],
+});
+
+// We store messages in a Y.Map where key = conversationId, value = Y.Array of messages
+const yMessagesMap = ydoc.getMap<Y.Array<any>>("messages");
 
 export const useMessagingStore = create<MessagingState>((set, get) => ({
   nelDemoIsAdmin: true,
@@ -527,22 +544,35 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     get().events.find((e) => e.conversationId === conversationId),
 
   sendMessage: (conversationId, text) => {
-    const newMessage: Message = {
+    const { viewerProfileDisplayName: authorName } = get();
+    
+    // Create the message object
+    const newMessage = {
       id: Math.random().toString(36).substring(7),
       conversationId,
-      authorName: "Moi",
+      authorName,
       text,
       sentAt: Date.now(),
-      isOwn: true,
+      // In Yjs, everyone receives this. We will determine `isOwn` during rendering or state sync.
+      // But for local immediate UI, we can keep it as is.
     };
 
+    // Update Yjs (this broadcasts to others)
+    let yArr = yMessagesMap.get(conversationId);
+    if (!yArr) {
+      yArr = new Y.Array();
+      yMessagesMap.set(conversationId, yArr);
+    }
+    yArr.push([newMessage]);
+
+    // Note: We don't necessarily need to call set() here if our listener is active,
+    // but doing it for immediate local feedback.
     set((state) => {
-      const currentMessages =
-        state.messagesByConversation[conversationId] || [];
+      const currentMessages = state.messagesByConversation[conversationId] || [];
       return {
         messagesByConversation: {
           ...state.messagesByConversation,
-          [conversationId]: [...currentMessages, newMessage],
+          [conversationId]: [...currentMessages, { ...newMessage, isOwn: true }],
         },
         conversations: state.conversations.map((c) =>
           c.id === conversationId
@@ -769,3 +799,86 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     });
   },
 }));
+
+// --- Yjs Synchronization Logic ---
+yMessagesMap.observeDeep(() => {
+  const state = useMessagingStore.getState();
+  const currentDisplayName = state.viewerProfileDisplayName;
+  const newMessagesByConversation: Record<string, Message[]> = { ...state.messagesByConversation };
+  let hasChanged = false;
+
+  yMessagesMap.forEach((yArr, conversationId) => {
+    const remoteMsgs = yArr.toArray();
+    const currentMsgs = state.messagesByConversation[conversationId] || [];
+    
+    // Simple sync: if counts differ, we update. 
+    // In a real app, you'd do a more granular merge.
+    if (remoteMsgs.length !== currentMsgs.length) {
+      newMessagesByConversation[conversationId] = remoteMsgs.map((m: any) => ({
+        ...m,
+        // Calculate isOwn based on authorName
+        isOwn: m.authorName === currentDisplayName,
+      }));
+      hasChanged = true;
+    }
+  });
+
+  if (hasChanged) {
+    const nextMsgs = newMessagesByConversation;
+    useMessagingStore.setState({ messagesByConversation: nextMsgs });
+    // Save to CSV whenever state updates from Yjs
+    saveHistory(nextMsgs);
+  }
+});
+
+/**
+ * --- Persistence initialization ---
+ * Load history from CSV and inject into Yjs doc.
+ * Yjs handles the merge and broadcasts to others.
+ */
+function initPersistence() {
+  const history = loadHistory();
+  if (history.length === 0) return;
+
+  const state = useMessagingStore.getState();
+  const currentDisplayName = state.viewerProfileDisplayName;
+  
+  // Inject into Yjs doc
+  ydoc.transact(() => {
+    history.forEach((m) => {
+      let yArr = yMessagesMap.get(m.conversationId);
+      if (!yArr) {
+        yArr = new Y.Array();
+        yMessagesMap.set(m.conversationId, yArr);
+      }
+      
+      // Check for duplicates in Yjs array before pushing
+      const exists = yArr.toArray().some((rm: any) => rm.id === m.id);
+      if (!exists) {
+        yArr.push([m]);
+      }
+    });
+  });
+
+  // Also update local state immediately for fast UI
+  const mergedMsgs = { ...useMessagingStore.getState().messagesByConversation };
+  history.forEach((m) => {
+    if (!mergedMsgs[m.conversationId]) mergedMsgs[m.conversationId] = [];
+    if (!mergedMsgs[m.conversationId].some((msg) => msg.id === m.id)) {
+      mergedMsgs[m.conversationId].push({
+        ...m,
+        isOwn: m.authorName === currentDisplayName,
+      });
+    }
+  });
+  
+  useMessagingStore.setState({ messagesByConversation: mergedMsgs });
+}
+
+// Run init
+if (typeof window !== "undefined") {
+  // Give a small delay to let YJS/WebRTC initialize if needed, 
+  // though ydoc is local so it's fine.
+  initPersistence();
+}
+

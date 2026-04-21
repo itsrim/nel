@@ -21,6 +21,8 @@
     "react-dom": "^18.2.0",
     "workbox-precaching": "^7.3.0",
     "workbox-window": "^7.0.0",
+    "y-webrtc": "^10.3.0",
+    "yjs": "^13.6.30",
     "zustand": "^4.5.2"
   },
   "devDependencies": {

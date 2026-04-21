@@ -98,7 +98,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         avatarUrl:
           email === "demo@nel.com"
             ? `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800`
-            : "#9E9E9E", // Gray avatar for regular users
+            : "/event-cover-themes/avatar.jpg",
       };
 
       localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
@@ -150,9 +150,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         return;
       }
 
-      // Create new user with gray avatar
+      // Create new user with default avatar
       const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const grayColor = generateGrayAvatar();
+      const defaultAvatarUrl = "/event-cover-themes/avatar.jpg";
 
       users[email] = {
         email,
@@ -169,7 +169,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         displayName,
         age: age || "",
         bio: bio || "",
-        avatarUrl: grayColor, // Gray color as avatar for new users
+        avatarUrl: defaultAvatarUrl,
       };
 
       localStorage.setItem(LS_USER, JSON.stringify(newUser));

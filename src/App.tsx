@@ -52,18 +52,19 @@ function App() {
   useEffect(() => {
     if (user) {
       setViewerProfileDisplayName(user.displayName);
-      // Use color for gray avatar or actual URL for demo user
-      if (user.avatarUrl?.startsWith("#")) {
-        // It's a color code - use a data URI with that background color
-        setViewerProfileAvatarUrl(
-          `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='${encodeURIComponent(user.avatarUrl)}' width='200' height='200'/%3E%3C/svg%3E`,
-        );
-        // New account: reset data to empty
-        resetData();
-      } else {
+      // Check if it's demo user (Unsplash URL) or new user (default avatar)
+      const isDemoUser = user.avatarUrl?.includes("unsplash.com");
+
+      if (isDemoUser) {
         // Demo account: load demo data
         setViewerProfileAvatarUrl(user.avatarUrl || "");
         loadDemoData();
+      } else {
+        // New account: use default avatar and reset data
+        setViewerProfileAvatarUrl(
+          user.avatarUrl || "/event-cover-themes/avatar.jpg",
+        );
+        resetData();
       }
     }
   }, [
