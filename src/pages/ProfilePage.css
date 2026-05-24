@@ -131,6 +131,38 @@
   font-weight: 700;
 }
 
+.pro-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 214, 10, 0.15);
+  color: #FFD60A;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 214, 10, 0.25);
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 12px rgba(255, 214, 10, 0.12);
+}
+
+.op-pro-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  background: rgba(255, 214, 10, 0.15);
+  color: #FFD60A;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 214, 10, 0.25);
+  letter-spacing: 0.05em;
+}
+
 /* ── Content ── */
 .profile-content {
   padding: 0 20px;

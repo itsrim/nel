@@ -23,6 +23,7 @@ import { loadHistory, saveHistory } from "../lib/chatPersistence";
 
 const LS_VIEWER_AVATAR = "nel_viewer_profile_avatar_url";
 const LS_VIEWER_NAME = "nel_viewer_profile_display_name";
+const LS_VIEWER_IS_PRO = "nel_viewer_profile_is_pro";
 const DEFAULT_VIEWER_AVATAR =
   "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800";
 const DEFAULT_VIEWER_NAME = "Jean J.";
@@ -85,6 +86,9 @@ interface MessagingState {
   /** Prénom / pseudo affiché (hero, hôte, tuile « moi »). */
   viewerProfileDisplayName: string;
   setViewerProfileDisplayName: (name: string) => void;
+  /** Compte professionnel (coche professionnel dans les préférences) */
+  viewerProfileIsPro: boolean;
+  setViewerProfileIsPro: (value: boolean) => void;
   events: Event[];
   conversations: Conversation[];
   profileVisits: ProfileVisit[];
@@ -198,6 +202,16 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       /* ignore */
     }
     set({ viewerProfileDisplayName: n });
+  },
+
+  viewerProfileIsPro: typeof window !== "undefined" ? localStorage.getItem(LS_VIEWER_IS_PRO) === "true" : false,
+  setViewerProfileIsPro: (value) => {
+    try {
+      localStorage.setItem(LS_VIEWER_IS_PRO, String(value));
+    } catch {
+      /* ignore */
+    }
+    set({ viewerProfileIsPro: value });
   },
 
   events: MOCK_EVENTS,

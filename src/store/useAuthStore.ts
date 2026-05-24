@@ -7,6 +7,7 @@ export type User = {
   avatarUrl?: string;
   age?: string;
   bio?: string;
+  isPro?: boolean;
 };
 
 interface AuthState {
@@ -20,6 +21,7 @@ interface AuthState {
     displayName: string,
     age?: string,
     bio?: string,
+    isPro?: boolean,
   ) => Promise<void>;
   logout: () => void;
   setUser: (user: User | null) => void;
@@ -38,6 +40,7 @@ const users: Record<
     id: string;
     age?: string;
     bio?: string;
+    isPro?: boolean;
   }
 > = {
   "demo@nel.com": {
@@ -47,6 +50,7 @@ const users: Record<
     id: "user_demo_001",
     age: "28",
     bio: "Bienvenue sur Nel!",
+    isPro: false,
   },
 };
 
@@ -95,6 +99,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         displayName: user.displayName,
         age: user.age || "",
         bio: user.bio || "",
+        isPro: !!user.isPro,
         avatarUrl:
           email === "demo@nel.com"
             ? `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800`
@@ -117,6 +122,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     displayName: string,
     age?: string,
     bio?: string,
+    isPro?: boolean,
   ) => {
     set({ isLoading: true, error: null });
 
@@ -161,6 +167,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         id: userId,
         age: age || "",
         bio: bio || "",
+        isPro: !!isPro,
       };
 
       const newUser: User = {
@@ -169,6 +176,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         displayName,
         age: age || "",
         bio: bio || "",
+        isPro: !!isPro,
         avatarUrl: defaultAvatarUrl,
       };
 

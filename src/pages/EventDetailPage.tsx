@@ -11,6 +11,7 @@ import {
   Info,
   X,
   AlertTriangle,
+  Award,
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useTranslation } from "../i18n/useTranslation";
@@ -53,6 +54,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     inviteFriendToEvent,
     viewerProfileAvatarUrl,
     viewerProfileDisplayName,
+    viewerProfileIsPro,
   } = useMessagingStore();
 
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -147,6 +149,10 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     ? viewerProfileDisplayName
     : event.hostName?.trim() || "Organisateur";
 
+  const hostIsPro = viewerHosts
+    ? !!viewerProfileIsPro
+    : friends.some((f) => (f.name === hostName || f.pseudo === hostName || `u-${f.profilId}` === event.creatorId) && f.isPro);
+
   const isInscribed =
     event.status === "inscrit" || event.status === "organisateur";
   const isFull = event.participantCount >= event.participantMax;
@@ -240,11 +246,29 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             {event.category || t("defaultActivity")}
           </span>
           <h1 className="ed-title">{event.title}</h1>
-          <div className="ed-host-row">
+          <div className="ed-host-row" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
             <img src={hostAvatar} alt={hostName} className="ed-host-avatar" />
             <span className="ed-host-name">
               {t("proposedByPrefix")} {hostName}
             </span>
+            {hostIsPro && (
+              <span className="ed-pro-badge" style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                background: "rgba(255, 214, 10, 0.15)",
+                color: "#FFD60A",
+                fontSize: "11px",
+                fontWeight: 700,
+                padding: "3px 8px",
+                borderRadius: "6px",
+                textTransform: "uppercase",
+                border: "1px solid rgba(255, 214, 10, 0.25)"
+              }}>
+                <Award size={12} />
+                <span>Pro</span>
+              </span>
+            )}
           </div>
         </div>
       </div>

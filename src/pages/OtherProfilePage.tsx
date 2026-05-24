@@ -147,12 +147,20 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
           <h1 className="op-title">
             {displayName}, {(p.age as number | null | undefined) ?? '—'}
           </h1>
-          {(profile as { verified?: boolean }).verified && (
-            <div className="op-verified-row">
-              <ShieldCheck size={18} color="#34C759" />
-              <span>Profil vérifié</span>
-            </div>
-          )}
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+            {(profile as { verified?: boolean }).verified && (
+              <div className="op-verified-row">
+                <ShieldCheck size={18} color="#34C759" />
+                <span>Profil vérifié</span>
+              </div>
+            )}
+            {(profile as { isPro?: boolean }).isPro && (
+              <div className="op-pro-row">
+                <Award size={18} color="#FFB300" />
+                <span>Professionnel</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

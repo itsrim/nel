@@ -13,6 +13,7 @@ export function LoginPage() {
   const [displayName, setDisplayName] = useState("");
   const [age, setAge] = useState("");
   const [bio, setBio] = useState("");
+  const [isPro, setIsPro] = useState(false);
   const [localError, setLocalError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -21,7 +22,7 @@ export function LoginPage() {
 
     try {
       if (isSignup) {
-        await signup(email, password, displayName, age, bio);
+        await signup(email, password, displayName, age, bio, isPro);
       } else {
         await login(email, password);
       }
@@ -112,6 +113,20 @@ export function LoginPage() {
                   rows={3}
                 />
               </div>
+
+              <div className="login-field login-field--checkbox">
+                <input
+                  id="isPro"
+                  type="checkbox"
+                  className="login-checkbox"
+                  checked={isPro}
+                  onChange={(e) => setIsPro(e.target.checked)}
+                  disabled={isLoading}
+                />
+                <label htmlFor="isPro" className="login-label login-label--checkbox">
+                  Compte professionnel
+                </label>
+              </div>
             </>
           )}
 
@@ -160,6 +175,7 @@ export function LoginPage() {
               setDisplayName("");
               setAge("");
               setBio("");
+              setIsPro(false);
             }}
             disabled={isLoading}
           >

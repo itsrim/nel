@@ -266,3 +266,28 @@
     margin: 2px 0;
   }
 }
+
+.login-field--checkbox {
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px !important;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.login-checkbox {
+  width: 18px !important;
+  height: 18px !important;
+  cursor: pointer;
+  accent-color: #667eea;
+  margin: 0 !important;
+}
+
+.login-label--checkbox {
+  margin: 0 !important;
+  cursor: pointer;
+  user-select: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}

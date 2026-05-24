@@ -119,6 +119,7 @@ function buildFriends(rng: () => number, placeholderGroupId: string): Friend[] {
       bio: 'Foodie et italienne dans l’âme. On s’est connus sur l’atelier cuisine — toujours partante pour un resto ou un marché avec toi.',
       memberSince: '2024',
       verified: true,
+      isPro: true,
       stats: { reliability: 4.9, events: 24, friends: 38 },
       badges: ['Ponctuelle', 'Organisatrice', 'Foodie'],
     },
@@ -135,6 +136,7 @@ function buildFriends(rng: () => number, placeholderGroupId: string): Friend[] {
       bio: 'Trail et photo le week-end. Même groupe que toi sur plusieurs sorties Nel — on enchaîne les bons plans rando.',
       memberSince: '2023',
       verified: true,
+      isPro: true,
       stats: { reliability: 4.7, events: 18, friends: 52 },
       badges: ['Explorateur', 'Photographe'],
     },
@@ -212,6 +214,7 @@ function buildFriends(rng: () => number, placeholderGroupId: string): Friend[] {
       bio: `${BIO_SNIP[i % BIO_SNIP.length]} ${i % 4 === 0 ? '— profil Nel complet (démo).' : ''}`.trim(),
       memberSince: String(2019 + Math.floor(rng() * 7)),
       verified: rng() > 0.35,
+      isPro: rng() > 0.75,
       stats: { reliability: rel, events: evc, friends: frc },
       badges,
     });

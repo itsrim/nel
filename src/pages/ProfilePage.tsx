@@ -72,7 +72,7 @@ function compensateScrollAfterTabStripLayout(
 export function ProfilePage() {
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguageStore();
-  const { logout } = useAuthStore();
+  const { logout, user, setUser } = useAuthStore();
   const {
     events,
     friends,
@@ -90,6 +90,8 @@ export function ProfilePage() {
     setViewerProfileAvatarUrl,
     viewerProfileDisplayName,
     setViewerProfileDisplayName,
+    viewerProfileIsPro,
+    setViewerProfileIsPro,
   } = useMessagingStore();
   const { openDetail } = useNavigationStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -297,9 +299,17 @@ export function ProfilePage() {
               />
             </div>
           )}
-          <div className="verified-badge">
-            <ShieldCheck size={16} color="#22C55E" />
-            <span>{t("verified")}</span>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+            <div className="verified-badge">
+              <ShieldCheck size={16} color="#22C55E" />
+              <span>{t("verified")}</span>
+            </div>
+            {viewerProfileIsPro && (
+              <div className="pro-badge">
+                <Award size={16} color="#FFD60A" />
+                <span>Pro</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -730,6 +740,27 @@ export function ProfilePage() {
                     type="checkbox"
                     checked={nelDemoIsPremium}
                     onChange={(e) => setNelDemoIsPremium(e.target.checked)}
+                    className="switch"
+                  />
+                </div>
+                <div className="setting-item">
+                  <div className="setting-icon gold" style={{ background: "rgba(255,179,0,0.15)", color: "#FFB300" }}>
+                    <Award size={20} />
+                  </div>
+                  <div className="setting-text">
+                    <div className="setting-label">{t("professional")}</div>
+                    <div className="setting-sub">{t("professionalSub")}</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={viewerProfileIsPro}
+                    onChange={(e) => {
+                      const val = e.target.checked;
+                      setViewerProfileIsPro(val);
+                      if (user) {
+                        setUser({ ...user, isPro: val });
+                      }
+                    }}
                     className="switch"
                   />
                 </div>

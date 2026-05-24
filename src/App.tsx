@@ -37,7 +37,7 @@ function renderDetailContent(detail: DetailState) {
 function App() {
   const { activeTab, detailStack } = useNavigationStore();
   const toast = useMessagingStore((s) => s.toast);
-  const { setViewerProfileDisplayName, setViewerProfileAvatarUrl } =
+  const { setViewerProfileDisplayName, setViewerProfileAvatarUrl, setViewerProfileIsPro } =
     useMessagingStore();
   const { loadDemoData, resetData } = useMessagingStore();
   const { user, loadUser } = useAuthStore();
@@ -52,6 +52,7 @@ function App() {
   useEffect(() => {
     if (user) {
       setViewerProfileDisplayName(user.displayName);
+      setViewerProfileIsPro(!!user.isPro);
       // Check if it's demo user (Unsplash URL) or new user (default avatar)
       const isDemoUser = user.avatarUrl?.includes("unsplash.com");
 
@@ -71,6 +72,7 @@ function App() {
     user,
     setViewerProfileDisplayName,
     setViewerProfileAvatarUrl,
+    setViewerProfileIsPro,
     loadDemoData,
     resetData,
   ]);
