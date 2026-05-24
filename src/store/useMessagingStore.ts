@@ -17,7 +17,7 @@ import {
   type AdminReportEntry,
 } from "../data/mockData";
 import * as Y from "yjs";
-import { WebRtcProvider } from "y-webrtc";
+import { WebrtcProvider } from "y-webrtc";
 import { loadHistory, saveHistory } from "../lib/chatPersistence";
 
 
@@ -156,7 +156,7 @@ interface MessagingState {
 // --- Yjs / WebRTC Setup ---
 const ydoc = new Y.Doc();
 // Room name should be unique enough for the app
-const provider = new WebRtcProvider("nel-app-chat-v1", ydoc, {
+const provider = new WebrtcProvider("nel-app-chat-v1", ydoc, {
   signaling: [
     "wss://y-webrtc-signaling-ws.herokuapp.com",
     "wss://y-webrtc-signaling-p2p.herokuapp.com",
