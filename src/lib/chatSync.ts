@@ -6,8 +6,8 @@ import {
   connectChatSocket,
   disconnectChatSocket,
   getChatSocket,
-  isChatApiConfigured,
 } from "./chatSocket";
+import { isChatApiConfigured } from "./chatConfig";
 import { getAuthToken } from "./authApi";
 
 let listenersAttached = false;

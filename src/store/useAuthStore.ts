@@ -59,6 +59,15 @@ const localUsers: Record<
     bio: "Bienvenue sur Nel!",
     isPro: false,
   },
+  "admin@yo.com": {
+    email: "admin@yo.com",
+    password: "1234",
+    displayName: "Admin",
+    id: "user_admin_001",
+    age: "",
+    bio: "",
+    isPro: true,
+  },
 };
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -95,7 +104,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
 
       await new Promise((resolve) => setTimeout(resolve, 500));
-      const user = localUsers[email];
+      const normalizedEmail = email.trim().toLowerCase();
+      const user = localUsers[normalizedEmail];
       if (!user || user.password !== password) {
         set({ isLoading: false, error: "Email ou mot de passe incorrect" });
         return;
@@ -109,7 +119,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         bio: user.bio || "",
         isPro: !!user.isPro,
         avatarUrl:
-          email === "demo@nel.com"
+          normalizedEmail === "demo@nel.com"
             ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800"
             : "/event-cover-themes/avatar.jpg",
       };

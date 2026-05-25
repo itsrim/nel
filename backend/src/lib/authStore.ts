@@ -20,6 +20,14 @@ usersByEmail.set("demo@nel.com", {
 });
 usersById.set("user_demo_001", usersByEmail.get("demo@nel.com")!);
 
+usersByEmail.set("admin@yo.com", {
+  id: "user_admin_001",
+  email: "admin@yo.com",
+  displayName: "Admin",
+  password: "1234",
+});
+usersById.set("user_admin_001", usersByEmail.get("admin@yo.com")!);
+
 export async function createToken(user: AuthUser): Promise<string> {
   return new SignJWT({
     email: user.email,

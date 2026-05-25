@@ -859,26 +859,28 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
 }));
 
 function initLocalChatHistory() {
-  const history = loadHistory();
-  if (history.length === 0) return;
+  void (async () => {
+    const history = await loadHistory();
+    if (history.length === 0) return;
 
-  const state = useMessagingStore.getState();
-  const currentDisplayName = state.viewerProfileDisplayName;
-  const mergedMsgs = { ...state.messagesByConversation };
+    const state = useMessagingStore.getState();
+    const currentDisplayName = state.viewerProfileDisplayName;
+    const mergedMsgs = { ...state.messagesByConversation };
 
-  history.forEach((m) => {
-    if (!mergedMsgs[m.conversationId]) mergedMsgs[m.conversationId] = [];
-    if (!mergedMsgs[m.conversationId].some((msg) => msg.id === m.id)) {
-      mergedMsgs[m.conversationId].push({
-        ...m,
-        isOwn: m.authorId
-          ? m.authorId === useAuthStore.getState().user?.id
-          : m.authorName === currentDisplayName,
-      });
-    }
-  });
+    history.forEach((m) => {
+      if (!mergedMsgs[m.conversationId]) mergedMsgs[m.conversationId] = [];
+      if (!mergedMsgs[m.conversationId].some((msg) => msg.id === m.id)) {
+        mergedMsgs[m.conversationId].push({
+          ...m,
+          isOwn: m.authorId
+            ? m.authorId === useAuthStore.getState().user?.id
+            : m.authorName === currentDisplayName,
+        });
+      }
+    });
 
-  useMessagingStore.setState({ messagesByConversation: mergedMsgs });
+    useMessagingStore.setState({ messagesByConversation: mergedMsgs });
+  })();
 }
 
 if (typeof window !== "undefined") {

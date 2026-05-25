@@ -1,67 +1,270 @@
-# React + TypeScript + Vite + PWA + Zustand + Storybook
+# Nel — Frontend
 
-Projet Nel - Application React TypeScript vierge avec PWA, Zustand et Storybook
+Application web **React + TypeScript + Vite** pour Nel : messagerie, sorties, profils, PWA.  
+Déployée sur GitHub Pages : [https://itsrim.github.io/nel](https://itsrim.github.io/nel)
 
-## Installation
+Le serveur chat temps réel est dans le dossier [`backend/`](backend/README.md).
+
+---
+
+## Stack
+
+| Technologie | Usage |
+|-------------|--------|
+| **React 18** | Interface |
+| **TypeScript** | Typage |
+| **Vite** | Build & dev server |
+| **Zustand** | État global (auth, chat, navigation, thème, i18n) |
+| **Socket.IO client** | Chat temps réel (si backend configuré) |
+| **Papa Parse** | CSV / Google Sheets |
+| **vite-plugin-pwa** | PWA + service worker |
+| **lucide-react** | Icônes |
+
+---
+
+## Prérequis
+
+- Node.js 18+
+- `yarn` ou `npm`
+
+---
+
+## Démarrage rapide
 
 ```bash
-npm install
+# À la racine du repo (frontend)
+yarn install
+cp env.example .env
+# Éditer .env si besoin (chat API, Sheets, ImageKit…)
+yarn dev
 ```
 
-## Développement
+Ouvre [http://localhost:5173/nel/](http://localhost:5173/nel/) (base Vite : `/nel/`).
+
+### Avec le backend chat en local
+
+Terminal 1 — API :
 
 ```bash
+cd backend
+npm install
 npm run dev
 ```
 
-## Build
+Terminal 2 — frontend :
+
+```env
+# .env
+VITE_CHAT_API_URL=http://localhost:3000
+```
+
+Puis `yarn dev`. Connexion démo : `demo@nel.com` / `password`.
+
+---
+
+## Scripts
+
+| Commande | Description |
+|----------|-------------|
+| `yarn dev` | Serveur de développement Vite |
+| `yarn build` | Build production → `dist/` |
+| `yarn preview` | Prévisualiser le build |
+| `yarn lint` | ESLint |
+| `yarn deploy` | Build + déploiement `gh-pages` |
+
+---
+
+## Structure du projet
+
+```
+src/
+├── App.tsx                 # Shell, auth, sync chat global
+├── main.tsx
+├── sw.js                   # Service worker (PWA + Web Push)
+├── pages/                  # Écrans (Chat, Events, Profile, Login…)
+├── components/             # UI réutilisable
+├── store/                  # Zustand
+│   ├── useAuthStore.ts
+│   ├── useMessagingStore.ts
+│   ├── useNavigationStore.ts
+│   └── …
+├── lib/
+│   ├── chatConfig.ts       # URL API chat
+│   ├── chatSocket.ts       # Socket.IO + envoi messages
+│   ├── chatSync.ts         # Sync globale, badges non lus
+│   ├── chatPersistence.ts  # Historique (local + Sheets)
+│   ├── googleSheetsDb.ts   # GET/POST/PUT sur onglets Sheet
+│   ├── authApi.ts          # Login/signup JWT vers backend
+│   └── pushNotifications.ts
+├── data/mockData.ts        # Données démo
+└── i18n/                   # FR / EN
+
+public/
+└── messages.csv            # Fallback CSV si Sheets indisponible
+
+google-apps-script/         # Script pour POST/PUT Sheets
+backend/                    # API Node (voir backend/README.md)
+```
+
+---
+
+## Fonctionnalités principales
+
+### Navigation
+
+- Onglets : **Chat**, **Événements**, **Profil**
+- Pile de détails : fil de discussion, fiche sortie, profil, paramètres chat
+
+### Authentification
+
+- **Sans** `VITE_CHAT_API_URL` : auth locale (démo en mémoire + `localStorage`)
+- **Avec** backend : `POST /api/auth/login` et `signup`, JWT stocké (`nel_auth_token`)
+
+Compte démo (backend + local) : `demo@nel.com` / `password`  
+Compte admin test : `admin@yo.com` / `1234`
+
+### Chat
+
+| Mode | Comportement |
+|------|----------------|
+| Pas d’API | Messages en `localStorage` (CSV) uniquement |
+| API configurée | Socket.IO temps réel + persistance serveur (mémoire) |
+
+- DM et groupes : même `conversationId`
+- Badges **non lus** sur la liste si message reçu hors fil ouvert
+- Notifications in-app (onglet Profil → Notifications)
+- **Web Push** si `VITE_VAPID_PUBLIC_KEY` + permission navigateur
+
+Fichiers clés : `chatSync.ts`, `chatSocket.ts`, `useMessagingStore.ts`
+
+### Persistance Google Sheets
+
+Chaque **onglet** du classeur = une table CSV logique.
+
+| Opération | Mécanisme |
+|-----------|-----------|
+| **GET** | Export CSV public Google Sheets |
+| **POST / PUT** | Apps Script (voir [`google-apps-script/README.md`](google-apps-script/README.md)) |
+
+Le chat utilise l’onglet **`messages`**. Détail : `src/lib/googleSheetsDb.ts` et `chatPersistence.ts`.
+
+### PWA
+
+- Installable, cache Workbox
+- Notifications push via `sw.js` (événement `push`)
+
+### Autres
+
+- i18n FR / EN (`useLanguageStore`)
+- Upload images ImageKit (`VITE_IMAGEKIT_PRIVATE_KEY`)
+- Thème sombre
+
+---
+
+## Variables d’environnement
+
+Copier `env.example` → `.env` (non versionné).
+
+| Variable | Obligatoire | Description |
+|----------|-------------|-------------|
+| `VITE_CHAT_API_URL` | Non | URL du backend Fastify (ex. `http://localhost:3000`) |
+| `VITE_VAPID_PUBLIC_KEY` | Non | Clé publique Web Push (générée côté backend : `npm run vapid`) |
+| `VITE_GOOGLE_SHEETS_URL_ENCODED` | Non | URL Google Sheet encodée (+1 par caractère) |
+| `VITE_GOOGLE_SHEETS_API_URL` | Non | URL Apps Script pour écriture Sheets |
+| `VITE_SHEET_GID_MESSAGES` | Non | GID de l’onglet `messages` (défaut `0`) |
+| `VITE_DEFAULT_CSV_PATH` | Non | CSV local de secours (défaut `/nel/messages.csv`) |
+| `VITE_IMAGEKIT_PRIVATE_KEY` | Non | Signature uploads ImageKit |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Non | OAuth Google (si utilisé) |
+
+Encoder l’URL Google Sheet :
+
+```js
+const url = "https://docs.google.com/spreadsheets/d/TON_ID/edit?usp=sharing";
+const encoded = [...url].map((c) => String.fromCharCode(c.charCodeAt(0) + 1)).join("");
+console.log(encoded);
+```
+
+---
+
+## API Google Sheets (frontend)
+
+```ts
+import { sheetGet, sheetPost, sheetPut, sheetBatchPost } from "./lib/googleSheetsDb";
+
+// GET — lecture onglet "messages"
+const rows = await sheetGet("messages");
+
+// POST — nouvelle ligne
+await sheetPost("messages", {
+  conversationId: "conv_1",
+  id: "m_abc",
+  authorId: "user_1",
+  authorName: "Jean",
+  text: "Salut",
+  sentAt: String(Date.now()),
+});
+
+// PUT — mise à jour par id
+await sheetPut("messages", "m_abc", { text: "Message modifié" });
+```
+
+Tables disponibles : définies dans `SHEET_TABLES` (`googleSheetsDb.ts`). Aujourd’hui : `messages` uniquement.
+
+---
+
+## Intégration backend chat
+
+1. Déployer ou lancer le backend ([`backend/README.md`](backend/README.md))
+2. Définir `VITE_CHAT_API_URL` (sans slash final)
+3. Se connecter → le frontend envoie le JWT au socket (`auth.token`)
+4. `App.tsx` appelle `initGlobalChatSync()` sur toutes les conversations
+
+Sans variable → mode **offline / démo** (pas de socket, pas de JWT serveur).
+
+---
+
+## Déploiement (GitHub Pages)
 
 ```bash
-npm run build
+yarn build
+yarn deploy
 ```
 
-## Storybook
+- Base path : `/nel/` (`vite.config.ts`)
+- Page 404 : copie de `index.html` pour le routing SPA (`predeploy`)
 
-Lancer Storybook en mode développement :
-```bash
-npm run storybook
-```
+Le backend **ne peut pas** tourner sur GitHub Pages : héberger sur Render, Fly.io, Railway, etc., puis pointer `VITE_CHAT_API_URL` vers cette URL au build.
 
-Construire Storybook pour la production :
-```bash
-npm run build-storybook
-```
+---
 
-## Déploiement
+## Build & chemins
 
-```bash
-npm run predeploy
-npm run deploy
-```
+- `base: '/nel/'` — tous les assets et routes sont sous `/nel/`
+- En prod : `https://itsrim.github.io/nel/`
 
-## Zustand
+---
 
-Le projet utilise [Zustand](https://github.com/pmndrs/zustand) pour la gestion d'état. Un exemple de store est disponible dans `src/store/useAppStore.ts`.
+## Liens documentation
 
-Exemple d'utilisation :
-```typescript
-import { useAppStore } from './store/useAppStore';
+| Document | Contenu |
+|----------|---------|
+| [`backend/README.md`](backend/README.md) | API REST, Socket.IO, auth, push |
+| [`google-apps-script/README.md`](google-apps-script/README.md) | POST/PUT Google Sheets |
 
-function MyComponent() {
-  const { count, increment, decrement } = useAppStore();
-  return (
-    <div>
-      <p>{count}</p>
-      <button onClick={increment}>+</button>
-      <button onClick={decrement}>-</button>
-    </div>
-  );
-}
-```
+---
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Dépannage
 
-Currently, two official plugins are available:
+| Problème | Piste |
+|----------|--------|
+| Chat ne se synchronise pas | `VITE_CHAT_API_URL` défini ? Backend lancé ? Token après login ? |
+| Erreur socket Unauthorized | Reconnecte-toi (`demo@nel.com` / `password`) |
+| Sheets GET échoue | Sheet public en lecture ? Bon `gid` ? CORS parfois bloqué → fallback `messages.csv` |
+| POST Sheets échoue | Apps Script déployé ? `VITE_GOOGLE_SHEETS_API_URL` correct ? |
+| Push absente | HTTPS requis, `VITE_VAPID_PUBLIC_KEY`, permission notifications |
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
+
+## Licence
+
+Projet privé Nel.

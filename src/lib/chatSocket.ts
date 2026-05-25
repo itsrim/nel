@@ -2,7 +2,10 @@ import { io, type Socket } from "socket.io-client";
 import type { PersistedMessage } from "./chatPersistence";
 import { getAuthToken } from "./authApi";
 
-import { CHAT_API_BASE, isChatApiConfigured } from "./chatConfig";: Socket | null = null;
+import { CHAT_API_BASE, isChatApiConfigured } from "./chatConfig";
+
+export { isChatApiConfigured, CHAT_API_BASE };
+let socket: Socket | null = null;
 let socketToken: string | null = null;
 
 export function connectChatSocket(token: string): Socket | null {
