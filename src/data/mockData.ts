@@ -52,11 +52,14 @@ export interface Event {
 export interface AppNotification {
   id: string;
   createdAt: number;
-  kind: "event_invite_sent";
-  eventId: string;
-  eventTitle: string;
-  inviteeName: string;
-  inviteeProfilId: string;
+  kind: "event_invite_sent" | "chat_message";
+  eventId?: string;
+  eventTitle?: string;
+  inviteeName?: string;
+  inviteeProfilId?: string;
+  conversationId?: string;
+  senderName?: string;
+  messagePreview?: string;
 }
 
 /** Signalement utilisateur → file admin (onglet Profil — démo). */

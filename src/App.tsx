@@ -5,6 +5,13 @@ import {
 } from "./store/useNavigationStore";
 import { useMessagingStore } from "./store/useMessagingStore";
 import { useAuthStore } from "./store/useAuthStore";
+import { isChatApiConfigured } from "./lib/chatConfig";
+import {
+  initGlobalChatSync,
+  setActiveChatConversationId,
+  shutdownGlobalChatSync,
+} from "./lib/chatSync";
+import { registerPushNotifications } from "./lib/pushNotifications";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { ChatPage } from "./pages/ChatPage";
 import { EventsPage } from "./pages/EventsPage";
@@ -37,6 +44,7 @@ function renderDetailContent(detail: DetailState) {
 function App() {
   const { activeTab, detailStack } = useNavigationStore();
   const toast = useMessagingStore((s) => s.toast);
+  const conversations = useMessagingStore((s) => s.conversations);
   const { setViewerProfileDisplayName, setViewerProfileAvatarUrl, setViewerProfileIsPro } =
     useMessagingStore();
   const { loadDemoData, resetData } = useMessagingStore();
@@ -76,6 +84,22 @@ function App() {
     loadDemoData,
     resetData,
   ]);
+
+  useEffect(() => {
+    const openChat = [...detailStack].reverse().find((d) => d.type === "chat");
+    setActiveChatConversationId(openChat?.id ?? null);
+  }, [detailStack]);
+
+  useEffect(() => {
+    if (!user) {
+      shutdownGlobalChatSync();
+      return;
+    }
+    if (!isChatApiConfigured()) return;
+
+    initGlobalChatSync(conversations.map((c) => c.id));
+    void registerPushNotifications();
+  }, [user, conversations]);
 
   /** Chaque onglet repart du haut (pas la position de scroll de la page précédente). */
   useLayoutEffect(() => {

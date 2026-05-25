@@ -7,6 +7,7 @@
 export interface PersistedMessage {
   conversationId: string;
   id: string;
+  authorId?: string;
   authorName: string;
   text: string;
   sentAt: number;

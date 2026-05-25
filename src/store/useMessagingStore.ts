@@ -16,9 +16,20 @@ import {
   type AppNotification,
   type AdminReportEntry,
 } from "../data/mockData";
-import * as Y from "yjs";
-import { WebrtcProvider } from "y-webrtc";
-import { loadHistory, saveHistory } from "../lib/chatPersistence";
+import { isChatApiConfigured } from "../lib/chatConfig";
+import { sendMessageRemote } from "../lib/chatSocket";
+import { loadHistory, saveHistory, type PersistedMessage } from "../lib/chatPersistence";
+import { useAuthStore } from "./useAuthStore";
+
+export interface EventReminder {
+  id: string;
+  eventId: string;
+  eventTitle: string;
+  participantId: string;
+  participantName: string;
+  sentAt: number;
+  readAt?: number;
+}
 
 
 const LS_VIEWER_AVATAR = "nel_viewer_profile_avatar_url";
@@ -72,6 +83,15 @@ export type UpdateEventInput = {
   manualApproval?: boolean;
   isBeta?: boolean;
 };
+
+function pushMessageRemote(message: PersistedMessage) {
+  if (!isChatApiConfigured()) return;
+  sendMessageRemote(message);
+}
+
+function persistLocalMessages(messagesByConversation: Record<string, Message[]>) {
+  saveHistory(messagesByConversation);
+}
 
 interface MessagingState {
   /** Synchronisé avec l’interrupteur « Mode admin » du profil (aperçu nel). */
@@ -155,21 +175,11 @@ interface MessagingState {
   /** Load demo data for demo account (user_demo_001) */
   loadDemoData: () => void;
   /** Reset data to empty state (for new users) */
+  resetData: () => void;
+  eventReminders: EventReminder[];
+  sendEventReminder: (eventId: string, participantId: string, participantName: string) => void;
+  markEventReminderAsRead: (reminderId: string) => void;
 }
-
-// --- Yjs / WebRTC Setup ---
-const ydoc = new Y.Doc();
-// Room name should be unique enough for the app
-const provider = new WebrtcProvider("nel-app-chat-v1", ydoc, {
-  signaling: [
-    "wss://y-webrtc-signaling-ws.herokuapp.com",
-    "wss://y-webrtc-signaling-p2p.herokuapp.com",
-    "wss://signaling.yjs.dev",
-  ],
-});
-
-// We store messages in a Y.Map where key = conversationId, value = Y.Array of messages
-const yMessagesMap = ydoc.getMap<Y.Array<any>>("messages");
 
 export const useMessagingStore = create<MessagingState>((set, get) => ({
   nelDemoIsAdmin: true,
@@ -295,11 +305,13 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     };
     set((state) => {
       const currentMessages = state.messagesByConversation[tid] ?? [];
+      const next = {
+        ...state.messagesByConversation,
+        [tid]: [...currentMessages, newMessage],
+      };
+      persistLocalMessages(next);
       return {
-        messagesByConversation: {
-          ...state.messagesByConversation,
-          [tid]: [...currentMessages, newMessage],
-        },
+        messagesByConversation: next,
         conversations: state.conversations.map((c) =>
           c.id === tid
             ? {
@@ -311,6 +323,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         ),
       };
     });
+    pushMessageRemote(newMessage);
   },
   moderationHideAndNotifyFromReport: (reportId) => {
     const id = reportId.trim();
@@ -519,11 +532,13 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     };
     set((state) => {
       const prevMsgs = state.messagesByConversation[conversationId] ?? [];
+      const next = {
+        ...state.messagesByConversation,
+        [conversationId]: [...prevMsgs, msg],
+      };
+      persistLocalMessages(next);
       return {
-        messagesByConversation: {
-          ...state.messagesByConversation,
-          [conversationId]: [...prevMsgs, msg],
-        },
+        messagesByConversation: next,
         conversations: state.conversations.map((c) =>
           c.id === conversationId
             ? {
@@ -535,6 +550,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         ),
       };
     });
+    pushMessageRemote(msg);
   },
 
   toggleConversationFavorite: (conversationId) =>
@@ -559,35 +575,26 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
 
   sendMessage: (conversationId, text) => {
     const { viewerProfileDisplayName: authorName } = get();
-    
-    // Create the message object
-    const newMessage = {
+    const authorId = useAuthStore.getState().user?.id;
+
+    const newMessage: PersistedMessage = {
       id: Math.random().toString(36).substring(7),
       conversationId,
+      authorId,
       authorName,
       text,
       sentAt: Date.now(),
-      // In Yjs, everyone receives this. We will determine `isOwn` during rendering or state sync.
-      // But for local immediate UI, we can keep it as is.
     };
 
-    // Update Yjs (this broadcasts to others)
-    let yArr = yMessagesMap.get(conversationId);
-    if (!yArr) {
-      yArr = new Y.Array();
-      yMessagesMap.set(conversationId, yArr);
-    }
-    yArr.push([newMessage]);
-
-    // Note: We don't necessarily need to call set() here if our listener is active,
-    // but doing it for immediate local feedback.
     set((state) => {
       const currentMessages = state.messagesByConversation[conversationId] || [];
+      const next = {
+        ...state.messagesByConversation,
+        [conversationId]: [...currentMessages, { ...newMessage, isOwn: true }],
+      };
+      persistLocalMessages(next);
       return {
-        messagesByConversation: {
-          ...state.messagesByConversation,
-          [conversationId]: [...currentMessages, { ...newMessage, isOwn: true }],
-        },
+        messagesByConversation: next,
         conversations: state.conversations.map((c) =>
           c.id === conversationId
             ? { ...c, lastMessagePreview: text, updatedAt: Date.now() }
@@ -595,6 +602,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         ),
       };
     });
+
+    pushMessageRemote(newMessage);
   },
 
   markAsRead: (conversationId) => {
@@ -752,36 +761,41 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       isOwn: false,
     };
 
-    set((s) => ({
-      events: s.events.map((e) =>
-        e.id === eventId
-          ? {
-              ...e,
-              invitedProfilIds: [
-                ...(e.invitedProfilIds ?? []),
-                friend.profilId,
-              ],
-            }
-          : e,
-      ),
-      appNotifications: [notif, ...s.appNotifications],
-      messagesByConversation: {
+    set((s) => {
+      const nextMsgs = {
         ...s.messagesByConversation,
         [event.conversationId]: [
           ...(s.messagesByConversation[event.conversationId] ?? []),
           msg,
         ],
-      },
-      conversations: s.conversations.map((c) =>
-        c.id === event.conversationId
-          ? {
-              ...c,
-              lastMessagePreview: systemText.slice(0, 120),
-              updatedAt: Date.now(),
-            }
-          : c,
-      ),
-    }));
+      };
+      persistLocalMessages(nextMsgs);
+      return {
+        events: s.events.map((e) =>
+          e.id === eventId
+            ? {
+                ...e,
+                invitedProfilIds: [
+                  ...(e.invitedProfilIds ?? []),
+                  friend.profilId,
+                ],
+              }
+            : e,
+        ),
+        appNotifications: [notif, ...s.appNotifications],
+        messagesByConversation: nextMsgs,
+        conversations: s.conversations.map((c) =>
+          c.id === event.conversationId
+            ? {
+                ...c,
+                lastMessagePreview: systemText.slice(0, 120),
+                updatedAt: Date.now(),
+              }
+            : c,
+        ),
+      };
+    });
+    pushMessageRemote(msg);
     const inviteeFirst =
       friend.name.trim().split(/\s+/)[0] || friend.name.trim() || friend.name;
     get().showToast(`Invitation envoyée à ${inviteeFirst}`);
@@ -810,89 +824,64 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       adminReports: [],
       moderationHiddenEventIds: [],
       moderationHiddenProfilIds: [],
+      eventReminders: [],
     });
+  },
+
+  eventReminders: [],
+  sendEventReminder: (eventId, participantId, participantName) => {
+    const id = `rem_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    const reminder: EventReminder = {
+      id,
+      eventId,
+      eventTitle: get().events.find((e) => e.id === eventId)?.title || "",
+      participantId,
+      participantName,
+      sentAt: Date.now(),
+    };
+    set((state) => ({ eventReminders: [reminder, ...state.eventReminders] }));
+    get().showToast(`Relance envoyée à ${participantName.split(" ")[0]}`);
+
+    // Simulate reading after a few seconds (verification de lecture)
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        get().markEventReminderAsRead(id);
+      }, 4000 + Math.random() * 5000);
+    }
+  },
+  markEventReminderAsRead: (reminderId) => {
+    set((state) => ({
+      eventReminders: state.eventReminders.map((r) =>
+        r.id === reminderId ? { ...r, readAt: Date.now() } : r,
+      ),
+    }));
   },
 }));
 
-// --- Yjs Synchronization Logic ---
-yMessagesMap.observeDeep(() => {
-  const state = useMessagingStore.getState();
-  const currentDisplayName = state.viewerProfileDisplayName;
-  const newMessagesByConversation: Record<string, Message[]> = { ...state.messagesByConversation };
-  let hasChanged = false;
-
-  yMessagesMap.forEach((yArr, conversationId) => {
-    const remoteMsgs = yArr.toArray();
-    const currentMsgs = state.messagesByConversation[conversationId] || [];
-    
-    // Simple sync: if counts differ, we update. 
-    // In a real app, you'd do a more granular merge.
-    if (remoteMsgs.length !== currentMsgs.length) {
-      newMessagesByConversation[conversationId] = remoteMsgs.map((m: any) => ({
-        ...m,
-        // Calculate isOwn based on authorName
-        isOwn: m.authorName === currentDisplayName,
-      }));
-      hasChanged = true;
-    }
-  });
-
-  if (hasChanged) {
-    const nextMsgs = newMessagesByConversation;
-    useMessagingStore.setState({ messagesByConversation: nextMsgs });
-    // Save to CSV whenever state updates from Yjs
-    saveHistory(nextMsgs);
-  }
-});
-
-/**
- * --- Persistence initialization ---
- * Load history from CSV and inject into Yjs doc.
- * Yjs handles the merge and broadcasts to others.
- */
-function initPersistence() {
+function initLocalChatHistory() {
   const history = loadHistory();
   if (history.length === 0) return;
 
   const state = useMessagingStore.getState();
   const currentDisplayName = state.viewerProfileDisplayName;
-  
-  // Inject into Yjs doc
-  ydoc.transact(() => {
-    history.forEach((m) => {
-      let yArr = yMessagesMap.get(m.conversationId);
-      if (!yArr) {
-        yArr = new Y.Array();
-        yMessagesMap.set(m.conversationId, yArr);
-      }
-      
-      // Check for duplicates in Yjs array before pushing
-      const exists = yArr.toArray().some((rm: any) => rm.id === m.id);
-      if (!exists) {
-        yArr.push([m]);
-      }
-    });
-  });
+  const mergedMsgs = { ...state.messagesByConversation };
 
-  // Also update local state immediately for fast UI
-  const mergedMsgs = { ...useMessagingStore.getState().messagesByConversation };
   history.forEach((m) => {
     if (!mergedMsgs[m.conversationId]) mergedMsgs[m.conversationId] = [];
     if (!mergedMsgs[m.conversationId].some((msg) => msg.id === m.id)) {
       mergedMsgs[m.conversationId].push({
         ...m,
-        isOwn: m.authorName === currentDisplayName,
+        isOwn: m.authorId
+          ? m.authorId === useAuthStore.getState().user?.id
+          : m.authorName === currentDisplayName,
       });
     }
   });
-  
+
   useMessagingStore.setState({ messagesByConversation: mergedMsgs });
 }
 
-// Run init
 if (typeof window !== "undefined") {
-  // Give a small delay to let YJS/WebRTC initialize if needed, 
-  // though ydoc is local so it's fine.
-  initPersistence();
+  initLocalChatHistory();
 }
 

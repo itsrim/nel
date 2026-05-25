@@ -20,6 +20,10 @@ import {
   LogOut,
   Globe,
   FlaskConical,
+  ChevronLeft,
+  ChevronRight,
+  Send,
+  CheckCheck,
 } from "lucide-react";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useNavigationStore } from "../store/useNavigationStore";
@@ -35,7 +39,7 @@ import { formatBadgeCount } from "../data/mockData";
 import { isEventDateBeforeToday } from "../lib/eventDateKey";
 import "./ProfilePage.css";
 
-type TabId = "favorites" | "friends" | "history" | "notifications" | "reports";
+type TabId = "favorites" | "friends" | "history" | "notifications" | "reports" | "calendar";
 
 function getNearestScrollableAncestor(
   el: HTMLElement | null,
@@ -92,12 +96,18 @@ export function ProfilePage() {
     setViewerProfileDisplayName,
     viewerProfileIsPro,
     setViewerProfileIsPro,
+    eventReminders,
+    sendEventReminder,
+    conversations,
   } = useMessagingStore();
   const { openDetail } = useNavigationStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const profileTabsRef = useRef<HTMLDivElement>(null);
   const profileTabStripViewportTopRef = useRef<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("favorites");
+
+  const [calendarDate, setCalendarDate] = useState(() => new Date(2026, 4, 24)); // May 2026 as per local time
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>("2026-05-24");
 
   const selectProfileTab = useCallback(
     (next: TabId) => {
@@ -408,6 +418,21 @@ export function ProfilePage() {
               e.preventDefault();
           }}
         >
+          {viewerProfileIsPro && (
+            <button
+              type="button"
+              className={`p-tab ${activeTab === "calendar" ? "p-tab--active" : ""}`}
+              onClick={() => selectProfileTab("calendar")}
+            >
+              <div className="p-tab-inner">
+                <Calendar
+                  size={18}
+                  color={activeTab === "calendar" ? "#FFD60A" : "#8E8E93"}
+                />
+                <span>{t("calendarTab")}</span>
+              </div>
+            </button>
+          )}
           <button
             type="button"
             className={`p-tab ${activeTab === "favorites" ? "p-tab--active" : ""}`}
@@ -638,20 +663,51 @@ export function ProfilePage() {
           {activeTab === "notifications" && (
             <div className="notifications-list">
               {sortedNotifications.map((n) => {
-                const inviteeAv =
-                  friends.find((f) => f.profilId === n.inviteeProfilId)
-                    ?.imageUrl ?? "";
                 const when = new Date(n.createdAt).toLocaleString("fr-FR", {
                   dateStyle: "short",
                   timeStyle: "short",
                 });
+
+                if (n.kind === "chat_message") {
+                  return (
+                    <button
+                      key={n.id}
+                      type="button"
+                      className="notification-card"
+                      onMouseDown={(ev) => ev.preventDefault()}
+                      onClick={() =>
+                        n.conversationId && openDetail("chat", n.conversationId)
+                      }
+                    >
+                      <div
+                        className="notification-av notification-av--placeholder"
+                        aria-hidden
+                      >
+                        <Bell size={22} color="#8E8E93" />
+                      </div>
+                      <div className="notification-texts">
+                        <div className="notification-title">
+                          {n.senderName ?? t("newGroup")}
+                        </div>
+                        <div className="notification-body">
+                          {n.messagePreview ?? ""}
+                        </div>
+                        <div className="notification-meta">{when}</div>
+                      </div>
+                    </button>
+                  );
+                }
+
+                const inviteeAv =
+                  friends.find((f) => f.profilId === n.inviteeProfilId)
+                    ?.imageUrl ?? "";
                 return (
                   <button
                     key={n.id}
                     type="button"
                     className="notification-card"
                     onMouseDown={(ev) => ev.preventDefault()}
-                    onClick={() => openDetail("event", n.eventId)}
+                    onClick={() => n.eventId && openDetail("event", n.eventId)}
                   >
                     {inviteeAv ? (
                       <img src={inviteeAv} alt="" className="notification-av" />

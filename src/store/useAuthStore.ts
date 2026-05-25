@@ -1,4 +1,12 @@
 import { create } from "zustand";
+import { isChatApiConfigured } from "../lib/chatConfig";
+import {
+  loginWithApi,
+  setAuthToken,
+  signupWithApi,
+  toAppUser,
+} from "../lib/authApi";
+import { shutdownGlobalChatSync } from "../lib/chatSync";
 
 export type User = {
   id: string;
@@ -30,8 +38,7 @@ interface AuthState {
 
 const LS_USER = "nel_auth_user";
 
-// Simple in-memory "database" for demo
-const users: Record<
+const localUsers: Record<
   string,
   {
     email: string;
@@ -54,12 +61,6 @@ const users: Record<
   },
 };
 
-// Generate a gray avatar color
-function generateGrayAvatar(): string {
-  const grayShades = ["#9E9E9E", "#BDBDBD", "#757575", "#9C9C9C", "#A1A1A1"];
-  return grayShades[Math.floor(Math.random() * grayShades.length)];
-}
-
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isLoading: false,
@@ -80,16 +81,23 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, error: null });
 
     try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Check if user exists and password matches
-      const user = users[email];
-      if (!user || user.password !== password) {
-        set({
-          isLoading: false,
-          error: "Email ou mot de passe incorrect",
+      if (isChatApiConfigured()) {
+        const { user, token } = await loginWithApi(email, password);
+        const loggedInUser = toAppUser(user, {
+          age: email === "demo@nel.com" ? "28" : "",
+          bio: email === "demo@nel.com" ? "Bienvenue sur Nel!" : "",
+          isPro: false,
         });
+        setAuthToken(token);
+        localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
+        set({ user: loggedInUser, isLoading: false });
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const user = localUsers[email];
+      if (!user || user.password !== password) {
+        set({ isLoading: false, error: "Email ou mot de passe incorrect" });
         return;
       }
 
@@ -102,7 +110,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         isPro: !!user.isPro,
         avatarUrl:
           email === "demo@nel.com"
-            ? `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800`
+            ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800"
             : "/event-cover-themes/avatar.jpg",
       };
 
@@ -111,7 +119,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (err) {
       set({
         isLoading: false,
-        error: "Erreur de connexion",
+        error: err instanceof Error ? err.message : "Erreur de connexion",
       });
     }
   },
@@ -127,24 +135,24 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, error: null });
 
     try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Check if user already exists
-      if (users[email]) {
-        set({
-          isLoading: false,
-          error: "Cet email est déjà utilisé",
-        });
+      if (isChatApiConfigured()) {
+        const { user, token } = await signupWithApi(email, password, displayName);
+        const newUser = toAppUser(user, { age, bio, isPro });
+        setAuthToken(token);
+        localStorage.setItem(LS_USER, JSON.stringify(newUser));
+        set({ user: newUser, isLoading: false });
         return;
       }
 
-      // Validate inputs
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      if (localUsers[email]) {
+        set({ isLoading: false, error: "Cet email est déjà utilisé" });
+        return;
+      }
+
       if (!email || !password || !displayName) {
-        set({
-          isLoading: false,
-          error: "Tous les champs sont requis",
-        });
+        set({ isLoading: false, error: "Tous les champs sont requis" });
         return;
       }
 
@@ -156,11 +164,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         return;
       }
 
-      // Create new user with default avatar
       const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const defaultAvatarUrl = "/event-cover-themes/avatar.jpg";
-
-      users[email] = {
+      localUsers[email] = {
         email,
         password,
         displayName,
@@ -177,7 +182,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         age: age || "",
         bio: bio || "",
         isPro: !!isPro,
-        avatarUrl: defaultAvatarUrl,
+        avatarUrl: "/event-cover-themes/avatar.jpg",
       };
 
       localStorage.setItem(LS_USER, JSON.stringify(newUser));
@@ -185,12 +190,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (err) {
       set({
         isLoading: false,
-        error: "Erreur lors de la création du compte",
+        error: err instanceof Error ? err.message : "Erreur lors de la création du compte",
       });
     }
   },
 
   logout: () => {
+    shutdownGlobalChatSync();
+    setAuthToken(null);
     localStorage.removeItem(LS_USER);
     set({ user: null, error: null });
   },
