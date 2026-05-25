@@ -36,10 +36,32 @@ import {
 } from "../lib/imagekitUpload";
 import { withUrlUploadVersion } from "../lib/versionRemoteAssetUrl";
 import { formatBadgeCount } from "../data/mockData";
-import { isEventDateBeforeToday } from "../lib/eventDateKey";
+import { isEventDateBeforeToday, parseDateKeyLocal, todayDateKey, toDateKey } from "../lib/eventDateKey";
 import "./ProfilePage.css";
 
 type TabId = "favorites" | "friends" | "history" | "notifications" | "reports" | "calendar";
+
+const PROFILE_CAL_WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"] as const;
+
+function shiftCalendarMonth(d: Date, delta: number): Date {
+  return new Date(d.getFullYear(), d.getMonth() + delta, 1);
+}
+
+function buildProfileMonthCells(viewMonth: Date): Array<{ dateKey: string | null }> {
+  const year = viewMonth.getFullYear();
+  const month = viewMonth.getMonth();
+  const first = new Date(year, month, 1);
+  const startPad = (first.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: Array<{ dateKey: string | null }> = [];
+
+  for (let i = 0; i < startPad; i++) cells.push({ dateKey: null });
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push({ dateKey: toDateKey(new Date(year, month, day)) });
+  }
+
+  return cells;
+}
 
 function getNearestScrollableAncestor(
   el: HTMLElement | null,
@@ -106,8 +128,11 @@ export function ProfilePage() {
   const profileTabStripViewportTopRef = useRef<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("favorites");
 
-  const [calendarDate, setCalendarDate] = useState(() => new Date(2026, 4, 24)); // May 2026 as per local time
-  const [selectedDayKey, setSelectedDayKey] = useState<string | null>("2026-05-24");
+  const [calendarDate, setCalendarDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [selectedDayKey, setSelectedDayKey] = useState(() => todayDateKey());
 
   const selectProfileTab = useCallback(
     (next: TabId) => {
@@ -179,6 +204,54 @@ export function ProfilePage() {
       ),
     [events],
   );
+
+  /** Sorties créées par l'utilisateur (onglet Calendrier Pro). */
+  const createdEvents = useMemo(
+    () => events.filter((e) => e.hostedByViewer),
+    [events],
+  );
+
+  const createdEventsByDateKey = useMemo(() => {
+    const map = new Map<string, typeof events>();
+    for (const e of createdEvents) {
+      if (!map.has(e.dateKey)) map.set(e.dateKey, []);
+      map.get(e.dateKey)!.push(e);
+    }
+    for (const [, list] of map) {
+      list.sort((a, b) => a.timeShort.localeCompare(b.timeShort));
+    }
+    return map;
+  }, [createdEvents]);
+
+  const profileMonthCells = useMemo(
+    () => buildProfileMonthCells(calendarDate),
+    [calendarDate],
+  );
+
+  const profileMonthTitle = useMemo(() => {
+    const raw = calendarDate.toLocaleDateString("fr-FR", {
+      month: "long",
+      year: "numeric",
+    });
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  }, [calendarDate]);
+
+  const selectedDayEvents = useMemo(() => {
+    if (!selectedDayKey) return [];
+    return createdEventsByDateKey.get(selectedDayKey) ?? [];
+  }, [createdEventsByDateKey, selectedDayKey]);
+
+  const selectedDayLabel = useMemo(() => {
+    if (!selectedDayKey) return "";
+    const raw = parseDateKeyLocal(selectedDayKey).toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  }, [selectedDayKey]);
+
+  const todayKey = todayDateKey();
   const upcomingEvents = useMemo(
     () =>
       events.filter(
@@ -524,6 +597,98 @@ export function ProfilePage() {
 
         {/* Tab Content */}
         <div className="tab-container">
+          {activeTab === "calendar" && viewerProfileIsPro && (
+            <div className="profile-calendar">
+              <div className="profile-cal-header">
+                <button
+                  type="button"
+                  className="profile-cal-nav"
+                  onClick={() => setCalendarDate((d) => shiftCalendarMonth(d, -1))}
+                  aria-label={t("previousMonth")}
+                >
+                  <ChevronLeft size={22} color="#fff" />
+                </button>
+                <span className="profile-cal-month">{profileMonthTitle}</span>
+                <button
+                  type="button"
+                  className="profile-cal-nav"
+                  onClick={() => setCalendarDate((d) => shiftCalendarMonth(d, 1))}
+                  aria-label={t("nextMonth")}
+                >
+                  <ChevronRight size={22} color="#fff" />
+                </button>
+              </div>
+
+              <div className="profile-cal-weekdays" aria-hidden>
+                {PROFILE_CAL_WEEKDAYS.map((letter, i) => (
+                  <span key={`${letter}-${i}`} className="profile-cal-weekday">
+                    {letter}
+                  </span>
+                ))}
+              </div>
+
+              <div className="profile-cal-grid" role="grid" aria-label={profileMonthTitle}>
+                {profileMonthCells.map((cell, idx) => {
+                  if (!cell.dateKey) {
+                    return <div key={`empty-${idx}`} className="profile-cal-day profile-cal-day--empty" />;
+                  }
+                  const dayNum = parseDateKeyLocal(cell.dateKey).getDate();
+                  const hasEvents = createdEventsByDateKey.has(cell.dateKey);
+                  const isSelected = selectedDayKey === cell.dateKey;
+                  const isToday = cell.dateKey === todayKey;
+
+                  return (
+                    <button
+                      key={cell.dateKey}
+                      type="button"
+                      role="gridcell"
+                      className={`profile-cal-day${isSelected ? " profile-cal-day--selected" : ""}${isToday ? " profile-cal-day--today" : ""}${hasEvents ? " profile-cal-day--has-events" : ""}`}
+                      aria-pressed={isSelected}
+                      aria-label={cell.dateKey}
+                      onClick={() => setSelectedDayKey(cell.dateKey!)}
+                    >
+                      <span className="profile-cal-day-num">{dayNum}</span>
+                      {hasEvents ? <span className="profile-cal-day-dot" aria-hidden /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <h3 className="profile-cal-day-title">{selectedDayLabel}</h3>
+
+              <div className="profile-cal-day-list">
+                {selectedDayEvents.map((e) => (
+                  <div
+                    key={e.id}
+                    role="button"
+                    tabIndex={0}
+                    className="p-event-row"
+                    aria-label={`${t("openEvent")} ${e.title}`}
+                    onMouseDown={(ev) => ev.preventDefault()}
+                    onClick={() => openDetail("event", e.id)}
+                    onKeyDown={(ev) => {
+                      if (ev.key === "Enter" || ev.key === " ") {
+                        ev.preventDefault();
+                        openDetail("event", e.id);
+                      }
+                    }}
+                  >
+                    <img src={e.imageUri} alt={e.title} className="p-event-img" />
+                    <div className="p-event-info">
+                      <div className="p-event-title">{e.title}</div>
+                      <div className="p-event-meta">
+                        {e.timeShort} · {e.location}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {selectedDayEvents.length === 0 && (
+                  <div className="empty-hint">{t("noEventsOnSelectedDay")}</div>
+                )}
+              </div>
+            </div>
+          )}
+
           {activeTab === "favorites" && (
             <div className="favorites-list">
               {favoritesAndCreatedEvents.map((e) => (

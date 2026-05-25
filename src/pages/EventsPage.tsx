@@ -338,23 +338,24 @@ export function EventsPage() {
             >
               <ChevronLeft size={22} color="#fff" />
             </button>
-            <div className="cal-center-cluster">
-              <span className="cal-month">{monthTitle}</span>
+            <span className="cal-month">{monthTitle}</span>
+            <div className="cal-top-row-right">
               <button
-                className="cal-search-btn"
+                type="button"
+                className="events-header-icon-btn"
                 onClick={() => setEventsHeaderMode("search")}
                 aria-label={t("searchAriaLabel")}
               >
-                <Search size={22} color="#FFD60A" />
+                <Search size={24} color="#000" />
+              </button>
+              <button
+                className="cal-chevron cal-chevron--right"
+                onClick={() => shiftWeek(1)}
+                aria-label={t("nextWeek")}
+              >
+                <ChevronRight size={22} color="#fff" />
               </button>
             </div>
-            <button
-              className="cal-chevron cal-chevron--right"
-              onClick={() => shiftWeek(1)}
-              aria-label={t("nextWeek")}
-            >
-              <ChevronRight size={22} color="#fff" />
-            </button>
           </div>
           <CalendarWeekStrip
             weekStart={weekStartMonday}
@@ -368,14 +369,14 @@ export function EventsPage() {
             <span className="search-mode-title">{t("searchEvents")}</span>
             <button
               type="button"
-              className="search-mode-cal-btn"
+              className="events-header-icon-btn"
               onClick={() => {
                 setSearchFilterPanelOpen(false);
                 setEventsHeaderMode("calendar");
               }}
               aria-label={t("calendarAriaLabel")}
             >
-              <Calendar size={24} color="#FFD60A" />
+              <Calendar size={24} color="#000" />
             </button>
           </div>
           <div className="events-search-row">

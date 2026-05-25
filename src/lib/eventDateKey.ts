@@ -4,6 +4,16 @@ export function parseDateKeyLocal(dateKey: string): Date {
   return new Date(+p[0], +p[1] - 1, +p[2]);
 }
 
+/** Clé locale `YYYY-MM-DD` à partir d'une `Date`. */
+export function toDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Clé du jour calendaire local (aujourd'hui). */
+export function todayDateKey(): string {
+  return toDateKey(new Date());
+}
+
 /** Vrai si le jour de l’événement (calendrier local) est strictement avant aujourd’hui. */
 export function isEventDateBeforeToday(dateKey: string): boolean {
   const d = parseDateKeyLocal(dateKey);

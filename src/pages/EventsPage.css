@@ -20,34 +20,28 @@
 .cal-top-row {
   display: flex;
   align-items: center;
+  gap: 8px;
   padding: 0 14px;
   margin-bottom: 8px;
-  position: relative;
-  min-height: 44px;
-}
-
-.cal-center-cluster {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
+  min-height: 58px;
+  box-sizing: border-box;
 }
 
 .cal-month {
+  flex: 1;
   font-size: 18px;
   font-weight: 800;
   color: #fff;
   letter-spacing: 0.2px;
   text-align: center;
+  min-width: 0;
 }
 
-.cal-search-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
+.cal-top-row-right {
   display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .cal-chevron {
@@ -110,28 +104,31 @@
 .cal-num--sel { color: #fff; }
 
 .search-mode-top {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 12px;
   padding: 0 14px;
   margin-bottom: 8px;
-  min-height: 44px;
+  min-height: 58px;
   box-sizing: border-box;
 }
 
 .search-mode-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   font-size: 18px;
   font-weight: 800;
   color: #fff;
+  text-align: center;
+  pointer-events: none;
 }
 
-.search-mode-cal-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  display: flex;
+.search-mode-top .events-header-icon-btn {
+  position: relative;
+  z-index: 1;
 }
 
 .events-search-row {
@@ -389,11 +386,9 @@
   font-size: 15px;
 }
 
-/* ── FAB ── */
+/* ── FAB + boutons header (recherche / calendrier) ── */
+.events-header-icon-btn,
 .events-fab {
-  position: fixed;
-  right: 18px;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 90px);
   width: 58px;
   height: 58px;
   border-radius: 50%;
@@ -403,9 +398,19 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 40;
-  box-shadow: 0 8px 16px rgba(155,45,110,0.5);
+  box-shadow: 0 8px 16px rgba(155, 45, 110, 0.5);
   -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
 }
 
-.events-fab:active { opacity: 0.9; }
+.events-header-icon-btn:active,
+.events-fab:active {
+  opacity: 0.9;
+}
+
+.events-fab {
+  position: fixed;
+  right: 18px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 90px);
+  z-index: 40;
+}
