@@ -1,19 +1,59 @@
 # Google Sheets comme base de données CSV
 
-Chaque **onglet** du classeur = une **table** (messages, etc.).
+Chaque **onglet** du classeur = une **table**. Les **POST** ajoutent une ligne ; les **PUT** mettent à jour une ligne existante par `id`.
 
 ## 1. Créer le Google Sheet
 
-Onglet **`messages`** avec cette ligne d’en-tête (ligne 1) :
+Créer un classeur avec **9 onglets** et la **ligne 1 = en-têtes** (copier-coller une ligne par onglet).
 
-| conversationId | id | authorId | authorName | text | sentAt |
-|----------------|-----|----------|------------|------|--------|
+### `messages`
+```
+conversationId,id,authorId,authorName,text,sentAt,userId
+```
 
-Partager le sheet en **« Toute personne disposant du lien → Lecteur »** (minimum pour l’export CSV).
+### `events`
+```
+userId,id,conversationId,title,location,dateKey,timeShort,dateLabel,sectionDateLabel,imageUri,priceLabel,price,participantCount,participantMax,isFavorite,isBeta,status,notes,visitsCount,category,hostName,hostAvatar,hideAddress,isPrivate,manualApproval,hostedByViewer,creatorId,waitlistEntriesJson,invitedProfilIdsJson,deleted
+```
+
+### `conversations`
+```
+userId,id,title,type,lastMessagePreview,avatarGradient0,avatarGradient1,unreadCount,updatedAt,lastOpenedAt,isFavorite,memberCount,muteSounds,blockNotifications,membersJson,deleted
+```
+
+### `profiles` (amis — inclut `imageUrl`)
+```
+userId,id,profilId,name,age,city,imageUrl,eventsInCommon,mainChatConversationId,pseudo,bio,memberSince,verified,isPro,statsJson,badgesJson,mutualFriend,deleted
+```
+
+### `suggestions`
+```
+userId,id,pseudo,age,imageUrl,aspectRatio,deleted
+```
+
+### `viewer_settings` (profil connecté — avatar, préférences)
+```
+userId,id,avatarUrl,displayName,isPro,friendRequestSentJson,friendRequestRejectedJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
+```
+
+### `profile_visits`
+```
+userId,id,name,age,avatarUrl,lastVisitAt,visitMultiplier,friendRequest,deleted
+```
+
+### `notifications`
+```
+userId,id,createdAt,kind,eventId,eventTitle,inviteeName,inviteeProfilId,conversationId,senderName,messagePreview,deleted
+```
+
+### `admin_reports`
+```
+userId,id,createdAt,kind,subjectId,subjectLabel,explanation,read,deleted
+```
+
+Partager le sheet en **« Toute personne disposant du lien → Lecteur »**.
 
 ## 2. Encoder l’URL du classeur
-
-Dans la console du navigateur (ou un script) :
 
 ```js
 const url = "https://docs.google.com/spreadsheets/d/TON_ID/edit?usp=sharing";
@@ -21,68 +61,65 @@ const encoded = url.split("").map((c) => String.fromCharCode(c.charCodeAt(0) + 1
 console.log(encoded);
 ```
 
-Coller le résultat dans `.env` :
+Coller dans `.env` :
 
 ```env
 VITE_GOOGLE_SHEETS_URL_ENCODED=<résultat>
-VITE_SHEET_GID_MESSAGES=0
 ```
 
-Le **GID** est dans l’URL quand tu cliques sur l’onglet `messages` : `#gid=123456789`.
+## 3. GID de chaque onglet
 
-## 3. Apps Script pour POST / PUT
+Cliquer sur chaque onglet → l’URL contient `#gid=123456789`. Renseigner dans `.env` :
 
-1. Ouvre **Extensions → Apps Script**
-2. Colle `google-apps-script/sheets-api.gs`
-3. Remplace `SPREADSHEET_ID` par l’id du classeur
-4. **Déployer → Nouvelle version → Application Web**
-   - Exécuter : Moi
-   - Accès : **Tout le monde**
-5. Copie l’URL de déploiement :
+```env
+VITE_SHEET_GID_MESSAGES=0
+VITE_SHEET_GID_EVENTS=...
+VITE_SHEET_GID_CONVERSATIONS=...
+VITE_SHEET_GID_PROFILES=...
+VITE_SHEET_GID_SUGGESTIONS=...
+VITE_SHEET_GID_VIEWER_SETTINGS=...
+VITE_SHEET_GID_PROFILE_VISITS=...
+VITE_SHEET_GID_NOTIFICATIONS=...
+VITE_SHEET_GID_ADMIN_REPORTS=...
+```
+
+## 4. Apps Script pour POST / PUT
+
+1. **Extensions → Apps Script**
+2. Coller `google-apps-script/sheets-api.gs`
+3. Remplacer `SPREADSHEET_ID`
+4. **Déployer → Application Web** (Exécuter : Moi, Accès : Tout le monde)
+5. Copier l’URL :
 
 ```env
 VITE_GOOGLE_SHEETS_API_URL=https://script.google.com/macros/s/.../exec
 ```
 
-## 4. API frontend (`src/lib/googleSheetsDb.ts`)
+## 5. Comportement Nel
 
-| Méthode | Rôle |
-|---------|------|
-| `sheetGet('messages')` | GET — export CSV de l’onglet |
-| `sheetPost('messages', row)` | POST — une ligne |
-| `sheetBatchPost('messages', rows)` | POST — plusieurs lignes |
-| `sheetPut('messages', id, patch)` | PUT — mise à jour par `id` |
+| Action app | Sheets |
+|------------|--------|
+| Création sortie / ami / conversation | **POST** (nouvelle ligne) |
+| Modification (titre, `imageUri`, avatar, etc.) | **PUT** (mise à jour par `id`) |
+| Suppression sortie / conversation / signalement | **PUT** `deleted=true` |
 
-Exemple :
+- **Lecture** au login : Google Sheet → fusion avec l’état local / mock
+- **Écriture** : cache `localStorage` immédiat + sync Sheets en arrière-plan
+- **Images** : fichiers sur ImageKit ; le Sheet stocke l’**URL** (`imageUri`, `imageUrl`, `avatarUrl`)
+
+Sans variables Sheets → mock + `localStorage` uniquement.
+
+## 6. API frontend
 
 ```ts
-import { sheetGet, sheetPost, sheetPut } from "./lib/googleSheetsDb";
+import { sheetGet, sheetPost, sheetPut, sheetBatchPost } from "./lib/googleSheetsDb";
+import { upsertSheetRow, syncEventToSheets } from "./lib/appSheetPersistence";
 
-const rows = await sheetGet("messages");
+// Lecture
+const events = await sheetGet("events");
 
-await sheetPost("messages", {
-  conversationId: "conv_1",
-  id: "m_abc",
-  authorId: "user_1",
-  authorName: "Jean",
-  text: "Salut",
-  sentAt: String(Date.now()),
-});
-
-await sheetPut("messages", "m_abc", { text: "Message modifié" });
+// Upsert (POST ou PUT automatique)
+await upsertSheetRow("events", event.id, eventToRow(event, userId));
 ```
 
-## 5. Chat Nel
-
-`chatPersistence.ts` utilise déjà cette couche :
-
-- **Lecture** : Google Sheet → cache `localStorage`
-- **Écriture** : `localStorage` immédiat + sync Sheets en arrière-plan
-
-Sans `VITE_GOOGLE_SHEETS_URL_ENCODED` → uniquement `localStorage` + optionnellement `/nel/messages.csv`.
-
-## Ajouter une table
-
-1. Nouvel onglet dans le Sheet (ex. `events`)
-2. Entrée dans `SHEET_TABLES` dans `googleSheetsDb.ts`
-3. Variable `VITE_SHEET_GID_EVENTS` si besoin
+Tables : `SHEET_TABLES` dans `src/lib/googleSheetsDb.ts`.

@@ -1,7 +1,16 @@
 import Papa from "papaparse";
 
 /** Onglet Google Sheet = table CSV logique. */
-export type SheetTableName = "messages";
+export type SheetTableName =
+  | "messages"
+  | "events"
+  | "conversations"
+  | "profiles"
+  | "suggestions"
+  | "viewer_settings"
+  | "profile_visits"
+  | "notifications"
+  | "admin_reports";
 
 export interface SheetTableConfig {
   /** Nom de l’onglet dans le classeur. */
@@ -19,14 +28,58 @@ const GOOGLE_SHEETS_URL_ENCODED =
 const GOOGLE_SHEETS_API_URL =
   (import.meta.env.VITE_GOOGLE_SHEETS_API_URL as string | undefined) ?? "";
 
+function gidEnv(key: string, fallback: string): string {
+  return (import.meta.env[key as keyof ImportMetaEnv] as string | undefined) ?? fallback;
+}
+
 /** Registre des tables — ajouter un onglet = ajouter une entrée ici. */
 export const SHEET_TABLES: Record<SheetTableName, SheetTableConfig> = {
   messages: {
     sheetName: "messages",
-    gid: (import.meta.env.VITE_SHEET_GID_MESSAGES as string | undefined) ?? "0",
+    gid: gidEnv("VITE_SHEET_GID_MESSAGES", "0"),
     idColumn: "id",
     fallbackCsvPath:
       (import.meta.env.VITE_DEFAULT_CSV_PATH as string | undefined) ?? "/nel/messages.csv",
+  },
+  events: {
+    sheetName: "events",
+    gid: gidEnv("VITE_SHEET_GID_EVENTS", "0"),
+    idColumn: "id",
+  },
+  conversations: {
+    sheetName: "conversations",
+    gid: gidEnv("VITE_SHEET_GID_CONVERSATIONS", "0"),
+    idColumn: "id",
+  },
+  profiles: {
+    sheetName: "profiles",
+    gid: gidEnv("VITE_SHEET_GID_PROFILES", "0"),
+    idColumn: "id",
+  },
+  suggestions: {
+    sheetName: "suggestions",
+    gid: gidEnv("VITE_SHEET_GID_SUGGESTIONS", "0"),
+    idColumn: "id",
+  },
+  viewer_settings: {
+    sheetName: "viewer_settings",
+    gid: gidEnv("VITE_SHEET_GID_VIEWER_SETTINGS", "0"),
+    idColumn: "id",
+  },
+  profile_visits: {
+    sheetName: "profile_visits",
+    gid: gidEnv("VITE_SHEET_GID_PROFILE_VISITS", "0"),
+    idColumn: "id",
+  },
+  notifications: {
+    sheetName: "notifications",
+    gid: gidEnv("VITE_SHEET_GID_NOTIFICATIONS", "0"),
+    idColumn: "id",
+  },
+  admin_reports: {
+    sheetName: "admin_reports",
+    gid: gidEnv("VITE_SHEET_GID_ADMIN_REPORTS", "0"),
+    idColumn: "id",
   },
 };
 
@@ -90,7 +143,7 @@ async function readLocalFallbackCsv<T extends Record<string, string>>(
 
 /**
  * GET — lit un onglet comme table CSV (Google Sheets → CSV export).
- * Fallback : CSV local dans public/.
+ * Fallback : CSV local dans public/ (messages uniquement).
  */
 export async function sheetGet<T extends Record<string, string>>(
   table: SheetTableName,
@@ -101,7 +154,11 @@ export async function sheetGet<T extends Record<string, string>>(
       return parseCsvToRows<T>(csvData);
     } catch (error) {
       console.error(`Google Sheets GET [${table}] failed:`, error);
-      console.log(`Fallback CSV local pour [${table}]…`);
+      if (SHEET_TABLES[table].fallbackCsvPath) {
+        console.log(`Fallback CSV local pour [${table}]…`);
+      } else {
+        return [];
+      }
     }
   }
 
@@ -117,7 +174,7 @@ async function sheetMutate(
   action: "post" | "put" | "batchPost",
   table: SheetTableName,
   payload: Record<string, unknown>,
-): Promise<void> {
+): Promise<{ ok?: boolean; skipped?: boolean; error?: string }> {
   if (!isGoogleSheetsWriteConfigured()) {
     throw new Error("VITE_GOOGLE_SHEETS_API_URL non configuré (Apps Script requis pour POST/PUT)");
   }
@@ -138,9 +195,14 @@ async function sheetMutate(
     throw new Error(`Sheets ${action} failed: ${response.status}`);
   }
 
-  const result = (await response.json()) as { ok?: boolean; error?: string };
+  const result = (await response.json()) as {
+    ok?: boolean;
+    skipped?: boolean;
+    error?: string;
+  };
   if (result.error) throw new Error(result.error);
   if (result.ok === false) throw new Error(`Sheets ${action} rejected`);
+  return result;
 }
 
 /**
@@ -165,7 +227,7 @@ export async function sheetBatchPost<T extends Record<string, unknown>>(
 }
 
 /**
- * PUT — met à jour une ligne par id.
+ * PUT — met à jour une ligne par id (colonnes présentes dans le patch).
  */
 export async function sheetPut<T extends Record<string, unknown>>(
   table: SheetTableName,

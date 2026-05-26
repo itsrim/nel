@@ -111,8 +111,11 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     cancelEvent,
     createEmptyGroup,
     postEventGroupWelcome,
+    inviteFriendToEvent,
     nelDemoIsAdmin,
     getEventById,
+    friends,
+    viewerProfileIsPro,
   } = useMessagingStore();
 
   const isEditMode = formEventId !== "new";
@@ -129,6 +132,30 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const [coverImageNonce, setCoverImageNonce] = useState(0);
   const [uploadingEventCover, setUploadingEventCover] = useState(false);
   const [hideAddress, setHideAddress] = useState(false);
+  const [selectedInviteProfilIds, setSelectedInviteProfilIds] = useState<string[]>(
+    [],
+  );
+
+  const inviteableFriends = useMemo(
+    () => friends.filter((f) => f.mutualFriend !== false),
+    [friends],
+  );
+
+  const toggleInviteFriend = useCallback((profilId: string) => {
+    setSelectedInviteProfilIds((prev) =>
+      prev.includes(profilId)
+        ? prev.filter((id) => id !== profilId)
+        : [...prev, profilId],
+    );
+  }, []);
+
+  const selectAllInviteFriends = useCallback(() => {
+    setSelectedInviteProfilIds(inviteableFriends.map((f) => f.profilId));
+  }, [inviteableFriends]);
+
+  const clearInviteFriends = useCallback(() => {
+    setSelectedInviteProfilIds([]);
+  }, []);
   /** Coché = sortie privée (hors agenda public sauf admins / organisateur / inscrits). */
   const [isPrivate, setIsPrivate] = useState(false);
   const [manualApproval, setManualApproval] = useState(false);
@@ -321,7 +348,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
         });
       } else {
         const conversationId = createEmptyGroup(`Sortie : ${t}`);
-        addEvent({
+        const eventId = addEvent({
           conversationId,
           title: t,
           dateLabel,
@@ -339,6 +366,12 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           isBeta: beta,
         });
         postEventGroupWelcome(conversationId, t);
+        if (viewerProfileIsPro && selectedInviteProfilIds.length > 0) {
+          for (const profilId of selectedInviteProfilIds) {
+            const friend = friends.find((f) => f.profilId === profilId);
+            if (friend) inviteFriendToEvent(eventId, friend);
+          }
+        }
       }
       closeDetail();
     } finally {
@@ -364,6 +397,10 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     postEventGroupWelcome,
     closeDetail,
     participantFloor,
+    viewerProfileIsPro,
+    selectedInviteProfilIds,
+    friends,
+    inviteFriendToEvent,
   ]);
 
   const handleCancelSortie = useCallback(() => {
@@ -583,6 +620,73 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
         <div className="ce-card-section">
           <h2 className="ce-section-title">{t("optionsSectionTitle")}</h2>
           <div className="ce-card" style={{ marginBottom: 0 }}>
+            {viewerProfileIsPro && !isEditMode && (
+              <div className="ce-invite-block ce-option-row--border">
+                <div className="ce-invite-head">
+                  <div className="ce-option-bg ce-option-bg--teal">
+                    <Users size={18} color="#fff" aria-hidden />
+                  </div>
+                  <div className="ce-option-text">
+                    <span className="ce-option-label">{t("inviteFriendsSection")}</span>
+                    <span className="ce-option-sublabel">
+                      {selectedInviteProfilIds.length > 0
+                        ? selectedInviteProfilIds.length === 1
+                          ? t("createEventInviteSelectedOne")
+                          : t("createEventInviteSelectedMany").replace(
+                              "{{n}}",
+                              String(selectedInviteProfilIds.length),
+                            )
+                        : t("inviteHint")}
+                    </span>
+                  </div>
+                  <div className="ce-invite-actions">
+                    <button
+                      type="button"
+                      className="ce-invite-action-btn"
+                      onClick={selectAllInviteFriends}
+                      disabled={inviteableFriends.length === 0}
+                    >
+                      {t("createEventInviteAll")}
+                    </button>
+                    <button
+                      type="button"
+                      className="ce-invite-action-btn ce-invite-action-btn--muted"
+                      onClick={clearInviteFriends}
+                      disabled={selectedInviteProfilIds.length === 0}
+                    >
+                      {t("createEventInviteNone")}
+                    </button>
+                  </div>
+                </div>
+                {inviteableFriends.length > 0 ? (
+                  <div className="ce-invite-friends">
+                    {inviteableFriends.map((f) => {
+                      const selected = selectedInviteProfilIds.includes(f.profilId);
+                      const firstName =
+                        f.name.trim().split(/\s+/)[0] || f.name.trim() || f.name;
+                      return (
+                        <button
+                          key={f.profilId}
+                          type="button"
+                          className={`ce-invite-chip${selected ? " ce-invite-chip--selected" : ""}`}
+                          aria-pressed={selected}
+                          onClick={() => toggleInviteFriend(f.profilId)}
+                        >
+                          <img
+                            src={f.imageUrl}
+                            alt=""
+                            className="ce-invite-chip-av"
+                          />
+                          <span className="ce-invite-chip-name">{firstName}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="ce-invite-empty">{t("noFriends")}</p>
+                )}
+              </div>
+            )}
             <div className="ce-option-row ce-option-row--border">
               <div className="ce-option-bg">
                 <EyeOff size={18} color="#fff" aria-hidden />

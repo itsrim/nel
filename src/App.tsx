@@ -12,6 +12,11 @@ import {
   shutdownGlobalChatSync,
 } from "./lib/chatSync";
 import { registerPushNotifications } from "./lib/pushNotifications";
+import {
+  loadAppStateFromSheets,
+  mergeLoadedAppState,
+} from "./lib/appSheetPersistence";
+import { isGoogleSheetsReadConfigured } from "./lib/googleSheetsDb";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { ChatPage } from "./pages/ChatPage";
 import { EventsPage } from "./pages/EventsPage";
@@ -84,6 +89,16 @@ function App() {
     loadDemoData,
     resetData,
   ]);
+
+  // Données applicatives depuis Google Sheets (fusion avec mock / état local)
+  useEffect(() => {
+    if (!user?.id || !isGoogleSheetsReadConfigured()) return;
+    void loadAppStateFromSheets(user.id).then((loaded) => {
+      if (!loaded.hasRemoteData) return;
+      const patch = mergeLoadedAppState(useMessagingStore.getState(), loaded);
+      useMessagingStore.setState(patch);
+    });
+  }, [user?.id]);
 
   useEffect(() => {
     const openChat = [...detailStack].reverse().find((d) => d.type === "chat");

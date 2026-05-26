@@ -20,6 +20,17 @@ import { isChatApiConfigured } from "../lib/chatConfig";
 import { sendMessageRemote } from "../lib/chatSocket";
 import { loadHistory, saveHistory, type PersistedMessage } from "../lib/chatPersistence";
 import { useAuthStore } from "./useAuthStore";
+import {
+  syncAllViewerStateFromStore,
+  syncConversationDeleteToSheets,
+  syncConversationToSheets,
+  syncEventDeleteToSheets,
+  syncEventToSheets,
+  syncFriendToSheets,
+  syncNotificationToSheets,
+  syncReportDeleteToSheets,
+  syncReportToSheets,
+} from "../lib/appSheetPersistence";
 
 export interface EventReminder {
   id: string;
@@ -91,6 +102,19 @@ function pushMessageRemote(message: PersistedMessage) {
 
 function persistLocalMessages(messagesByConversation: Record<string, Message[]>) {
   saveHistory(messagesByConversation);
+}
+
+function syncViewerSettingsFromState(state: MessagingState) {
+  syncAllViewerStateFromStore({
+    viewerProfileAvatarUrl: state.viewerProfileAvatarUrl,
+    viewerProfileDisplayName: state.viewerProfileDisplayName,
+    viewerProfileIsPro: state.viewerProfileIsPro,
+    friendRequestSentProfilIds: state.friendRequestSentProfilIds,
+    friendRequestRejectedProfilIds: state.friendRequestRejectedProfilIds,
+    favoriteConversationIds: state.favoriteConversationIds,
+    moderationHiddenEventIds: state.moderationHiddenEventIds,
+    moderationHiddenProfilIds: state.moderationHiddenProfilIds,
+  });
 }
 
 interface MessagingState {
@@ -198,6 +222,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       /* ignore */
     }
     set({ viewerProfileAvatarUrl: url });
+    syncViewerSettingsFromState(get());
   },
 
   viewerProfileDisplayName: readViewerStorage(
@@ -212,6 +237,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       /* ignore */
     }
     set({ viewerProfileDisplayName: n });
+    syncViewerSettingsFromState(get());
   },
 
   viewerProfileIsPro: typeof window !== "undefined" ? localStorage.getItem(LS_VIEWER_IS_PRO) === "true" : false,
@@ -222,6 +248,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       /* ignore */
     }
     set({ viewerProfileIsPro: value });
+    syncViewerSettingsFromState(get());
   },
 
   events: MOCK_EVENTS,
@@ -246,6 +273,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       return;
     }
     set({ friendRequestSentProfilIds: [...friendRequestSentProfilIds, id] });
+    syncViewerSettingsFromState(get());
     get().showToast("Demande d’ami envoyée.");
   },
   removeMutualFriend: (profilId) => {
@@ -258,6 +286,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
           : f,
       ),
     }));
+    const updated = get().friends.find((f) => f.profilId === id);
+    if (updated) syncFriendToSheets(updated);
     get().showToast("Retiré de vos amis.");
   },
   appNotifications: [],
@@ -275,19 +305,23 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       read: false,
     };
     set((s) => ({ adminReports: [entry, ...s.adminReports] }));
+    syncReportToSheets(entry);
     get().showToast("Signalement envoyé. Merci.");
   },
   markAllAdminReportsRead: () =>
-    set((s) => ({
-      adminReports: s.adminReports.map((r) =>
+    set((s) => {
+      const adminReports = s.adminReports.map((r) =>
         r.read ? r : { ...r, read: true },
-      ),
-    })),
+      );
+      adminReports.forEach((r) => syncReportToSheets(r));
+      return { adminReports };
+    }),
   moderationHiddenEventIds: [],
   moderationHiddenProfilIds: [],
   dismissAdminReport: (reportId) => {
     const id = reportId.trim();
     if (!id) return;
+    syncReportDeleteToSheets(id);
     set((s) => ({ adminReports: s.adminReports.filter((r) => r.id !== id) }));
   },
   postModerationNotice: (conversationId, text) => {
@@ -323,6 +357,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         ),
       };
     });
+    const conv = get().conversations.find((c) => c.id === tid);
+    if (conv) syncConversationToSheets(conv);
     pushMessageRemote(newMessage);
   },
   moderationHideAndNotifyFromReport: (reportId) => {
@@ -344,8 +380,12 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
           ? s.moderationHiddenEventIds
           : [...s.moderationHiddenEventIds, report.subjectId],
       }));
+      syncReportDeleteToSheets(id);
       if (ev) {
         get().postModerationNotice(ev.conversationId, notice);
+        syncEventDeleteToSheets(ev.id);
+        syncConversationDeleteToSheets(ev.conversationId);
+        syncViewerSettingsFromState(get());
         get().showToast(
           `Sortie retirée de l’agenda public. Un message a été envoyé dans le fil du groupe « ${ev.title} ».`,
         );
@@ -364,8 +404,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         ? s.moderationHiddenProfilIds
         : [...s.moderationHiddenProfilIds, report.subjectId],
     }));
+    syncReportDeleteToSheets(id);
     if (f?.mainChatConversationId) {
       get().postModerationNotice(f.mainChatConversationId, notice);
+      syncViewerSettingsFromState(get());
       get().showToast(
         `Profil retiré des suggestions. Message envoyé à ${report.subjectLabel}.`,
       );
@@ -394,11 +436,14 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
   },
 
   toggleEventFavorite: (eventId) =>
-    set((state) => ({
-      events: state.events.map((e) =>
+    set((state) => {
+      const events = state.events.map((e) =>
         e.id === eventId ? { ...e, isFavorite: !e.isFavorite } : e,
-      ),
-    })),
+      );
+      const ev = events.find((e) => e.id === eventId);
+      if (ev) syncEventToSheets(ev);
+      return { events };
+    }),
 
   createEmptyGroup: (title) => {
     const id = `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -428,6 +473,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         [id]: [],
       },
     }));
+    syncConversationToSheets(conv);
     return id;
   },
 
@@ -468,6 +514,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       invitedProfilIds: [],
     };
     set((state) => ({ events: [event, ...state.events] }));
+    syncEventToSheets(event);
     return id;
   },
 
@@ -494,11 +541,15 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         isBeta: input.isBeta === true,
       };
       const convTitle = `Sortie : ${next.title}`;
+      const conversations = state.conversations.map((c) =>
+        c.id === ev.conversationId ? { ...c, title: convTitle } : c,
+      );
+      syncEventToSheets(next);
+      const conv = conversations.find((c) => c.id === ev.conversationId);
+      if (conv) syncConversationToSheets(conv);
       return {
         events: state.events.map((e) => (e.id === eventId ? next : e)),
-        conversations: state.conversations.map((c) =>
-          c.id === ev.conversationId ? { ...c, title: convTitle } : c,
-        ),
+        conversations,
       };
     });
   },
@@ -508,6 +559,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       const ev = state.events.find((e) => e.id === eventId);
       if (!ev) return state;
       const cid = ev.conversationId;
+      syncEventDeleteToSheets(eventId);
+      syncConversationDeleteToSheets(cid);
       const { [cid]: _drop, ...restMsgs } = state.messagesByConversation;
       return {
         events: state.events.filter((e) => e.id !== eventId),
@@ -518,6 +571,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         ),
       };
     });
+    syncViewerSettingsFromState(get());
   },
 
   postEventGroupWelcome: (conversationId, eventTitle) => {
@@ -550,6 +604,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         ),
       };
     });
+    const conv = get().conversations.find((c) => c.id === conversationId);
+    if (conv) syncConversationToSheets(conv);
     pushMessageRemote(msg);
   },
 
@@ -560,11 +616,19 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         ? state.favoriteConversationIds.filter((id) => id !== conversationId)
         : [...state.favoriteConversationIds, conversationId];
 
+      const conversations = state.conversations.map((c) =>
+        c.id === conversationId ? { ...c, isFavorite: !isFavorite } : c,
+      );
+      const conv = conversations.find((c) => c.id === conversationId);
+      if (conv) syncConversationToSheets(conv);
+      syncViewerSettingsFromState({
+        ...state,
+        favoriteConversationIds: newFavs,
+      });
+
       return {
         favoriteConversationIds: newFavs,
-        conversations: state.conversations.map((c) =>
-          c.id === conversationId ? { ...c, isFavorite: !isFavorite } : c,
-        ),
+        conversations,
       };
     }),
 
@@ -603,6 +667,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       };
     });
 
+    const conv = get().conversations.find((c) => c.id === conversationId);
+    if (conv) syncConversationToSheets(conv);
     pushMessageRemote(newMessage);
   },
 
@@ -615,6 +681,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         c.id === conversationId ? { ...c, unreadCount: 0 } : c,
       ),
     }));
+    const updated = get().conversations.find((c) => c.id === conversationId);
+    if (updated) syncConversationToSheets(updated);
   },
 
   recordConversationOpened: (conversationId) => {
@@ -625,6 +693,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         c.id === conversationId ? { ...c, lastOpenedAt: now } : c,
       ),
     }));
+    const updated = get().conversations.find((c) => c.id === conversationId);
+    if (updated) syncConversationToSheets(updated);
   },
 
   addMemberToGroup: (conversationId, member) => {
@@ -641,6 +711,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
           : c,
       ),
     }));
+    const updated = get().conversations.find((c) => c.id === conversationId);
+    if (updated) syncConversationToSheets(updated);
   },
 
   removeMemberFromGroup: (conversationId, memberId) => {
@@ -655,9 +727,12 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
           : c,
       ),
     }));
+    const updated = get().conversations.find((c) => c.id === conversationId);
+    if (updated) syncConversationToSheets(updated);
   },
 
   leaveConversation: (conversationId) => {
+    syncConversationDeleteToSheets(conversationId);
     set((state) => ({
       conversations: state.conversations.filter((c) => c.id !== conversationId),
     }));
@@ -669,6 +744,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         c.id === conversationId ? { ...c, ...settings } : c,
       ),
     }));
+    const updated = get().conversations.find((c) => c.id === conversationId);
+    if (updated) syncConversationToSheets(updated);
   },
 
   joinEvent: (eventId) => {
@@ -686,6 +763,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
           set((state) => ({
             conversations: [originalConv, ...state.conversations],
           }));
+          syncConversationToSheets(originalConv);
         }
       }
     }
@@ -704,6 +782,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
           : e,
       ),
     }));
+    const ev = get().events.find((e) => e.id === eventId);
+    if (ev) syncEventToSheets(ev);
   },
 
   leaveEvent: (eventId) => {
@@ -724,6 +804,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
           : e,
       ),
     }));
+    const ev = get().events.find((e) => e.id === eventId);
+    if (ev) syncEventToSheets(ev);
   },
 
   inviteFriendToEvent: (eventId, friend) => {
@@ -770,18 +852,14 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         ],
       };
       persistLocalMessages(nextMsgs);
+      const nextEvent = {
+        ...event,
+        invitedProfilIds: [...(event.invitedProfilIds ?? []), friend.profilId],
+      };
+      syncEventToSheets(nextEvent);
+      syncNotificationToSheets(notif);
       return {
-        events: s.events.map((e) =>
-          e.id === eventId
-            ? {
-                ...e,
-                invitedProfilIds: [
-                  ...(e.invitedProfilIds ?? []),
-                  friend.profilId,
-                ],
-              }
-            : e,
-        ),
+        events: s.events.map((e) => (e.id === eventId ? nextEvent : e)),
         appNotifications: [notif, ...s.appNotifications],
         messagesByConversation: nextMsgs,
         conversations: s.conversations.map((c) =>
@@ -795,6 +873,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         ),
       };
     });
+    const updatedConv = get().conversations.find((c) => c.id === event.conversationId);
+    if (updatedConv) syncConversationToSheets(updatedConv);
     pushMessageRemote(msg);
     const inviteeFirst =
       friend.name.trim().split(/\s+/)[0] || friend.name.trim() || friend.name;

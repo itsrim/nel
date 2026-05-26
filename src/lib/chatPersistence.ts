@@ -27,6 +27,17 @@ const CSV_HEADER = "conversationId,id,authorId,authorName,text,sentAt";
 /** IDs déjà synchronisés vers Google Sheets (session). */
 const syncedSheetIds = new Set<string>();
 
+function getCurrentUserIdForSheets(): string {
+  try {
+    const raw = localStorage.getItem("nel_auth_user");
+    if (!raw) return "";
+    const user = JSON.parse(raw) as { id?: string };
+    return user.id?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
+
 function escapeCSV(val: string | number): string {
   const str = String(val);
   if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
@@ -202,6 +213,7 @@ async function syncHistoryToSheets(
         authorName: msg.authorName,
         text: msg.text,
         sentAt: String(msg.sentAt),
+        userId: getCurrentUserIdForSheets(),
       });
       syncedSheetIds.add(msg.id);
     });

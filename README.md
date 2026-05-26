@@ -208,7 +208,7 @@ await sheetPost("messages", {
 await sheetPut("messages", "m_abc", { text: "Message modifié" });
 ```
 
-Tables disponibles : définies dans `SHEET_TABLES` (`googleSheetsDb.ts`). Aujourd’hui : `messages` uniquement.
+Tables disponibles : définies dans `SHEET_TABLES` (`googleSheetsDb.ts`) — `messages`, `events`, `conversations`, `profiles`, `suggestions`, `viewer_settings`, `profile_visits`, `notifications`, `admin_reports`. Schéma complet : [`google-apps-script/README.md`](google-apps-script/README.md).
 
 ---
 

@@ -524,6 +524,107 @@
   background: #6366f1;
 }
 
+.ce-option-bg--teal {
+  background: #14b8a6;
+}
+
+.ce-invite-block {
+  padding: 12px 16px 14px;
+}
+
+.ce-invite-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ce-invite-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.ce-invite-action-btn {
+  border: 1px solid rgba(255, 214, 10, 0.45);
+  background: rgba(255, 214, 10, 0.1);
+  color: #ffd60a;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.ce-invite-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ce-invite-action-btn--muted {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #8e8e93;
+}
+
+.ce-invite-friends {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 2px 16px 2px 46px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.ce-invite-friends::-webkit-scrollbar {
+  display: none;
+}
+
+.ce-invite-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 4px 10px 4px 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  font: inherit;
+}
+
+.ce-invite-chip--selected {
+  border-color: rgba(255, 214, 10, 0.55);
+  background: rgba(255, 214, 10, 0.12);
+}
+
+.ce-invite-chip-av {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.ce-invite-chip-name {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  max-width: 88px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ce-invite-empty {
+  margin: 10px 0 0 46px;
+  color: #8e8e93;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .ce-option-text {
   flex: 1;
   min-width: 0;

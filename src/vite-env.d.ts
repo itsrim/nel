@@ -10,5 +10,13 @@ interface ImportMetaEnv {
   /** URL Apps Script (POST/PUT). */
   readonly VITE_GOOGLE_SHEETS_API_URL?: string;
   readonly VITE_SHEET_GID_MESSAGES?: string;
+  readonly VITE_SHEET_GID_EVENTS?: string;
+  readonly VITE_SHEET_GID_CONVERSATIONS?: string;
+  readonly VITE_SHEET_GID_PROFILES?: string;
+  readonly VITE_SHEET_GID_SUGGESTIONS?: string;
+  readonly VITE_SHEET_GID_VIEWER_SETTINGS?: string;
+  readonly VITE_SHEET_GID_PROFILE_VISITS?: string;
+  readonly VITE_SHEET_GID_NOTIFICATIONS?: string;
+  readonly VITE_SHEET_GID_ADMIN_REPORTS?: string;
   readonly VITE_DEFAULT_CSV_PATH?: string;
 }
