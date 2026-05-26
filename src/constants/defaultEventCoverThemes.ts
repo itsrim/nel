@@ -16,6 +16,8 @@ export const DEFAULT_EVENT_COVER_THEMES: DefaultEventCoverTheme[] = [
   { id: 'bien-etre', tag: 'bien-être', imageUrl: coverPath('bien-etre.jpg') },
   { id: 'forme', tag: 'forme', imageUrl: coverPath('forme.jpg') },
   { id: 'dev-personnel', tag: 'dév personnel', imageUrl: coverPath('dev-personnel.jpg') },
+  { id: 'formation', tag: 'formation', imageUrl: coverPath('formation.jpg') },
+  { id: 'therapy', tag: 'therapy', imageUrl: coverPath('therapy.jpg') },
   { id: 'nature', tag: 'nature', imageUrl: coverPath('nature.jpg') },
   { id: 'partage', tag: 'partage', imageUrl: coverPath('partage.jpg') },
   { id: 'musique', tag: 'musique', imageUrl: coverPath('musique.jpg') },
