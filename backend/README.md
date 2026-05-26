@@ -104,6 +104,9 @@ Créer un fichier `.env` à la racine de `backend/` (non versionné) ou les déf
 | `VAPID_PUBLIC_KEY` | — | Web Push (public) |
 | `VAPID_PRIVATE_KEY` | — | Web Push (privé) |
 | `VAPID_SUBJECT` | `mailto:hello@nel.app` | Contact VAPID |
+| `RESEND_API_KEY` | — | Clé API [Resend](https://resend.com) pour emails de vérification |
+| `EMAIL_FROM` | `Nel <onboarding@resend.dev>` | Expéditeur (domaine vérifié en prod) |
+| `APP_PUBLIC_URL` | `http://localhost:5173/nel` | URL frontend pour le lien « Vérifier mon email » |
 
 Origines CORS autorisées par défaut :
 
@@ -153,7 +156,41 @@ Réponse `200` :
 { "email": "nouveau@exemple.com", "password": "secret12", "displayName": "Marie" }
 ```
 
-Réponse `201` : même forme que login.
+Réponse `201` (vérification email requise) :
+
+```json
+{
+  "pendingVerification": true,
+  "email": "nouveau@exemple.com",
+  "message": "Un email de vérification a été envoyé…"
+}
+```
+
+Aucun JWT tant que l’email n’est pas confirmé.
+
+#### `GET /api/auth/verify-email?token=<token>`
+
+Réponse `200` après clic sur le lien reçu par email :
+
+```json
+{
+  "ok": true,
+  "user": { "id": "…", "email": "…", "displayName": "…", "emailVerified": true },
+  "token": "<JWT>"
+}
+```
+
+#### `POST /api/auth/resend-verification`
+
+```json
+{ "email": "nouveau@exemple.com" }
+```
+
+Renvoie l’email si le compte existe et n’est pas encore vérifié.
+
+#### `POST /api/auth/login`
+
+Refuse (`403`) si l’email n’a pas été vérifié.
 
 #### `GET /api/auth/me`
 

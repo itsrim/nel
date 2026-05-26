@@ -357,6 +357,8 @@ export function rowToVisit(row: Record<string, string>): ProfileVisit {
 
 export interface ViewerSettingsRow {
   userId: string;
+  email: string;
+  emailVerified: boolean;
   avatarUrl: string;
   displayName: string;
   isPro: boolean;
@@ -370,6 +372,8 @@ export interface ViewerSettingsRow {
 export function viewerSettingsToRow(
   userId: string,
   data: {
+    email?: string;
+    emailVerified?: boolean;
     avatarUrl: string;
     displayName: string;
     isPro: boolean;
@@ -383,6 +387,8 @@ export function viewerSettingsToRow(
   return {
     userId,
     id: userId,
+    email: data.email ?? "",
+    emailVerified: boolToSheet(data.emailVerified),
     avatarUrl: data.avatarUrl,
     displayName: data.displayName,
     isPro: boolToSheet(data.isPro),
@@ -465,16 +471,18 @@ export interface LoadedAppSheetState {
   profileVisits: ProfileVisit[];
   appNotifications: AppNotification[];
   adminReports: AdminReportEntry[];
-  viewerSettings?: {
-    avatarUrl: string;
-    displayName: string;
-    isPro: boolean;
-    friendRequestSentProfilIds: string[];
-    friendRequestRejectedProfilIds: string[];
-    favoriteConversationIds: string[];
-    moderationHiddenEventIds: string[];
-    moderationHiddenProfilIds: string[];
-  };
+    viewerSettings?: {
+      email: string;
+      emailVerified: boolean;
+      avatarUrl: string;
+      displayName: string;
+      isPro: boolean;
+      friendRequestSentProfilIds: string[];
+      friendRequestRejectedProfilIds: string[];
+      favoriteConversationIds: string[];
+      moderationHiddenEventIds: string[];
+      moderationHiddenProfilIds: string[];
+    };
   hasRemoteData: boolean;
 }
 
@@ -534,6 +542,8 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     adminReports: reportRows.map(rowToReport),
     viewerSettings: viewerRow
       ? {
+          email: viewerRow.email ?? "",
+          emailVerified: boolFromSheet(viewerRow.emailVerified),
           avatarUrl: viewerRow.avatarUrl ?? "",
           displayName: viewerRow.displayName ?? "",
           isPro: boolFromSheet(viewerRow.isPro),
@@ -672,6 +682,8 @@ export function syncFriendToSheets(friend: Friend): void {
 }
 
 export function syncViewerSettingsToSheets(data: {
+  email?: string;
+  emailVerified?: boolean;
   avatarUrl: string;
   displayName: string;
   isPro: boolean;
@@ -707,6 +719,8 @@ export function syncReportDeleteToSheets(reportId: string): void {
 }
 
 export function syncAllViewerStateFromStore(state: {
+  email?: string;
+  emailVerified?: boolean;
   viewerProfileAvatarUrl: string;
   viewerProfileDisplayName: string;
   viewerProfileIsPro: boolean;
@@ -717,6 +731,8 @@ export function syncAllViewerStateFromStore(state: {
   moderationHiddenProfilIds: string[];
 }): void {
   syncViewerSettingsToSheets({
+    email: state.email,
+    emailVerified: state.emailVerified,
     avatarUrl: state.viewerProfileAvatarUrl,
     displayName: state.viewerProfileDisplayName,
     isPro: state.viewerProfileIsPro,
@@ -726,4 +742,32 @@ export function syncAllViewerStateFromStore(state: {
     moderationHiddenEventIds: state.moderationHiddenEventIds,
     moderationHiddenProfilIds: state.moderationHiddenProfilIds,
   });
+}
+
+/** Après vérification email — sync Sheets sans dépendre du store messaging. */
+export function syncEmailVerifiedToSheets(
+  userId: string,
+  email: string,
+  displayName: string,
+  avatarUrl: string,
+  isPro: boolean,
+): void {
+  syncLater(() =>
+    upsertSheetRow(
+      "viewer_settings",
+      userId,
+      viewerSettingsToRow(userId, {
+        email,
+        emailVerified: true,
+        avatarUrl,
+        displayName,
+        isPro,
+        friendRequestSentProfilIds: [],
+        friendRequestRejectedProfilIds: [],
+        favoriteConversationIds: [],
+        moderationHiddenEventIds: [],
+        moderationHiddenProfilIds: [],
+      }),
+    ),
+  );
 }

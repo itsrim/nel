@@ -1,11 +1,30 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
-import { useTranslation } from "../i18n/useTranslation";
 import "./LoginPage.css";
 
+function readVerifyTokenFromUrl(): string | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("verifyEmail")?.trim();
+  if (!token) return null;
+  const url = new URL(window.location.href);
+  url.searchParams.delete("verifyEmail");
+  window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+  return token;
+}
+
 export function LoginPage() {
-  const { t } = useTranslation();
-  const { login, signup, isLoading, error } = useAuthStore();
+  const {
+    login,
+    signup,
+    verifyEmail,
+    resendVerification,
+    clearPendingVerification,
+    isLoading,
+    error,
+    pendingVerificationEmail,
+    verificationMessage,
+  } = useAuthStore();
 
   const [isSignup, setIsSignup] = useState(false);
   const [email, setEmail] = useState("");
@@ -15,6 +34,14 @@ export function LoginPage() {
   const [bio, setBio] = useState("");
   const [isPro, setIsPro] = useState(false);
   const [localError, setLocalError] = useState("");
+  const [verifyingLink, setVerifyingLink] = useState(false);
+
+  useEffect(() => {
+    const token = readVerifyTokenFromUrl();
+    if (!token) return;
+    setVerifyingLink(true);
+    void verifyEmail(token).finally(() => setVerifyingLink(false));
+  }, [verifyEmail]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,10 +53,79 @@ export function LoginPage() {
       } else {
         await login(email, password);
       }
-    } catch (err) {
+    } catch {
       setLocalError(error || "Une erreur est survenue");
     }
   };
+
+  if (verifyingLink) {
+    return (
+      <div className="login-page">
+        <div className="login-container">
+          <div className="login-header">
+            <h1 className="login-title">Nel</h1>
+            <p className="login-subtitle">Vérification de votre email…</p>
+          </div>
+          <p className="login-pending-text">
+            <span className="spinner" aria-hidden /> Patientez un instant.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (pendingVerificationEmail) {
+    return (
+      <div className="login-page">
+        <div className="login-container">
+          <div className="login-header">
+            <h1 className="login-title">Nel</h1>
+            <p className="login-subtitle">Vérifiez votre email</p>
+          </div>
+
+          {verificationMessage ? (
+            <div className="login-success" role="status">
+              {verificationMessage}
+            </div>
+          ) : null}
+          {error ? (
+            <div className="login-error" role="alert">
+              {error}
+            </div>
+          ) : null}
+
+          <p className="login-pending-text">
+            Un email a été envoyé à{" "}
+            <strong>{pendingVerificationEmail}</strong>. Cliquez sur le lien pour
+            activer votre compte, puis connectez-vous.
+          </p>
+
+          <button
+            type="button"
+            className="login-button login-button--secondary"
+            disabled={isLoading}
+            onClick={() => void resendVerification()}
+          >
+            {isLoading ? "Envoi…" : "Renvoyer l'email"}
+          </button>
+
+          <div className="login-footer">
+            <button
+              type="button"
+              className="login-toggle-button"
+              onClick={() => {
+                clearPendingVerification();
+                setIsSignup(false);
+              }}
+              disabled={isLoading}
+            >
+              Retour à la connexion
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="login-page">
@@ -170,6 +266,7 @@ export function LoginPage() {
             onClick={() => {
               setIsSignup(!isSignup);
               setLocalError("");
+              clearPendingVerification();
               setEmail("");
               setPassword("");
               setDisplayName("");

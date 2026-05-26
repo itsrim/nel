@@ -5,8 +5,11 @@ import {
   setAuthToken,
   signupWithApi,
   toAppUser,
+  verifyEmailWithApi,
+  resendVerificationWithApi,
 } from "../lib/authApi";
 import { shutdownGlobalChatSync } from "../lib/chatSync";
+import { syncEmailVerifiedToSheets } from "../lib/appSheetPersistence";
 
 export type User = {
   id: string;
@@ -16,12 +19,16 @@ export type User = {
   age?: string;
   bio?: string;
   isPro?: boolean;
+  emailVerified?: boolean;
 };
 
 interface AuthState {
   user: User | null;
   isLoading: boolean;
   error: string | null;
+  /** Inscription backend : en attente de clic sur le lien email. */
+  pendingVerificationEmail: string | null;
+  verificationMessage: string | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (
     email: string,
@@ -31,6 +38,9 @@ interface AuthState {
     bio?: string,
     isPro?: boolean,
   ) => Promise<void>;
+  verifyEmail: (token: string) => Promise<void>;
+  resendVerification: (email?: string) => Promise<void>;
+  clearPendingVerification: () => void;
   logout: () => void;
   setUser: (user: User | null) => void;
   loadUser: () => void;
@@ -70,10 +80,74 @@ const localUsers: Record<
   },
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoading: false,
   error: null,
+  pendingVerificationEmail: null,
+  verificationMessage: null,
+
+  clearPendingVerification: () =>
+    set({ pendingVerificationEmail: null, verificationMessage: null, error: null }),
+
+  verifyEmail: async (token: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      if (!isChatApiConfigured()) {
+        set({ isLoading: false, error: "Backend non configuré" });
+        return;
+      }
+      const { user, token: jwt } = await verifyEmailWithApi(token);
+      let extras: Partial<User> = {};
+      try {
+        const raw = sessionStorage.getItem("nel_signup_extras");
+        if (raw) extras = JSON.parse(raw) as Partial<User>;
+        sessionStorage.removeItem("nel_signup_extras");
+      } catch {
+        /* ignore */
+      }
+      const loggedInUser = toAppUser(user, { ...extras, emailVerified: true });
+      setAuthToken(jwt);
+      localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
+      syncEmailVerifiedToSheets(
+        loggedInUser.id,
+        loggedInUser.email,
+        loggedInUser.displayName,
+        loggedInUser.avatarUrl ?? "/event-cover-themes/avatar.jpg",
+        !!loggedInUser.isPro,
+      );
+      set({
+        user: loggedInUser,
+        isLoading: false,
+        pendingVerificationEmail: null,
+        verificationMessage: "Email confirmé — bienvenue sur Nel !",
+      });
+    } catch (err) {
+      set({
+        isLoading: false,
+        error: err instanceof Error ? err.message : "Vérification échouée",
+      });
+    }
+  },
+
+  resendVerification: async (email?: string) => {
+    const target = (email ?? get().pendingVerificationEmail ?? "").trim();
+    if (!target) return;
+    set({ isLoading: true, error: null });
+    try {
+      const message = await resendVerificationWithApi(target);
+      set({
+        isLoading: false,
+        pendingVerificationEmail: target,
+        verificationMessage: message,
+      });
+    } catch (err) {
+      set({
+        isLoading: false,
+        error: err instanceof Error ? err.message : "Envoi impossible",
+      });
+    }
+  },
 
   loadUser: () => {
     try {
@@ -96,9 +170,19 @@ export const useAuthStore = create<AuthState>((set) => ({
           age: email === "demo@nel.com" ? "28" : "",
           bio: email === "demo@nel.com" ? "Bienvenue sur Nel!" : "",
           isPro: false,
+          emailVerified: user.emailVerified !== false,
         });
         setAuthToken(token);
         localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
+        if (loggedInUser.emailVerified) {
+          syncEmailVerifiedToSheets(
+            loggedInUser.id,
+            loggedInUser.email,
+            loggedInUser.displayName,
+            loggedInUser.avatarUrl ?? "/event-cover-themes/avatar.jpg",
+            !!loggedInUser.isPro,
+          );
+        }
         set({ user: loggedInUser, isLoading: false });
         return;
       }
@@ -146,11 +230,17 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     try {
       if (isChatApiConfigured()) {
-        const { user, token } = await signupWithApi(email, password, displayName);
-        const newUser = toAppUser(user, { age, bio, isPro });
-        setAuthToken(token);
-        localStorage.setItem(LS_USER, JSON.stringify(newUser));
-        set({ user: newUser, isLoading: false });
+        sessionStorage.setItem(
+          "nel_signup_extras",
+          JSON.stringify({ age: age ?? "", bio: bio ?? "", isPro: !!isPro }),
+        );
+        const result = await signupWithApi(email, password, displayName);
+        set({
+          isLoading: false,
+          pendingVerificationEmail: result.email,
+          verificationMessage: result.message,
+          error: null,
+        });
         return;
       }
 
@@ -209,7 +299,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     shutdownGlobalChatSync();
     setAuthToken(null);
     localStorage.removeItem(LS_USER);
-    set({ user: null, error: null });
+    set({ user: null, error: null, pendingVerificationEmail: null, verificationMessage: null });
   },
 
   setUser: (user) => {

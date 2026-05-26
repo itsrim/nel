@@ -31,9 +31,9 @@ userId,id,profilId,name,age,city,imageUrl,eventsInCommon,mainChatConversationId,
 userId,id,pseudo,age,imageUrl,aspectRatio,deleted
 ```
 
-### `viewer_settings` (profil connecté — avatar, préférences)
+### `viewer_settings` (profil connecté — avatar, email vérifié, préférences)
 ```
-userId,id,avatarUrl,displayName,isPro,friendRequestSentJson,friendRequestRejectedJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
+userId,id,email,emailVerified,avatarUrl,displayName,isPro,friendRequestSentJson,friendRequestRejectedJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
 ```
 
 ### `profile_visits`

@@ -105,7 +105,21 @@ function persistLocalMessages(messagesByConversation: Record<string, Message[]>)
 }
 
 function syncViewerSettingsFromState(state: MessagingState) {
+  let email: string | undefined;
+  let emailVerified: boolean | undefined;
+  try {
+    const raw = localStorage.getItem("nel_auth_user");
+    if (raw) {
+      const auth = JSON.parse(raw) as { email?: string; emailVerified?: boolean };
+      email = auth.email;
+      emailVerified = auth.emailVerified;
+    }
+  } catch {
+    /* ignore */
+  }
   syncAllViewerStateFromStore({
+    email,
+    emailVerified,
     viewerProfileAvatarUrl: state.viewerProfileAvatarUrl,
     viewerProfileDisplayName: state.viewerProfileDisplayName,
     viewerProfileIsPro: state.viewerProfileIsPro,

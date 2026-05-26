@@ -97,6 +97,18 @@ function App() {
       if (!loaded.hasRemoteData) return;
       const patch = mergeLoadedAppState(useMessagingStore.getState(), loaded);
       useMessagingStore.setState(patch);
+      if (loaded.viewerSettings?.emailVerified) {
+        const authUser = useAuthStore.getState().user;
+        if (authUser) {
+          useAuthStore.setState({
+            user: { ...authUser, emailVerified: true },
+          });
+          localStorage.setItem(
+            "nel_auth_user",
+            JSON.stringify({ ...authUser, emailVerified: true }),
+          );
+        }
+      }
     });
   }, [user?.id]);
 

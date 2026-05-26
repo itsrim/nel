@@ -97,6 +97,36 @@
   border-left: 4px solid #c00;
 }
 
+.login-success {
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  color: #047857;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
+
+.login-pending-text {
+  color: #444;
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 0 0 20px;
+  text-align: center;
+}
+
+.login-button--secondary {
+  background: #fff;
+  color: #667eea;
+  border: 2px solid #667eea;
+  margin-bottom: 8px;
+}
+
+.login-button--secondary:hover:not(:disabled) {
+  background: #f5f3ff;
+}
+
 .login-field {
   display: flex;
   flex-direction: column;
