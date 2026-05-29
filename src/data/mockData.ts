@@ -142,6 +142,9 @@ export interface Friend {
   memberSince?: string;
   verified?: boolean;
   isPro?: boolean;
+  websiteUrl?: string;
+  socialUrl?: string;
+  phone?: string;
   stats?: { reliability: number; events: number; friends: number };
   badges?: string[];
   /** Ami mutuel confirmé (cœur dans Suggestions) — sinon profil connu / suggestion. */

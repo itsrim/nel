@@ -36,6 +36,8 @@ import {
 } from "../lib/imagekitUpload";
 import { withUrlUploadVersion } from "../lib/versionRemoteAssetUrl";
 import { formatBadgeCount } from "../data/mockData";
+import { ProContactLinks } from "../components/ProContactLinks";
+import "../components/ProContactLinks.css";
 import { isEventDateBeforeToday, parseDateKeyLocal, todayDateKey, toDateKey } from "../lib/eventDateKey";
 import "./ProfilePage.css";
 
@@ -118,6 +120,12 @@ export function ProfilePage() {
     setViewerProfileDisplayName,
     viewerProfileIsPro,
     setViewerProfileIsPro,
+    viewerProWebsiteUrl,
+    setViewerProWebsiteUrl,
+    viewerProSocialUrl,
+    setViewerProSocialUrl,
+    viewerProPhone,
+    setViewerProPhone,
     eventReminders,
     sendEventReminder,
     conversations,
@@ -415,6 +423,53 @@ export function ProfilePage() {
             <Calendar size={16} color="#8E8E93" />
             <span>{t("memberSince")}</span>
           </div>
+          {viewerProfileIsPro && !editing ? (
+            <ProContactLinks
+              contact={{
+                websiteUrl: viewerProWebsiteUrl,
+                socialUrl: viewerProSocialUrl,
+                phone: viewerProPhone,
+              }}
+              className="pro-contact-links--profile"
+            />
+          ) : null}
+          {viewerProfileIsPro && editing ? (
+            <div className="pro-contact-edit">
+              <label className="pro-contact-edit-label">
+                <Globe size={16} aria-hidden />
+                <span>{t("proWebsiteLabel")}</span>
+              </label>
+              <input
+                type="url"
+                value={viewerProWebsiteUrl}
+                onChange={(e) => setViewerProWebsiteUrl(e.target.value)}
+                placeholder={t("proWebsitePlaceholder")}
+                className="hero-input"
+              />
+              <label className="pro-contact-edit-label">
+                <Globe size={16} aria-hidden />
+                <span>{t("proSocialLabel")}</span>
+              </label>
+              <input
+                type="url"
+                value={viewerProSocialUrl}
+                onChange={(e) => setViewerProSocialUrl(e.target.value)}
+                placeholder={t("proSocialPlaceholder")}
+                className="hero-input"
+              />
+              <label className="pro-contact-edit-label">
+                <Globe size={16} aria-hidden />
+                <span>{t("proPhoneLabel")}</span>
+              </label>
+              <input
+                type="tel"
+                value={viewerProPhone}
+                onChange={(e) => setViewerProPhone(e.target.value)}
+                placeholder={t("proPhonePlaceholder")}
+                className="hero-input"
+              />
+            </div>
+          ) : null}
           <div className="bio-actions">
             {!editing ? (
               <button

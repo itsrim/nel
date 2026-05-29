@@ -212,7 +212,28 @@
   color: #8E8E93;
   font-size: 14px;
   font-weight: 600;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+}
+
+.pro-contact-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
+.pro-contact-edit-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8E8E93;
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.pro-contact-links--profile {
+  margin-bottom: 12px;
 }
 
 .bio-actions {

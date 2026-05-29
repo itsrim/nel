@@ -17,11 +17,13 @@ import {
   mergeLoadedAppState,
 } from "./lib/appSheetPersistence";
 import { isGoogleSheetsReadConfigured } from "./lib/googleSheetsDb";
+import { useProsStore } from "./store/useProsStore";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { ChatPage } from "./pages/ChatPage";
 import { EventsPage } from "./pages/EventsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { ProsPage } from "./pages/ProsPage";
+import { ProProfilePage } from "./pages/ProProfilePage";
 import { ChatRoomPage } from "./pages/ChatRoomPage";
 import { EventDetailPage } from "./pages/EventDetailPage";
 import { CreateEventPage } from "./pages/CreateEventPage";
@@ -42,6 +44,8 @@ function renderDetailContent(detail: DetailState) {
       return <OtherProfilePage id={detail.id} />;
     case "chat_settings":
       return <ChatSettingsPage id={detail.id} />;
+    case "pro":
+      return <ProProfilePage id={detail.id} />;
     default:
       return null;
   }
@@ -95,9 +99,22 @@ function App() {
   useEffect(() => {
     if (!user?.id || !isGoogleSheetsReadConfigured()) return;
     void loadAppStateFromSheets(user.id).then((loaded) => {
+      if (loaded.professionals.length > 0) {
+        useProsStore.getState().hydrateProfessionals(loaded.professionals);
+      }
       if (!loaded.hasRemoteData) return;
       const patch = mergeLoadedAppState(useMessagingStore.getState(), loaded);
       useMessagingStore.setState(patch);
+      const msg = useMessagingStore.getState();
+      if (patch.viewerProWebsiteUrl != null) {
+        msg.setViewerProWebsiteUrl(patch.viewerProWebsiteUrl);
+      }
+      if (patch.viewerProSocialUrl != null) {
+        msg.setViewerProSocialUrl(patch.viewerProSocialUrl);
+      }
+      if (patch.viewerProPhone != null) {
+        msg.setViewerProPhone(patch.viewerProPhone);
+      }
       if (loaded.viewerSettings?.emailVerified) {
         const authUser = useAuthStore.getState().user;
         if (authUser) {

@@ -141,6 +141,8 @@
 }
 
 .pros-card {
+  display: block;
+  width: 100%;
   border: none;
   padding: 0;
   margin: 0;
@@ -151,6 +153,19 @@
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pros-card:focus-visible,
+.pros-map-card--clickable:focus-visible {
+  outline: 2px solid rgba(251, 191, 36, 0.65);
+  outline-offset: 2px;
+}
+
+.pros-map-card--clickable {
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
 }
 
 .pros-card-img-wrap {

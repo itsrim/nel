@@ -17,11 +17,13 @@ import { useState, useMemo, useCallback } from 'react';
 import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
 import { ReportModal } from '../components/ReportModal';
+import { ProContactLinks } from '../components/ProContactLinks';
 import { isEventDateBeforeToday } from '../lib/eventDateKey';
 import { formatBadgeCount } from '../data/mockData';
 import type { Event } from '../data/mockData';
 import './ProfilePage.css';
 import './OtherProfilePage.css';
+import '../components/ProContactLinks.css';
 
 interface OtherProfilePageProps {
   id: string;
@@ -178,6 +180,9 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
             <Calendar size={18} color="#8E8E93" />
             <span>Membre depuis {(profile as { memberSince?: string }).memberSince || '2024'}</span>
           </div>
+          {friendRecord?.isPro ? (
+            <ProContactLinks contact={friendRecord} className="pro-contact-links--profile" />
+          ) : null}
         </div>
 
         <div className="op-stats-row">

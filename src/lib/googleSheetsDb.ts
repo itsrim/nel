@@ -10,7 +10,8 @@ export type SheetTableName =
   | "viewer_settings"
   | "profile_visits"
   | "notifications"
-  | "admin_reports";
+  | "admin_reports"
+  | "professionals";
 
 export interface SheetTableConfig {
   /** Nom de l’onglet dans le classeur. */
@@ -79,6 +80,11 @@ export const SHEET_TABLES: Record<SheetTableName, SheetTableConfig> = {
   admin_reports: {
     sheetName: "admin_reports",
     gid: gidEnv("VITE_SHEET_GID_ADMIN_REPORTS", "0"),
+    idColumn: "id",
+  },
+  professionals: {
+    sheetName: "professionals",
+    gid: gidEnv("VITE_SHEET_GID_PROFESSIONALS", "0"),
     idColumn: "id",
   },
 };

@@ -11,6 +11,25 @@ import {
 import { shutdownGlobalChatSync } from "../lib/chatSync";
 import { syncEmailVerifiedToSheets } from "../lib/appSheetPersistence";
 
+const LS_VIEWER_PRO_WEBSITE = "nel_viewer_pro_website_url";
+const LS_VIEWER_PRO_SOCIAL = "nel_viewer_pro_social_url";
+const LS_VIEWER_PRO_PHONE = "nel_viewer_pro_phone";
+
+function readViewerProContact(): { websiteUrl: string; socialUrl: string; phone: string } {
+  if (typeof window === "undefined") {
+    return { websiteUrl: "", socialUrl: "", phone: "" };
+  }
+  try {
+    return {
+      websiteUrl: localStorage.getItem(LS_VIEWER_PRO_WEBSITE)?.trim() ?? "",
+      socialUrl: localStorage.getItem(LS_VIEWER_PRO_SOCIAL)?.trim() ?? "",
+      phone: localStorage.getItem(LS_VIEWER_PRO_PHONE)?.trim() ?? "",
+    };
+  } catch {
+    return { websiteUrl: "", socialUrl: "", phone: "" };
+  }
+}
+
 export type User = {
   id: string;
   email: string;
@@ -109,12 +128,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const loggedInUser = toAppUser(user, { ...extras, emailVerified: true });
       setAuthToken(jwt);
       localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
+      const proContact = readViewerProContact();
       syncEmailVerifiedToSheets(
         loggedInUser.id,
         loggedInUser.email,
         loggedInUser.displayName,
         loggedInUser.avatarUrl ?? "/event-cover-themes/avatar.jpg",
         !!loggedInUser.isPro,
+        proContact.websiteUrl,
+        proContact.socialUrl,
+        proContact.phone,
       );
       set({
         user: loggedInUser,
@@ -175,12 +198,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         setAuthToken(token);
         localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
         if (loggedInUser.emailVerified) {
+          const proContact = readViewerProContact();
           syncEmailVerifiedToSheets(
             loggedInUser.id,
             loggedInUser.email,
             loggedInUser.displayName,
             loggedInUser.avatarUrl ?? "/event-cover-themes/avatar.jpg",
             !!loggedInUser.isPro,
+            proContact.websiteUrl,
+            proContact.socialUrl,
+            proContact.phone,
           );
         }
         set({ user: loggedInUser, isLoading: false });

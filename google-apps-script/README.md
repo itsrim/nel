@@ -4,7 +4,7 @@ Chaque **onglet** du classeur = une **table**. Les **POST** ajoutent une ligne ;
 
 ## 1. Créer le Google Sheet
 
-Créer un classeur avec **9 onglets** et la **ligne 1 = en-têtes** (copier-coller une ligne par onglet).
+Créer un classeur avec **10 onglets** et la **ligne 1 = en-têtes** (copier-coller une ligne par onglet).
 
 ### `messages`
 ```
@@ -23,7 +23,7 @@ userId,id,title,type,lastMessagePreview,avatarGradient0,avatarGradient1,unreadCo
 
 ### `profiles` (amis — inclut `imageUrl`)
 ```
-userId,id,profilId,name,age,city,imageUrl,eventsInCommon,mainChatConversationId,pseudo,bio,memberSince,verified,isPro,statsJson,badgesJson,mutualFriend,deleted
+userId,id,profilId,name,age,city,imageUrl,eventsInCommon,mainChatConversationId,pseudo,bio,memberSince,verified,isPro,websiteUrl,socialUrl,phone,statsJson,badgesJson,mutualFriend,deleted
 ```
 
 ### `suggestions`
@@ -33,7 +33,7 @@ userId,id,pseudo,age,imageUrl,aspectRatio,deleted
 
 ### `viewer_settings` (profil connecté — avatar, email vérifié, préférences)
 ```
-userId,id,email,emailVerified,avatarUrl,displayName,isPro,friendRequestSentJson,friendRequestRejectedJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
+userId,id,email,emailVerified,avatarUrl,displayName,isPro,websiteUrl,socialUrl,phone,friendRequestSentJson,friendRequestRejectedJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
 ```
 
 ### `profile_visits`
@@ -49,6 +49,11 @@ userId,id,createdAt,kind,eventId,eventTitle,inviteeName,inviteeProfilId,conversa
 ### `admin_reports`
 ```
 userId,id,createdAt,kind,subjectId,subjectLabel,explanation,read,deleted
+```
+
+### `professionals` (annuaire global — sans `userId`)
+```
+id,firstName,lastName,category,categoryLabel,city,description,imageUrl,mapX,mapY,verified,websiteUrl,socialUrl,phone,deleted
 ```
 
 Partager le sheet en **« Toute personne disposant du lien → Lecteur »**.
@@ -81,6 +86,7 @@ VITE_SHEET_GID_VIEWER_SETTINGS=...
 VITE_SHEET_GID_PROFILE_VISITS=...
 VITE_SHEET_GID_NOTIFICATIONS=...
 VITE_SHEET_GID_ADMIN_REPORTS=...
+VITE_SHEET_GID_PROFESSIONALS=...
 ```
 
 ## 4. Apps Script pour POST / PUT

@@ -46,6 +46,9 @@ export interface EventReminder {
 const LS_VIEWER_AVATAR = "nel_viewer_profile_avatar_url";
 const LS_VIEWER_NAME = "nel_viewer_profile_display_name";
 const LS_VIEWER_IS_PRO = "nel_viewer_profile_is_pro";
+const LS_VIEWER_PRO_WEBSITE = "nel_viewer_pro_website_url";
+const LS_VIEWER_PRO_SOCIAL = "nel_viewer_pro_social_url";
+const LS_VIEWER_PRO_PHONE = "nel_viewer_pro_phone";
 const DEFAULT_VIEWER_AVATAR =
   "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800";
 const DEFAULT_VIEWER_NAME = "Jean J.";
@@ -123,6 +126,9 @@ function syncViewerSettingsFromState(state: MessagingState) {
     viewerProfileAvatarUrl: state.viewerProfileAvatarUrl,
     viewerProfileDisplayName: state.viewerProfileDisplayName,
     viewerProfileIsPro: state.viewerProfileIsPro,
+    viewerProWebsiteUrl: state.viewerProWebsiteUrl,
+    viewerProSocialUrl: state.viewerProSocialUrl,
+    viewerProPhone: state.viewerProPhone,
     friendRequestSentProfilIds: state.friendRequestSentProfilIds,
     friendRequestRejectedProfilIds: state.friendRequestRejectedProfilIds,
     favoriteConversationIds: state.favoriteConversationIds,
@@ -147,6 +153,12 @@ interface MessagingState {
   /** Compte professionnel (coche professionnel dans les préférences) */
   viewerProfileIsPro: boolean;
   setViewerProfileIsPro: (value: boolean) => void;
+  viewerProWebsiteUrl: string;
+  setViewerProWebsiteUrl: (url: string) => void;
+  viewerProSocialUrl: string;
+  setViewerProSocialUrl: (url: string) => void;
+  viewerProPhone: string;
+  setViewerProPhone: (phone: string) => void;
   events: Event[];
   conversations: Conversation[];
   profileVisits: ProfileVisit[];
@@ -262,6 +274,42 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       /* ignore */
     }
     set({ viewerProfileIsPro: value });
+    syncViewerSettingsFromState(get());
+  },
+
+  viewerProWebsiteUrl: readViewerStorage(LS_VIEWER_PRO_WEBSITE, ""),
+  setViewerProWebsiteUrl: (url) => {
+    const v = url.trim();
+    try {
+      localStorage.setItem(LS_VIEWER_PRO_WEBSITE, v);
+    } catch {
+      /* ignore */
+    }
+    set({ viewerProWebsiteUrl: v });
+    syncViewerSettingsFromState(get());
+  },
+
+  viewerProSocialUrl: readViewerStorage(LS_VIEWER_PRO_SOCIAL, ""),
+  setViewerProSocialUrl: (url) => {
+    const v = url.trim();
+    try {
+      localStorage.setItem(LS_VIEWER_PRO_SOCIAL, v);
+    } catch {
+      /* ignore */
+    }
+    set({ viewerProSocialUrl: v });
+    syncViewerSettingsFromState(get());
+  },
+
+  viewerProPhone: readViewerStorage(LS_VIEWER_PRO_PHONE, ""),
+  setViewerProPhone: (phone) => {
+    const v = phone.trim();
+    try {
+      localStorage.setItem(LS_VIEWER_PRO_PHONE, v);
+    } catch {
+      /* ignore */
+    }
+    set({ viewerProPhone: v });
     syncViewerSettingsFromState(get());
   },
 

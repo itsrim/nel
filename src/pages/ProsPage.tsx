@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { LayoutGrid, Map, MapPin, Search, ShieldCheck } from "lucide-react";
+import { useNavigationStore } from "../store/useNavigationStore";
+import { useProsStore } from "../store/useProsStore";
 import { useTranslation } from "../i18n/useTranslation";
 import {
-  MOCK_PROFESSIONALS,
   PRO_CATEGORY_OPTIONS,
   proFullName,
   proSearchHaystack,
@@ -23,9 +24,20 @@ function matchesSearch(pro: MockProfessional, query: string): boolean {
   return foldSearch(proSearchHaystack(pro)).includes(q);
 }
 
-function ProListCard({ pro }: { pro: MockProfessional }) {
+function ProListCard({
+  pro,
+  onOpen,
+}: {
+  pro: MockProfessional;
+  onOpen: (id: string) => void;
+}) {
   return (
-    <article className="pros-card">
+    <button
+      type="button"
+      className="pros-card"
+      onClick={() => onOpen(pro.id)}
+      aria-label={proFullName(pro)}
+    >
       <div className="pros-card-img-wrap">
         <img src={pro.imageUrl} alt="" className="pros-card-img" />
         <span className="pros-card-badge">{pro.categoryLabel}</span>
@@ -43,26 +55,30 @@ function ProListCard({ pro }: { pro: MockProfessional }) {
         </p>
         <p className="pros-card-desc">{pro.description}</p>
       </div>
-    </article>
+    </button>
   );
 }
 
 export function ProsPage() {
   const { t } = useTranslation();
+  const { openDetail } = useNavigationStore();
+  const professionals = useProsStore((s) => s.professionals);
   const [viewMode, setViewMode] = useState<ProsViewMode>("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<ProCategory | "all">("all");
   const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
-    return MOCK_PROFESSIONALS.filter((pro) => {
+    return professionals.filter((pro) => {
       if (categoryFilter !== "all" && pro.category !== categoryFilter) return false;
       return matchesSearch(pro, searchQuery);
     });
-  }, [categoryFilter, searchQuery]);
+  }, [professionals, categoryFilter, searchQuery]);
 
   const selectedMapPro =
     filtered.find((p) => p.id === selectedMapId) ?? filtered[0] ?? null;
+
+  const openProProfile = (id: string) => openDetail("pro", id);
 
   return (
     <div className="pros-page">
@@ -134,7 +150,7 @@ export function ProsPage() {
         ) : viewMode === "list" ? (
           <div className="pros-grid">
             {filtered.map((pro) => (
-              <ProListCard key={pro.id} pro={pro} />
+              <ProListCard key={pro.id} pro={pro} onOpen={openProProfile} />
             ))}
           </div>
         ) : (
@@ -146,14 +162,22 @@ export function ProsPage() {
                 className={`pros-map-pin${selectedMapPro?.id === pro.id ? " pros-map-pin--selected" : ""}`}
                 style={{ left: `${pro.mapX}%`, top: `${pro.mapY}%` }}
                 aria-label={proFullName(pro)}
-                onClick={() => setSelectedMapId(pro.id)}
+                onClick={() => {
+                  setSelectedMapId(pro.id);
+                  openProProfile(pro.id);
+                }}
               >
                 <span className="pros-map-pin-label">{pro.firstName}</span>
                 <span className="pros-map-pin-dot" />
               </button>
             ))}
             {selectedMapPro ? (
-              <div className="pros-map-card">
+              <button
+                type="button"
+                className="pros-map-card pros-map-card--clickable"
+                onClick={() => openProProfile(selectedMapPro.id)}
+                aria-label={proFullName(selectedMapPro)}
+              >
                 <img
                   src={selectedMapPro.imageUrl}
                   alt=""
@@ -166,7 +190,7 @@ export function ProsPage() {
                   </p>
                   <p className="pros-map-card-desc">{selectedMapPro.description}</p>
                 </div>
-              </div>
+              </button>
             ) : null}
           </div>
         )}

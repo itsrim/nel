@@ -13,6 +13,8 @@ import type {
   ProfileVisit,
   SuggestionProfile,
 } from "../data/mockData";
+import type { MockProfessional } from "../data/mockProfessionals";
+import { MOCK_PROFESSIONALS } from "../data/mockProfessionals";
 import {
   isGoogleSheetsReadConfigured,
   isGoogleSheetsWriteConfigured,
@@ -273,6 +275,9 @@ export function friendToRow(friend: Friend, userId: string): Record<string, stri
     memberSince: friend.memberSince ?? "",
     verified: boolToSheet(friend.verified),
     isPro: boolToSheet(friend.isPro),
+    websiteUrl: str(friend.websiteUrl),
+    socialUrl: str(friend.socialUrl),
+    phone: str(friend.phone),
     statsJson: jsonToSheet(friend.stats ?? null),
     badgesJson: jsonToSheet(friend.badges ?? []),
     mutualFriend: boolToSheet(friend.mutualFriend),
@@ -295,9 +300,55 @@ export function rowToFriend(row: Record<string, string>): Friend {
     memberSince: row.memberSince?.trim() || undefined,
     verified: boolFromSheet(row.verified),
     isPro: boolFromSheet(row.isPro),
+    websiteUrl: str(row.websiteUrl) || undefined,
+    socialUrl: str(row.socialUrl) || undefined,
+    phone: str(row.phone) || undefined,
     stats: jsonFromSheet(row.statsJson, undefined as Friend["stats"]),
     badges: jsonFromSheet(row.badgesJson, undefined as string[] | undefined),
     mutualFriend: boolFromSheet(row.mutualFriend),
+  };
+}
+
+// ── Professional directory (global) ───────────────────────────────────────────
+
+function professionalToRow(p: MockProfessional): Record<string, string> {
+  return {
+    id: p.id,
+    firstName: p.firstName,
+    lastName: p.lastName,
+    category: p.category,
+    categoryLabel: p.categoryLabel,
+    city: p.city,
+    description: p.description,
+    imageUrl: p.imageUrl,
+    mapX: String(p.mapX),
+    mapY: String(p.mapY),
+    verified: boolToSheet(p.verified),
+    websiteUrl: str(p.websiteUrl),
+    socialUrl: str(p.socialUrl),
+    phone: str(p.phone),
+    deleted: "false",
+  };
+}
+
+function rowToProfessional(row: Record<string, string>): MockProfessional {
+  const id = str(row.id);
+  const fallback = MOCK_PROFESSIONALS.find((p) => p.id === id);
+  return {
+    id,
+    firstName: str(row.firstName) || fallback?.firstName || "",
+    lastName: str(row.lastName) || fallback?.lastName || "",
+    category: (str(row.category) || fallback?.category || "therapeute") as MockProfessional["category"],
+    categoryLabel: str(row.categoryLabel) || fallback?.categoryLabel || "",
+    city: str(row.city) || fallback?.city || "",
+    description: str(row.description) || fallback?.description || "",
+    imageUrl: str(row.imageUrl) || fallback?.imageUrl || "",
+    mapX: numFromSheet(row.mapX, fallback?.mapX ?? 50),
+    mapY: numFromSheet(row.mapY, fallback?.mapY ?? 50),
+    verified: row.verified != null ? boolFromSheet(row.verified) : fallback?.verified,
+    websiteUrl: str(row.websiteUrl) || fallback?.websiteUrl,
+    socialUrl: str(row.socialUrl) || fallback?.socialUrl,
+    phone: str(row.phone) || fallback?.phone,
   };
 }
 
@@ -362,6 +413,9 @@ export interface ViewerSettingsRow {
   avatarUrl: string;
   displayName: string;
   isPro: boolean;
+  websiteUrl?: string;
+  socialUrl?: string;
+  phone?: string;
   friendRequestSentJson: string;
   friendRequestRejectedJson: string;
   favoriteConversationIdsJson: string;
@@ -377,6 +431,9 @@ export function viewerSettingsToRow(
     avatarUrl: string;
     displayName: string;
     isPro: boolean;
+    websiteUrl?: string;
+    socialUrl?: string;
+    phone?: string;
     friendRequestSentProfilIds: string[];
     friendRequestRejectedProfilIds: string[];
     favoriteConversationIds: string[];
@@ -392,6 +449,9 @@ export function viewerSettingsToRow(
     avatarUrl: data.avatarUrl,
     displayName: data.displayName,
     isPro: boolToSheet(data.isPro),
+    websiteUrl: str(data.websiteUrl),
+    socialUrl: str(data.socialUrl),
+    phone: str(data.phone),
     friendRequestSentJson: jsonToSheet(data.friendRequestSentProfilIds),
     friendRequestRejectedJson: jsonToSheet(data.friendRequestRejectedProfilIds),
     favoriteConversationIdsJson: jsonToSheet(data.favoriteConversationIds),
@@ -471,18 +531,22 @@ export interface LoadedAppSheetState {
   profileVisits: ProfileVisit[];
   appNotifications: AppNotification[];
   adminReports: AdminReportEntry[];
-    viewerSettings?: {
-      email: string;
-      emailVerified: boolean;
-      avatarUrl: string;
-      displayName: string;
-      isPro: boolean;
-      friendRequestSentProfilIds: string[];
-      friendRequestRejectedProfilIds: string[];
-      favoriteConversationIds: string[];
-      moderationHiddenEventIds: string[];
-      moderationHiddenProfilIds: string[];
-    };
+  professionals: MockProfessional[];
+  viewerSettings?: {
+    email: string;
+    emailVerified: boolean;
+    avatarUrl: string;
+    displayName: string;
+    isPro: boolean;
+    websiteUrl?: string;
+    socialUrl?: string;
+    phone?: string;
+    friendRequestSentProfilIds: string[];
+    friendRequestRejectedProfilIds: string[];
+    favoriteConversationIds: string[];
+    moderationHiddenEventIds: string[];
+    moderationHiddenProfilIds: string[];
+  };
   hasRemoteData: boolean;
 }
 
@@ -500,6 +564,44 @@ function mergeFriends(base: Friend[], remote: Friend[]): Friend[] {
   return [...map.values()];
 }
 
+const GLOBAL_CACHE_USER = "__global__";
+
+async function readGlobalTable(table: SheetTableName): Promise<Record<string, string>[]> {
+  if (isGoogleSheetsReadConfigured()) {
+    try {
+      const rows = await sheetGet<Record<string, string>>(table);
+      const active = rows.filter((r) => r.deleted !== "true");
+      saveLocalCache(table, GLOBAL_CACHE_USER, active);
+      active.forEach((r) => {
+        const id = r.id;
+        if (id) markSynced(table, id);
+      });
+      return active;
+    } catch (err) {
+      console.error(`Sheets read [${table}] failed, fallback cache:`, err);
+    }
+  }
+  const cached = loadLocalCache(table, GLOBAL_CACHE_USER);
+  cached.forEach((r) => {
+    const id = r.id;
+    if (id) markSynced(table, id);
+  });
+  return cached;
+}
+
+function mergeProfessionals(
+  base: MockProfessional[],
+  remote: MockProfessional[],
+): MockProfessional[] {
+  if (remote.length === 0) return base;
+  const map = new Map(base.map((p) => [p.id, p]));
+  remote.forEach((p) => {
+    const prev = map.get(p.id);
+    map.set(p.id, prev ? { ...prev, ...p } : p);
+  });
+  return [...map.values()];
+}
+
 export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppSheetState> {
   const [
     eventRows,
@@ -510,6 +612,7 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     viewerRows,
     notifRows,
     reportRows,
+    professionalRows,
   ] = await Promise.all([
     readTable("events", userId),
     readTable("conversations", userId),
@@ -519,6 +622,7 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     readTable("viewer_settings", userId),
     readTable("notifications", userId),
     readTable("admin_reports", userId),
+    readGlobalTable("professionals"),
   ]);
 
   const viewerRow = viewerRows[0];
@@ -530,7 +634,13 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     visitRows.length > 0 ||
     viewerRow != null ||
     notifRows.length > 0 ||
-    reportRows.length > 0;
+    reportRows.length > 0 ||
+    professionalRows.length > 0;
+
+  const professionals =
+    professionalRows.length > 0
+      ? professionalRows.map(rowToProfessional)
+      : MOCK_PROFESSIONALS;
 
   return {
     events: eventRows.map(rowToEvent),
@@ -540,6 +650,7 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     profileVisits: visitRows.map(rowToVisit),
     appNotifications: notifRows.map(rowToNotification),
     adminReports: reportRows.map(rowToReport),
+    professionals,
     viewerSettings: viewerRow
       ? {
           email: viewerRow.email ?? "",
@@ -547,6 +658,9 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
           avatarUrl: viewerRow.avatarUrl ?? "",
           displayName: viewerRow.displayName ?? "",
           isPro: boolFromSheet(viewerRow.isPro),
+          websiteUrl: str(viewerRow.websiteUrl) || undefined,
+          socialUrl: str(viewerRow.socialUrl) || undefined,
+          phone: str(viewerRow.phone) || undefined,
           friendRequestSentProfilIds: jsonFromSheet(viewerRow.friendRequestSentJson, []),
           friendRequestRejectedProfilIds: jsonFromSheet(viewerRow.friendRequestRejectedJson, []),
           favoriteConversationIds: jsonFromSheet(viewerRow.favoriteConversationIdsJson, []),
@@ -578,11 +692,17 @@ export function mergeLoadedAppState(
   viewerProfileAvatarUrl?: string;
   viewerProfileDisplayName?: string;
   viewerProfileIsPro?: boolean;
+  viewerProWebsiteUrl?: string;
+  viewerProSocialUrl?: string;
+  viewerProPhone?: string;
 } {
   const patch: Partial<typeof current> & {
     viewerProfileAvatarUrl?: string;
     viewerProfileDisplayName?: string;
     viewerProfileIsPro?: boolean;
+    viewerProWebsiteUrl?: string;
+    viewerProSocialUrl?: string;
+    viewerProPhone?: string;
   } = {};
 
   if (loaded.events.length > 0) {
@@ -612,6 +732,9 @@ export function mergeLoadedAppState(
     if (vs.avatarUrl) patch.viewerProfileAvatarUrl = vs.avatarUrl;
     if (vs.displayName) patch.viewerProfileDisplayName = vs.displayName;
     patch.viewerProfileIsPro = vs.isPro;
+    if (vs.websiteUrl != null) patch.viewerProWebsiteUrl = vs.websiteUrl;
+    if (vs.socialUrl != null) patch.viewerProSocialUrl = vs.socialUrl;
+    if (vs.phone != null) patch.viewerProPhone = vs.phone;
     if (vs.friendRequestSentProfilIds.length > 0) {
       patch.friendRequestSentProfilIds = vs.friendRequestSentProfilIds;
     }
@@ -687,6 +810,9 @@ export function syncViewerSettingsToSheets(data: {
   avatarUrl: string;
   displayName: string;
   isPro: boolean;
+  websiteUrl?: string;
+  socialUrl?: string;
+  phone?: string;
   friendRequestSentProfilIds: string[];
   friendRequestRejectedProfilIds: string[];
   favoriteConversationIds: string[];
@@ -724,6 +850,9 @@ export function syncAllViewerStateFromStore(state: {
   viewerProfileAvatarUrl: string;
   viewerProfileDisplayName: string;
   viewerProfileIsPro: boolean;
+  viewerProWebsiteUrl?: string;
+  viewerProSocialUrl?: string;
+  viewerProPhone?: string;
   friendRequestSentProfilIds: string[];
   friendRequestRejectedProfilIds: string[];
   favoriteConversationIds: string[];
@@ -736,6 +865,9 @@ export function syncAllViewerStateFromStore(state: {
     avatarUrl: state.viewerProfileAvatarUrl,
     displayName: state.viewerProfileDisplayName,
     isPro: state.viewerProfileIsPro,
+    websiteUrl: state.viewerProWebsiteUrl,
+    socialUrl: state.viewerProSocialUrl,
+    phone: state.viewerProPhone,
     friendRequestSentProfilIds: state.friendRequestSentProfilIds,
     friendRequestRejectedProfilIds: state.friendRequestRejectedProfilIds,
     favoriteConversationIds: state.favoriteConversationIds,
@@ -751,6 +883,9 @@ export function syncEmailVerifiedToSheets(
   displayName: string,
   avatarUrl: string,
   isPro: boolean,
+  websiteUrl?: string,
+  socialUrl?: string,
+  phone?: string,
 ): void {
   syncLater(() =>
     upsertSheetRow(
@@ -762,6 +897,9 @@ export function syncEmailVerifiedToSheets(
         avatarUrl,
         displayName,
         isPro,
+        websiteUrl,
+        socialUrl,
+        phone,
         friendRequestSentProfilIds: [],
         friendRequestRejectedProfilIds: [],
         favoriteConversationIds: [],
@@ -771,3 +909,18 @@ export function syncEmailVerifiedToSheets(
     ),
   );
 }
+
+export function syncProfessionalToSheets(pro: MockProfessional): void {
+  syncLater(() => upsertSheetRow("professionals", pro.id, professionalToRow(pro)));
+}
+
+export function syncProfessionalsToSheets(professionals: MockProfessional[]): void {
+  if (!isGoogleSheetsWriteConfigured()) return;
+  syncLater(async () => {
+    for (const pro of professionals) {
+      await upsertSheetRow("professionals", pro.id, professionalToRow(pro));
+    }
+  });
+}
+
+export { mergeProfessionals };

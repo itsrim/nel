@@ -1,3 +1,6 @@
+import type { ProContactFields } from "../lib/proContact";
+import { proContactSearchText } from "../lib/proContact";
+
 export type ProCategory =
   | "therapeute"
   | "coiffeur"
@@ -8,7 +11,7 @@ export type ProCategory =
   | "danse"
   | "psychologue";
 
-export interface MockProfessional {
+export interface MockProfessional extends ProContactFields {
   id: string;
   firstName: string;
   lastName: string;
@@ -26,6 +29,19 @@ export interface MockProfessional {
 
 const img = (seed: string) => `https://i.pravatar.cc/400?u=nel-pro-${seed}`;
 
+function contactFor(id: string, slug: string): ProContactFields {
+  let n = 0;
+  for (let i = 0; i < id.length; i++) n += id.charCodeAt(i);
+  const a = String(10 + (n % 80)).padStart(2, "0");
+  const b = String(20 + ((n * 3) % 70)).padStart(2, "0");
+  const c = String(30 + ((n * 7) % 60)).padStart(2, "0");
+  return {
+    websiteUrl: `https://www.${slug}-pro.fr`,
+    socialUrl: `https://instagram.com/${slug}.nel`,
+    phone: `+33 6 ${a} ${b} ${c}`,
+  };
+}
+
 export const PRO_CATEGORY_OPTIONS: { id: ProCategory; label: string }[] = [
   { id: "therapeute", label: "Thérapeute" },
   { id: "coiffeur", label: "Coiffeur·se" },
@@ -37,7 +53,7 @@ export const PRO_CATEGORY_OPTIONS: { id: ProCategory; label: string }[] = [
   { id: "psychologue", label: "Psychologue" },
 ];
 
-export const MOCK_PROFESSIONALS: MockProfessional[] = [
+const _MOCK_PROFESSIONALS_RAW: Omit<MockProfessional, keyof ProContactFields>[] = [
   {
     id: "pro_01",
     firstName: "Camille",
@@ -254,10 +270,35 @@ export const MOCK_PROFESSIONALS: MockProfessional[] = [
   },
 ];
 
+export const MOCK_PROFESSIONALS: MockProfessional[] = _MOCK_PROFESSIONALS_RAW.map(
+  (p) => ({
+    ...p,
+    ...contactFor(
+      p.id,
+      `${p.firstName.toLowerCase()}-${p.lastName.toLowerCase()}`,
+    ),
+  }),
+);
+
 export function proFullName(p: MockProfessional): string {
   return `${p.firstName} ${p.lastName}`.trim();
 }
 
 export function proSearchHaystack(p: MockProfessional): string {
-  return `${p.firstName} ${p.lastName} ${p.city} ${p.description} ${p.categoryLabel} ${p.category}`;
+  return `${p.firstName} ${p.lastName} ${p.city} ${p.description} ${p.categoryLabel} ${p.category} ${proContactSearchText(p)}`;
+}
+
+/** Stats démo dérivées de l'id (stable). */
+export function proDemoStats(id: string): {
+  reliability: number;
+  events: number;
+  clients: number;
+} {
+  let n = 0;
+  for (let i = 0; i < id.length; i++) n += id.charCodeAt(i);
+  return {
+    reliability: 4.2 + (n % 8) / 10,
+    events: 5 + (n % 40),
+    clients: 20 + (n % 180),
+  };
 }
