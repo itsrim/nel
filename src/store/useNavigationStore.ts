@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type TabId = 'home' | 'events' | 'chat' | 'profile';
+export type TabId = 'home' | 'events' | 'chat' | 'profile' | 'pro';
 export type DetailType = 'chat' | 'event' | 'event_create' | 'profile' | 'chat_settings';
 
 export type EventsHeaderMode = 'calendar' | 'search';

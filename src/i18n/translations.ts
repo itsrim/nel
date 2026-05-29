@@ -54,6 +54,16 @@ export const translations = {
 
     // Reports
     profile: "Profil",
+    chat: "Messages",
+    pro: "Pro",
+    professionalsTitle: "Professionnels",
+    proSearchPlaceholder: "Rechercher nom, prénom, ville, description…",
+    proFilterLabel: "Filtrer par métier",
+    proFilterAll: "Tous",
+    proNoResults: "Aucun professionnel ne correspond à votre recherche.",
+    proViewModeLabel: "Mode d'affichage",
+    proViewList: "Liste",
+    proViewMap: "Carte",
     event: "Sortie",
     dismiss: "Ignorer",
     hideAndNotify: "Masquer et informer",
@@ -482,6 +492,16 @@ export const translations = {
 
     // Reports
     profile: "Profile",
+    chat: "Messages",
+    pro: "Pro",
+    professionalsTitle: "Professionals",
+    proSearchPlaceholder: "Search name, city, description…",
+    proFilterLabel: "Filter by profession",
+    proFilterAll: "All",
+    proNoResults: "No professionals match your search.",
+    proViewModeLabel: "View mode",
+    proViewList: "List",
+    proViewMap: "Map",
     event: "Event",
     dismiss: "Dismiss",
     hideAndNotify: "Hide and notify",

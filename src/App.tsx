@@ -21,6 +21,7 @@ import { BottomNavigation } from "./components/BottomNavigation";
 import { ChatPage } from "./pages/ChatPage";
 import { EventsPage } from "./pages/EventsPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { ProsPage } from "./pages/ProsPage";
 import { ChatRoomPage } from "./pages/ChatRoomPage";
 import { EventDetailPage } from "./pages/EventDetailPage";
 import { CreateEventPage } from "./pages/CreateEventPage";
@@ -148,6 +149,8 @@ function App() {
         return <ChatPage />;
       case "events":
         return <EventsPage />;
+      case "pro":
+        return <ProsPage />;
       case "profile":
         return <ProfilePage />;
       default:

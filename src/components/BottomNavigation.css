@@ -37,8 +37,8 @@
 .ftb-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
+  gap: 5px;
+  padding: 10px 12px;
   border: none;
   border-radius: 22px;
   background: transparent;
@@ -85,7 +85,7 @@
 }
 
 .ftb-label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.2px;
 }
