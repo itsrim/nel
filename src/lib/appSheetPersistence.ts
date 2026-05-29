@@ -15,6 +15,7 @@ import type {
 } from "../data/mockData";
 import type { MockProfessional } from "../data/mockProfessionals";
 import { MOCK_PROFESSIONALS } from "../data/mockProfessionals";
+import { proCoordinates } from "./proCoordinates";
 import {
   isGoogleSheetsReadConfigured,
   isGoogleSheetsWriteConfigured,
@@ -323,6 +324,8 @@ function professionalToRow(p: MockProfessional): Record<string, string> {
     imageUrl: p.imageUrl,
     mapX: String(p.mapX),
     mapY: String(p.mapY),
+    lat: String(p.lat ?? proCoordinates(p).lat),
+    lng: String(p.lng ?? proCoordinates(p).lng),
     verified: boolToSheet(p.verified),
     websiteUrl: str(p.websiteUrl),
     socialUrl: str(p.socialUrl),
@@ -334,22 +337,29 @@ function professionalToRow(p: MockProfessional): Record<string, string> {
 function rowToProfessional(row: Record<string, string>): MockProfessional {
   const id = str(row.id);
   const fallback = MOCK_PROFESSIONALS.find((p) => p.id === id);
-  return {
+  const mapX = numFromSheet(row.mapX, fallback?.mapX ?? 50);
+  const mapY = numFromSheet(row.mapY, fallback?.mapY ?? 50);
+  const city = str(row.city) || fallback?.city || "";
+  const partial = {
     id,
     firstName: str(row.firstName) || fallback?.firstName || "",
     lastName: str(row.lastName) || fallback?.lastName || "",
     category: (str(row.category) || fallback?.category || "therapeute") as MockProfessional["category"],
     categoryLabel: str(row.categoryLabel) || fallback?.categoryLabel || "",
-    city: str(row.city) || fallback?.city || "",
+    city,
     description: str(row.description) || fallback?.description || "",
     imageUrl: str(row.imageUrl) || fallback?.imageUrl || "",
-    mapX: numFromSheet(row.mapX, fallback?.mapX ?? 50),
-    mapY: numFromSheet(row.mapY, fallback?.mapY ?? 50),
+    mapX,
+    mapY,
+    lat: str(row.lat) ? numFromSheet(row.lat) : fallback?.lat,
+    lng: str(row.lng) ? numFromSheet(row.lng) : fallback?.lng,
     verified: row.verified != null ? boolFromSheet(row.verified) : fallback?.verified,
     websiteUrl: str(row.websiteUrl) || fallback?.websiteUrl,
     socialUrl: str(row.socialUrl) || fallback?.socialUrl,
     phone: str(row.phone) || fallback?.phone,
   };
+  const coords = proCoordinates(partial);
+  return { ...partial, lat: coords.lat, lng: coords.lng };
 }
 
 // ── Suggestion ─────────────────────────────────────────────────────────────
@@ -413,6 +423,7 @@ export interface ViewerSettingsRow {
   avatarUrl: string;
   displayName: string;
   isPro: boolean;
+  city?: string;
   websiteUrl?: string;
   socialUrl?: string;
   phone?: string;
@@ -431,6 +442,7 @@ export function viewerSettingsToRow(
     avatarUrl: string;
     displayName: string;
     isPro: boolean;
+    city?: string;
     websiteUrl?: string;
     socialUrl?: string;
     phone?: string;
@@ -449,6 +461,7 @@ export function viewerSettingsToRow(
     avatarUrl: data.avatarUrl,
     displayName: data.displayName,
     isPro: boolToSheet(data.isPro),
+    city: str(data.city),
     websiteUrl: str(data.websiteUrl),
     socialUrl: str(data.socialUrl),
     phone: str(data.phone),
@@ -538,6 +551,7 @@ export interface LoadedAppSheetState {
     avatarUrl: string;
     displayName: string;
     isPro: boolean;
+    city?: string;
     websiteUrl?: string;
     socialUrl?: string;
     phone?: string;
@@ -658,6 +672,7 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
           avatarUrl: viewerRow.avatarUrl ?? "",
           displayName: viewerRow.displayName ?? "",
           isPro: boolFromSheet(viewerRow.isPro),
+          city: str(viewerRow.city) || undefined,
           websiteUrl: str(viewerRow.websiteUrl) || undefined,
           socialUrl: str(viewerRow.socialUrl) || undefined,
           phone: str(viewerRow.phone) || undefined,
@@ -692,6 +707,7 @@ export function mergeLoadedAppState(
   viewerProfileAvatarUrl?: string;
   viewerProfileDisplayName?: string;
   viewerProfileIsPro?: boolean;
+  viewerProfileCity?: string;
   viewerProWebsiteUrl?: string;
   viewerProSocialUrl?: string;
   viewerProPhone?: string;
@@ -732,6 +748,7 @@ export function mergeLoadedAppState(
     if (vs.avatarUrl) patch.viewerProfileAvatarUrl = vs.avatarUrl;
     if (vs.displayName) patch.viewerProfileDisplayName = vs.displayName;
     patch.viewerProfileIsPro = vs.isPro;
+    if (vs.city != null) patch.viewerProfileCity = vs.city;
     if (vs.websiteUrl != null) patch.viewerProWebsiteUrl = vs.websiteUrl;
     if (vs.socialUrl != null) patch.viewerProSocialUrl = vs.socialUrl;
     if (vs.phone != null) patch.viewerProPhone = vs.phone;
@@ -810,6 +827,7 @@ export function syncViewerSettingsToSheets(data: {
   avatarUrl: string;
   displayName: string;
   isPro: boolean;
+  city?: string;
   websiteUrl?: string;
   socialUrl?: string;
   phone?: string;
@@ -850,6 +868,7 @@ export function syncAllViewerStateFromStore(state: {
   viewerProfileAvatarUrl: string;
   viewerProfileDisplayName: string;
   viewerProfileIsPro: boolean;
+  viewerProfileCity?: string;
   viewerProWebsiteUrl?: string;
   viewerProSocialUrl?: string;
   viewerProPhone?: string;
@@ -865,6 +884,7 @@ export function syncAllViewerStateFromStore(state: {
     avatarUrl: state.viewerProfileAvatarUrl,
     displayName: state.viewerProfileDisplayName,
     isPro: state.viewerProfileIsPro,
+    city: state.viewerProfileCity,
     websiteUrl: state.viewerProWebsiteUrl,
     socialUrl: state.viewerProSocialUrl,
     phone: state.viewerProPhone,

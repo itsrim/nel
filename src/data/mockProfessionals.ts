@@ -1,5 +1,6 @@
 import type { ProContactFields } from "../lib/proContact";
 import { proContactSearchText } from "../lib/proContact";
+import { proCoordinates } from "../lib/proCoordinates";
 
 export type ProCategory =
   | "therapeute"
@@ -21,6 +22,10 @@ export interface MockProfessional extends ProContactFields {
   city: string;
   description: string;
   imageUrl: string;
+  /** Latitude (WGS84) — dérivée de la ville si absente. */
+  lat?: number;
+  /** Longitude (WGS84). */
+  lng?: number;
   /** Position sur la carte mock (%). */
   mapX: number;
   mapY: number;
@@ -271,13 +276,18 @@ const _MOCK_PROFESSIONALS_RAW: Omit<MockProfessional, keyof ProContactFields>[] 
 ];
 
 export const MOCK_PROFESSIONALS: MockProfessional[] = _MOCK_PROFESSIONALS_RAW.map(
-  (p) => ({
-    ...p,
-    ...contactFor(
-      p.id,
-      `${p.firstName.toLowerCase()}-${p.lastName.toLowerCase()}`,
-    ),
-  }),
+  (p) => {
+    const coords = proCoordinates(p);
+    return {
+      ...p,
+      lat: coords.lat,
+      lng: coords.lng,
+      ...contactFor(
+        p.id,
+        `${p.firstName.toLowerCase()}-${p.lastName.toLowerCase()}`,
+      ),
+    };
+  },
 );
 
 export function proFullName(p: MockProfessional): string {

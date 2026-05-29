@@ -242,7 +242,7 @@
   overflow: hidden;
 }
 
-/* ── Carte mock ── */
+/* ── Carte OpenStreetMap ── */
 .pros-map-wrap {
   position: relative;
   height: calc(100vh - 200px);
@@ -251,51 +251,48 @@
   border-radius: 20px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background:
-    linear-gradient(rgba(20, 40, 35, 0.75), rgba(10, 20, 18, 0.85)),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 39px,
-      rgba(255, 255, 255, 0.04) 39px,
-      rgba(255, 255, 255, 0.04) 40px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 39px,
-      rgba(255, 255, 255, 0.04) 39px,
-      rgba(255, 255, 255, 0.04) 40px
-    ),
-    #1a2e28;
+  background: #1a2e28;
 }
 
-.pros-map-pin {
-  position: absolute;
-  transform: translate(-50%, -100%);
-  border: none;
-  background: none;
-  padding: 0;
-  cursor: pointer;
-  z-index: 2;
+.pros-map-leaflet {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
 }
 
-.pros-map-pin-dot {
+.pros-map-leaflet .leaflet-control-attribution {
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #a1a1aa;
+}
+
+.pros-map-leaflet .leaflet-control-attribution a {
+  color: #fde047;
+}
+
+.pros-leaflet-pin-wrap {
+  background: none !important;
+  border: none !important;
+}
+
+.pros-leaflet-pin-dot {
+  display: block;
   width: 14px;
   height: 14px;
   border-radius: 50%;
   background: #fbbf24;
   border: 2px solid #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  margin: 0 auto;
 }
 
-.pros-map-pin--selected .pros-map-pin-dot {
+.pros-leaflet-pin-dot--selected {
   width: 18px;
   height: 18px;
   background: #fde047;
 }
 
-.pros-map-pin-label {
+.pros-leaflet-pin-label {
   position: absolute;
   left: 50%;
   bottom: calc(100% + 6px);

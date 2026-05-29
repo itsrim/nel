@@ -106,6 +106,8 @@ export interface GroupMember {
   avatarGradient: readonly [string, string];
   isSelf: boolean;
   profilId?: string;
+  /** Photo directe (ex. pro hors annuaire amis). */
+  avatarUrl?: string;
 }
 
 export interface ProfileVisit {

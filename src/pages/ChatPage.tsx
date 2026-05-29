@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   Crown,
   Eye,
@@ -7,6 +7,7 @@ import {
   Plus,
   Search,
   UserPlus,
+  X,
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
@@ -64,6 +65,21 @@ function buildMasonryColumns(
 /* ── Sub-components ── */
 
 type SubTab = "suggestions" | "messages" | "visites";
+
+type ChatUserHit = {
+  id: string;
+  label: string;
+  subtitle: string;
+  avatarUrl: string;
+};
+
+function foldSearch(s: string): string {
+  return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+}
+
+function userSearchHaystack(hit: ChatUserHit): string {
+  return foldSearch(`${hit.label} ${hit.subtitle}`);
+}
 
 function FavoriteStripAvatar({ conversation }: { conversation: Conversation }) {
   const v = groupStoryVariant(conversation.id);
@@ -311,8 +327,19 @@ export function ChatPage() {
     friendRequestRejectedProfilIds,
     sendFriendRequest,
     moderationHiddenProfilIds,
+    nelDemoIsPremium,
+    showToast,
   } = useMessagingStore();
   const [sub, setSub] = useState<SubTab>("messages");
+  const [userSearchOpen, setUserSearchOpen] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const userSearchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (userSearchOpen && nelDemoIsPremium) {
+      userSearchInputRef.current?.focus();
+    }
+  }, [userSearchOpen, nelDemoIsPremium]);
 
   /** Ami mutuel (cœur rose) — distinct du simple fait d’être dans l’annuaire « Amis » nel. */
   const isMutualFriend = useCallback(
@@ -409,6 +436,63 @@ export function ChatPage() {
     [profileVisitsVisible],
   );
 
+  const searchableUsers = useMemo(() => {
+    const map = new Map<string, ChatUserHit>();
+    for (const f of friends) {
+      map.set(f.profilId, {
+        id: f.profilId,
+        label: f.pseudo || f.name,
+        subtitle: f.city,
+        avatarUrl: f.imageUrl,
+      });
+    }
+    for (const s of suggestionsVisible) {
+      if (!map.has(s.id)) {
+        map.set(s.id, {
+          id: s.id,
+          label: s.pseudo,
+          subtitle: `${s.age} ans`,
+          avatarUrl: s.imageUrl,
+        });
+      }
+    }
+    for (const v of profileVisitsVisible) {
+      if (!map.has(v.id)) {
+        map.set(v.id, {
+          id: v.id,
+          label: v.name,
+          subtitle: `${v.age} ans`,
+          avatarUrl: v.avatarUrl,
+        });
+      }
+    }
+    return [...map.values()].sort((a, b) =>
+      a.label.localeCompare(b.label, "fr"),
+    );
+  }, [friends, suggestionsVisible, profileVisitsVisible]);
+
+  const userSearchResults = useMemo(() => {
+    const q = foldSearch(userSearchQuery.trim());
+    if (!q) return [];
+    return searchableUsers.filter((u) => userSearchHaystack(u).includes(q));
+  }, [searchableUsers, userSearchQuery]);
+
+  const handleSearchToggle = useCallback(() => {
+    if (!nelDemoIsPremium) {
+      showToast(t("chatUserSearchPremiumOnly"));
+      return;
+    }
+    setUserSearchOpen((open) => {
+      if (open) setUserSearchQuery("");
+      return !open;
+    });
+  }, [nelDemoIsPremium, showToast, t]);
+
+  const closeUserSearch = useCallback(() => {
+    setUserSearchOpen(false);
+    setUserSearchQuery("");
+  }, []);
+
   return (
     <div className="chat-page">
       {/* Header gradient with favorite conversations */}
@@ -429,45 +513,107 @@ export function ChatPage() {
 
       {/* Sub-tab bar */}
       <div className="sub-tab-bar">
-        <div className="sub-tab-scroll">
-          <SubTabPill
-            label={t("chatMessages")}
-            active={sub === "messages"}
-            onPress={() => setSub("messages")}
-            badge={messagesTabBadge}
-            badgeVariant="red"
-          />
-          <SubTabPill
-            label={t("chatSuggestions")}
-            active={sub === "suggestions"}
-            onPress={() => setSub("suggestions")}
-          />
-          <SubTabPill
-            label={t("chatVisits")}
-            active={sub === "visites"}
-            onPress={() => setSub("visites")}
-            badge={visitesTabBadge}
-            badgeVariant="gold"
-            icon={Eye}
-          />
-        </div>
-        <button className="search-btn-small" aria-label={t("searchButton")}>
-          <Search size={22} color="#8E8E93" />
-        </button>
+        {userSearchOpen && nelDemoIsPremium ? (
+          <div className="chat-user-search-wrap">
+            <Search size={20} color="#8E8E93" aria-hidden />
+            <input
+              ref={userSearchInputRef}
+              type="search"
+              className="chat-user-search-input"
+              placeholder={t("chatUserSearchPlaceholder")}
+              value={userSearchQuery}
+              onChange={(e) => setUserSearchQuery(e.target.value)}
+              aria-label={t("chatUserSearchPlaceholder")}
+            />
+            <button
+              type="button"
+              className="chat-user-search-close"
+              onClick={closeUserSearch}
+              aria-label={t("cancel")}
+            >
+              <X size={22} color="#8E8E93" />
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="sub-tab-scroll">
+              <SubTabPill
+                label={t("chatMessages")}
+                active={sub === "messages"}
+                onPress={() => setSub("messages")}
+                badge={messagesTabBadge}
+                badgeVariant="red"
+              />
+              <SubTabPill
+                label={t("chatSuggestions")}
+                active={sub === "suggestions"}
+                onPress={() => setSub("suggestions")}
+              />
+              <SubTabPill
+                label={t("chatVisits")}
+                active={sub === "visites"}
+                onPress={() => setSub("visites")}
+                badge={visitesTabBadge}
+                badgeVariant="gold"
+                icon={Eye}
+              />
+            </div>
+            <button
+              type="button"
+              className={`search-btn-small${nelDemoIsPremium ? "" : " search-btn-small--locked"}`}
+              aria-label={t("searchButton")}
+              onClick={handleSearchToggle}
+            >
+              {nelDemoIsPremium ? (
+                <Search size={22} color="#8E8E93" />
+              ) : (
+                <Crown size={20} color="#FFD60A" aria-hidden />
+              )}
+            </button>
+          </>
+        )}
       </div>
 
       {/* Content */}
       <div className="chat-content">
-        {sub === "messages" && (
-          <div className="conv-list">
-            {sorted.map((item) => (
-              <ConversationRow key={item.id} item={item} />
-            ))}
+        {userSearchOpen && nelDemoIsPremium ? (
+          <div className="chat-user-search-results">
+            {userSearchQuery.trim() === "" ? (
+              <p className="chat-user-search-hint">{t("chatUserSearchHint")}</p>
+            ) : userSearchResults.length === 0 ? (
+              <p className="chat-user-search-hint">{t("chatUserSearchNoResults")}</p>
+            ) : (
+              userSearchResults.map((u) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  className="chat-user-search-row"
+                  onClick={() => {
+                    closeUserSearch();
+                    openDetail("profile", u.id);
+                  }}
+                >
+                  <img src={u.avatarUrl} alt="" className="chat-user-search-avatar" />
+                  <div className="chat-user-search-text">
+                    <span className="chat-user-search-name">{u.label}</span>
+                    <span className="chat-user-search-sub">{u.subtitle}</span>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
-        )}
+        ) : (
+          <>
+            {sub === "messages" && (
+              <div className="conv-list">
+                {sorted.map((item) => (
+                  <ConversationRow key={item.id} item={item} />
+                ))}
+              </div>
+            )}
 
-        {sub === "visites" && (
-          <div className="visits-list">
+            {sub === "visites" && (
+              <div className="visits-list">
             {/* Premium banner */}
             <div className="premium-banner">
               <div className="premium-banner-icon">
@@ -560,11 +706,11 @@ export function ChatPage() {
                 </button>
               </div>
             ))}
-          </div>
-        )}
+              </div>
+            )}
 
-        {sub === "suggestions" && (
-          <div className="suggestions-masonry">
+            {sub === "suggestions" && (
+              <div className="suggestions-masonry">
             {suggestionColumns.map((col, ci) => (
               <div key={ci} className="suggestion-col">
                 {col.map((item) => {
@@ -622,7 +768,9 @@ export function ChatPage() {
                 })}
               </div>
             ))}
-          </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

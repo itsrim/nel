@@ -1,8 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { LayoutGrid, Map, MapPin, Search, ShieldCheck } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useProsStore } from "../store/useProsStore";
+import { useMessagingStore } from "../store/useMessagingStore";
 import { useTranslation } from "../i18n/useTranslation";
+import { ProsMapView } from "../components/ProsMapView";
+import { mapCenterForCity } from "../lib/proCoordinates";
 import {
   PRO_CATEGORY_OPTIONS,
   proFullName,
@@ -63,6 +66,11 @@ export function ProsPage() {
   const { t } = useTranslation();
   const { openDetail } = useNavigationStore();
   const professionals = useProsStore((s) => s.professionals);
+  const viewerProfileCity = useMessagingStore((s) => s.viewerProfileCity);
+  const mapCenter = useMemo(
+    () => mapCenterForCity(viewerProfileCity),
+    [viewerProfileCity],
+  );
   const [viewMode, setViewMode] = useState<ProsViewMode>("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<ProCategory | "all">("all");
@@ -75,8 +83,15 @@ export function ProsPage() {
     });
   }, [professionals, categoryFilter, searchQuery]);
 
-  const selectedMapPro =
-    filtered.find((p) => p.id === selectedMapId) ?? filtered[0] ?? null;
+  const selectedMapPro = selectedMapId
+    ? (filtered.find((p) => p.id === selectedMapId) ?? null)
+    : null;
+
+  useEffect(() => {
+    if (selectedMapId && !filtered.some((p) => p.id === selectedMapId)) {
+      setSelectedMapId(null);
+    }
+  }, [filtered, selectedMapId]);
 
   const openProProfile = (id: string) => openDetail("pro", id);
 
@@ -155,27 +170,21 @@ export function ProsPage() {
           </div>
         ) : (
           <div className="pros-map-wrap">
-            {filtered.map((pro) => (
-              <button
-                key={pro.id}
-                type="button"
-                className={`pros-map-pin${selectedMapPro?.id === pro.id ? " pros-map-pin--selected" : ""}`}
-                style={{ left: `${pro.mapX}%`, top: `${pro.mapY}%` }}
-                aria-label={proFullName(pro)}
-                onClick={() => {
-                  setSelectedMapId(pro.id);
-                  openProProfile(pro.id);
-                }}
-              >
-                <span className="pros-map-pin-label">{pro.firstName}</span>
-                <span className="pros-map-pin-dot" />
-              </button>
-            ))}
+            <ProsMapView
+              professionals={filtered}
+              selectedId={selectedMapId}
+              mapCenter={mapCenter}
+              onSelect={setSelectedMapId}
+              onDeselect={() => setSelectedMapId(null)}
+            />
             {selectedMapPro ? (
               <button
                 type="button"
                 className="pros-map-card pros-map-card--clickable"
-                onClick={() => openProProfile(selectedMapPro.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openProProfile(selectedMapPro.id);
+                }}
                 aria-label={proFullName(selectedMapPro)}
               >
                 <img

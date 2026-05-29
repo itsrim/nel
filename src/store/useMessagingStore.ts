@@ -46,6 +46,7 @@ export interface EventReminder {
 const LS_VIEWER_AVATAR = "nel_viewer_profile_avatar_url";
 const LS_VIEWER_NAME = "nel_viewer_profile_display_name";
 const LS_VIEWER_IS_PRO = "nel_viewer_profile_is_pro";
+const LS_VIEWER_CITY = "nel_viewer_profile_city";
 const LS_VIEWER_PRO_WEBSITE = "nel_viewer_pro_website_url";
 const LS_VIEWER_PRO_SOCIAL = "nel_viewer_pro_social_url";
 const LS_VIEWER_PRO_PHONE = "nel_viewer_pro_phone";
@@ -126,6 +127,7 @@ function syncViewerSettingsFromState(state: MessagingState) {
     viewerProfileAvatarUrl: state.viewerProfileAvatarUrl,
     viewerProfileDisplayName: state.viewerProfileDisplayName,
     viewerProfileIsPro: state.viewerProfileIsPro,
+    viewerProfileCity: state.viewerProfileCity,
     viewerProWebsiteUrl: state.viewerProWebsiteUrl,
     viewerProSocialUrl: state.viewerProSocialUrl,
     viewerProPhone: state.viewerProPhone,
@@ -153,6 +155,8 @@ interface MessagingState {
   /** Compte professionnel (coche professionnel dans les préférences) */
   viewerProfileIsPro: boolean;
   setViewerProfileIsPro: (value: boolean) => void;
+  viewerProfileCity: string;
+  setViewerProfileCity: (city: string) => void;
   viewerProWebsiteUrl: string;
   setViewerProWebsiteUrl: (url: string) => void;
   viewerProSocialUrl: string;
@@ -200,6 +204,13 @@ interface MessagingState {
   getEventById: (id: string) => Event | undefined;
   getEventByConversationId: (conversationId: string) => Event | undefined;
   sendMessage: (conversationId: string, text: string) => void;
+  /** Crée ou réutilise un fil DM avec un profil (ami, pro, etc.). */
+  openOrCreateDmConversation: (params: {
+    profilId: string;
+    displayName: string;
+    avatarUrl?: string;
+    avatarGradient?: readonly [string, string];
+  }) => string;
   markAsRead: (conversationId: string) => void;
   /** Enregistre l’ouverture du fil (bande favoris triée « dernier ouvert »). */
   recordConversationOpened: (conversationId: string) => void;
@@ -274,6 +285,18 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       /* ignore */
     }
     set({ viewerProfileIsPro: value });
+    syncViewerSettingsFromState(get());
+  },
+
+  viewerProfileCity: readViewerStorage(LS_VIEWER_CITY, ""),
+  setViewerProfileCity: (city) => {
+    const v = city.trim();
+    try {
+      localStorage.setItem(LS_VIEWER_CITY, v);
+    } catch {
+      /* ignore */
+    }
+    set({ viewerProfileCity: v });
     syncViewerSettingsFromState(get());
   },
 
@@ -732,6 +755,74 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     const conv = get().conversations.find((c) => c.id === conversationId);
     if (conv) syncConversationToSheets(conv);
     pushMessageRemote(newMessage);
+  },
+
+  openOrCreateDmConversation: ({
+    profilId,
+    displayName,
+    avatarUrl,
+    avatarGradient,
+  }) => {
+    const state = get();
+    const existing = state.conversations.find(
+      (c) =>
+        c.type === "dm" &&
+        c.members.some((m) => !m.isSelf && m.profilId === profilId),
+    );
+    if (existing) return existing.id;
+
+    const baseId = `dm-${profilId}`;
+    const id = state.conversations.some((c) => c.id === baseId)
+      ? `dm-${profilId}-${Date.now().toString(36)}`
+      : baseId;
+
+    const gradientPool: readonly [string, string][] = [
+      ["#FF6B35", "#FF4081"],
+      ["#9B5DE5", "#C23B8E"],
+      ["#FFC107", "#FF9800"],
+      ["#26C6DA", "#00BFA5"],
+    ];
+    let hash = 0;
+    for (let i = 0; i < profilId.length; i++) hash += profilId.charCodeAt(i);
+    const grad = avatarGradient ?? gradientPool[hash % gradientPool.length];
+
+    const conv: Conversation = {
+      id,
+      title: displayName,
+      type: "dm",
+      lastMessagePreview: "",
+      avatarGradient: grad,
+      unreadCount: 0,
+      updatedAt: Date.now(),
+      isFavorite: false,
+      memberCount: 2,
+      members: [
+        {
+          id: `u-${profilId}`,
+          name: displayName,
+          isSelf: false,
+          profilId,
+          avatarUrl,
+          avatarGradient: grad,
+        },
+        {
+          id: "me",
+          name: "Moi",
+          isSelf: true,
+          avatarGradient: ["#78909C", "#546E7A"],
+        },
+      ],
+    };
+
+    set((s) => ({
+      conversations: [conv, ...s.conversations],
+      messagesByConversation: {
+        ...s.messagesByConversation,
+        [id]: s.messagesByConversation[id] ?? [],
+      },
+    }));
+    syncConversationToSheets(conv);
+    return id;
   },
 
   markAsRead: (conversationId) => {

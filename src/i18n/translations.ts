@@ -189,6 +189,7 @@ export const translations = {
     // Form inputs
     name: "Nom",
     age: "Âge",
+    cityPlaceholder: "Ville (ex. Toulouse)",
     bio: "Bio...",
     placeholder: "Bio...",
 
@@ -371,6 +372,10 @@ export const translations = {
     chatSuggestions: "Suggestions",
     chatVisits: "Visites",
     searchButton: "Rechercher",
+    chatUserSearchPlaceholder: "Rechercher un utilisateur…",
+    chatUserSearchHint: "Saisissez un nom, une ville ou un pseudo.",
+    chatUserSearchNoResults: "Aucun utilisateur ne correspond à votre recherche.",
+    chatUserSearchPremiumOnly: "La recherche d'utilisateurs est réservée aux comptes Premium.",
     premiumFeature: "Fonctionnalité Premium",
     visitsPlaceholder: "personnes ont visité votre profil",
     friendRequestBadge: "Demande d'ami",
@@ -635,6 +640,7 @@ export const translations = {
     // Form inputs
     name: "Name",
     age: "Age",
+    cityPlaceholder: "City (e.g. Toulouse)",
     bio: "Bio...",
     placeholder: "Bio...",
 
@@ -812,6 +818,10 @@ export const translations = {
     chatSuggestions: "Suggestions",
     chatVisits: "Visits",
     searchButton: "Search",
+    chatUserSearchPlaceholder: "Search for a user…",
+    chatUserSearchHint: "Enter a name, city, or username.",
+    chatUserSearchNoResults: "No users match your search.",
+    chatUserSearchPremiumOnly: "User search is available for Premium accounts only.",
     premiumFeature: "Premium Feature",
     visitsPlaceholder: "people visited your profile",
     friendRequestBadge: "Friend request",

@@ -19,6 +19,7 @@ import {
   Trash2,
   LogOut,
   Globe,
+  MapPin,
   FlaskConical,
   ChevronLeft,
   ChevronRight,
@@ -120,6 +121,8 @@ export function ProfilePage() {
     setViewerProfileDisplayName,
     viewerProfileIsPro,
     setViewerProfileIsPro,
+    viewerProfileCity,
+    setViewerProfileCity,
     viewerProWebsiteUrl,
     setViewerProWebsiteUrl,
     viewerProSocialUrl,
@@ -388,6 +391,12 @@ export function ProfilePage() {
                 placeholder={t("age")}
                 className="hero-input hero-input--small"
               />
+              <input
+                value={viewerProfileCity}
+                onChange={(e) => setViewerProfileCity(e.target.value)}
+                placeholder={t("cityPlaceholder")}
+                className="hero-input hero-input--small"
+              />
             </div>
           )}
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
@@ -423,6 +432,12 @@ export function ProfilePage() {
             <Calendar size={16} color="#8E8E93" />
             <span>{t("memberSince")}</span>
           </div>
+          {!editing && viewerProfileCity.trim() ? (
+            <div className="member-since">
+              <MapPin size={16} color="#8E8E93" />
+              <span>{viewerProfileCity.trim()}</span>
+            </div>
+          ) : null}
           {viewerProfileIsPro && !editing ? (
             <ProContactLinks
               contact={{

@@ -8,6 +8,7 @@ export function resolveMemberPhotoUrl(
 ): string | undefined {
   if (!member) return undefined;
   if (member.isSelf) return viewerProfileAvatarUrl;
+  if (member.avatarUrl?.trim()) return member.avatarUrl.trim();
   if (member.profilId) {
     return friends.find((f) => f.profilId === member.profilId)?.imageUrl;
   }

@@ -26,8 +26,8 @@ interface ProProfilePageProps {
 
 export function ProProfilePage({ id }: ProProfilePageProps) {
   const { t } = useTranslation();
-  const { closeDetail } = useNavigationStore();
-  const { showToast } = useMessagingStore();
+  const { openDetail, setActiveTab, closeDetail } = useNavigationStore();
+  const { openOrCreateDmConversation } = useMessagingStore();
   const [reportOpen, setReportOpen] = useState(false);
 
   const pro = getProfessionalById(id);
@@ -35,6 +35,16 @@ export function ProProfilePage({ id }: ProProfilePageProps) {
 
   const stats = proDemoStats(pro.id);
   const name = proFullName(pro);
+
+  const handleContact = () => {
+    const conversationId = openOrCreateDmConversation({
+      profilId: pro.id,
+      displayName: name,
+      avatarUrl: pro.imageUrl,
+    });
+    setActiveTab("chat");
+    openDetail("chat", conversationId);
+  };
 
   return (
     <div className="other-profile-page pro-profile-page">
@@ -125,7 +135,7 @@ export function ProProfilePage({ id }: ProProfilePageProps) {
         <button
           type="button"
           className="pro-profile-contact-btn"
-          onClick={() => showToast(t("proContactSoon"))}
+          onClick={handleContact}
         >
           <MessageCircle size={20} aria-hidden />
           {t("proContactButton")}

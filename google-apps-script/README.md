@@ -33,7 +33,7 @@ userId,id,pseudo,age,imageUrl,aspectRatio,deleted
 
 ### `viewer_settings` (profil connecté — avatar, email vérifié, préférences)
 ```
-userId,id,email,emailVerified,avatarUrl,displayName,isPro,websiteUrl,socialUrl,phone,friendRequestSentJson,friendRequestRejectedJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
+userId,id,email,emailVerified,avatarUrl,displayName,isPro,city,websiteUrl,socialUrl,phone,friendRequestSentJson,friendRequestRejectedJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
 ```
 
 ### `profile_visits`
@@ -53,7 +53,7 @@ userId,id,createdAt,kind,subjectId,subjectLabel,explanation,read,deleted
 
 ### `professionals` (annuaire global — sans `userId`)
 ```
-id,firstName,lastName,category,categoryLabel,city,description,imageUrl,mapX,mapY,verified,websiteUrl,socialUrl,phone,deleted
+id,firstName,lastName,category,categoryLabel,city,description,imageUrl,mapX,mapY,lat,lng,verified,websiteUrl,socialUrl,phone,deleted
 ```
 
 Partager le sheet en **« Toute personne disposant du lien → Lecteur »**.

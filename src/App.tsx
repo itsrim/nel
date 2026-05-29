@@ -115,6 +115,9 @@ function App() {
       if (patch.viewerProPhone != null) {
         msg.setViewerProPhone(patch.viewerProPhone);
       }
+      if (patch.viewerProfileCity != null) {
+        msg.setViewerProfileCity(patch.viewerProfileCity);
+      }
       if (loaded.viewerSettings?.emailVerified) {
         const authUser = useAuthStore.getState().user;
         if (authUser) {
