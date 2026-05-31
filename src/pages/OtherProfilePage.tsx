@@ -18,6 +18,7 @@ import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
 import { ReportModal } from '../components/ReportModal';
 import { ProContactLinks } from '../components/ProContactLinks';
+import { ProfileBadgesSection } from '../components/ProfileBadgesSection';
 import { isEventDateBeforeToday } from '../lib/eventDateKey';
 import { formatBadgeCount } from '../data/mockData';
 import type { Event } from '../data/mockData';
@@ -46,6 +47,7 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
     events,
     conversations,
     toggleEventFavorite,
+    updateProfileBadges,
   } = useMessagingStore();
 
   const [reportOpen, setReportOpen] = useState(false);
@@ -62,6 +64,9 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
   if (!profile) return null;
 
   const friendRecord = friends.find((f) => f.profilId === id);
+  const profileBadges = friendRecord?.badges?.length
+    ? friendRecord.badges
+    : ((profile as { badges?: string[] }).badges ?? ['Pionnier']);
   const isMutualFriend = friendRecord?.mutualFriend === true;
   const requestSent = friendRequestSentProfilIds.includes(id);
   const requestRejected = friendRequestRejectedProfilIds.includes(id);
@@ -201,14 +206,13 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
         </div>
 
         <h2 className="op-section-title">Badges</h2>
-        <div className="op-badges-wrap">
-          {((profile as { badges?: string[] }).badges || ['Pionnier']).map((b: string) => (
-            <div key={b} className="op-badge-pill">
-              <Award size={16} color="#FFB300" />
-              <span>{b}</span>
-            </div>
-          ))}
-        </div>
+        <ProfileBadgesSection
+          badges={profileBadges}
+          editable={nelDemoIsAdmin}
+          onChange={(next) => updateProfileBadges(id, next)}
+          className="op-badges-wrap"
+          chipClassName="op-badge-pill"
+        />
 
         {showInsightTabs ? (
           <>

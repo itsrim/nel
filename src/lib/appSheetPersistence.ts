@@ -434,6 +434,7 @@ export interface ViewerSettingsRow {
   favoriteConversationIdsJson: string;
   moderationHiddenEventIdsJson: string;
   moderationHiddenProfilIdsJson: string;
+  badgesJson?: string;
 }
 
 export function viewerSettingsToRow(
@@ -453,6 +454,7 @@ export function viewerSettingsToRow(
     favoriteConversationIds: string[];
     moderationHiddenEventIds: string[];
     moderationHiddenProfilIds: string[];
+    viewerProfileBadges?: string[];
   },
 ): Record<string, string> {
   return {
@@ -472,6 +474,7 @@ export function viewerSettingsToRow(
     favoriteConversationIdsJson: jsonToSheet(data.favoriteConversationIds),
     moderationHiddenEventIdsJson: jsonToSheet(data.moderationHiddenEventIds),
     moderationHiddenProfilIdsJson: jsonToSheet(data.moderationHiddenProfilIds),
+    badgesJson: jsonToSheet(data.viewerProfileBadges ?? []),
     deleted: "false",
   };
 }
@@ -562,6 +565,7 @@ export interface LoadedAppSheetState {
     favoriteConversationIds: string[];
     moderationHiddenEventIds: string[];
     moderationHiddenProfilIds: string[];
+    viewerProfileBadges?: string[];
   };
   hasRemoteData: boolean;
 }
@@ -683,6 +687,7 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
           favoriteConversationIds: jsonFromSheet(viewerRow.favoriteConversationIdsJson, []),
           moderationHiddenEventIds: jsonFromSheet(viewerRow.moderationHiddenEventIdsJson, []),
           moderationHiddenProfilIds: jsonFromSheet(viewerRow.moderationHiddenProfilIdsJson, []),
+          viewerProfileBadges: jsonFromSheet(viewerRow.badgesJson, []),
         }
       : undefined,
     hasRemoteData,
@@ -709,6 +714,7 @@ export function mergeLoadedAppState(
   viewerProfileAvatarUrl?: string;
   viewerProfileDisplayName?: string;
   viewerProfileIsPro?: boolean;
+  viewerProfileBadges?: string[];
   viewerProfileCity?: string;
   viewerProWebsiteUrl?: string;
   viewerProSocialUrl?: string;
@@ -750,6 +756,9 @@ export function mergeLoadedAppState(
     if (vs.avatarUrl) patch.viewerProfileAvatarUrl = vs.avatarUrl;
     if (vs.displayName) patch.viewerProfileDisplayName = vs.displayName;
     patch.viewerProfileIsPro = vs.isPro;
+    if (vs.viewerProfileBadges?.length) {
+      patch.viewerProfileBadges = vs.viewerProfileBadges;
+    }
     if (vs.city != null) patch.viewerProfileCity = vs.city;
     if (vs.websiteUrl != null) patch.viewerProWebsiteUrl = vs.websiteUrl;
     if (vs.socialUrl != null) patch.viewerProSocialUrl = vs.socialUrl;
@@ -870,6 +879,7 @@ export function syncAllViewerStateFromStore(state: {
   viewerProfileAvatarUrl: string;
   viewerProfileDisplayName: string;
   viewerProfileIsPro: boolean;
+  viewerProfileBadges: string[];
   viewerProfileCity?: string;
   viewerProWebsiteUrl?: string;
   viewerProSocialUrl?: string;
@@ -886,6 +896,7 @@ export function syncAllViewerStateFromStore(state: {
     avatarUrl: state.viewerProfileAvatarUrl,
     displayName: state.viewerProfileDisplayName,
     isPro: state.viewerProfileIsPro,
+    viewerProfileBadges: state.viewerProfileBadges,
     city: state.viewerProfileCity,
     websiteUrl: state.viewerProWebsiteUrl,
     socialUrl: state.viewerProSocialUrl,

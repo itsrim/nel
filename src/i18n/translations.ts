@@ -33,6 +33,9 @@ export const translations = {
 
     // Profile sections
     badges: "Badges",
+    badgeAddPlaceholder: "Nouveau badge…",
+    badgeAddAria: "Ajouter un badge",
+    badgeRemoveAria: "Retirer le badge",
     reliability: "Fiabilité",
     upcoming: "À venir",
     noShows: "No-shows",
@@ -487,6 +490,9 @@ export const translations = {
 
     // Profile sections
     badges: "Badges",
+    badgeAddPlaceholder: "Nouveau badge…",
+    badgeAddAria: "Ajouter un badge",
+    badgeRemoveAria: "Retirer le badge",
     reliability: "Reliability",
     upcoming: "Upcoming",
     noShows: "No-shows",

@@ -33,7 +33,7 @@ userId,id,pseudo,age,imageUrl,aspectRatio,deleted
 
 ### `viewer_settings` (profil connecté — avatar, email vérifié, préférences)
 ```
-userId,id,email,emailVerified,avatarUrl,displayName,isPro,city,websiteUrl,socialUrl,phone,friendRequestSentJson,friendRequestRejectedJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
+userId,id,email,emailVerified,avatarUrl,displayName,isPro,city,websiteUrl,socialUrl,phone,badgesJson,friendRequestSentJson,friendRequestRejectedJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
 ```
 
 ### `profile_visits`

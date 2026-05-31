@@ -38,6 +38,7 @@ import {
 import { withUrlUploadVersion } from "../lib/versionRemoteAssetUrl";
 import { formatBadgeCount } from "../data/mockData";
 import { ProContactLinks } from "../components/ProContactLinks";
+import { ProfileBadgesSection } from "../components/ProfileBadgesSection";
 import "../components/ProContactLinks.css";
 import { isEventDateBeforeToday, parseDateKeyLocal, todayDateKey, toDateKey } from "../lib/eventDateKey";
 import "./ProfilePage.css";
@@ -129,6 +130,8 @@ export function ProfilePage() {
     setViewerProSocialUrl,
     viewerProPhone,
     setViewerProPhone,
+    viewerProfileBadges,
+    setViewerProfileBadges,
     eventReminders,
     sendEventReminder,
     conversations,
@@ -308,13 +311,6 @@ export function ProfilePage() {
       input.value = "";
     }
   };
-
-  const badges = [
-    { id: "punctual", label: "Ponctuel", icon: Award },
-    { id: "organizer", label: "Organisateur", icon: Award },
-    { id: "friendly", label: "Amical", icon: Award },
-    { id: "explorer", label: "Explorateur", icon: Award },
-  ];
 
   return (
     <div className="profile-page">
@@ -518,16 +514,11 @@ export function ProfilePage() {
 
         {/* Badges */}
         <div className="section-title">{t("badges")}</div>
-        <div className="badges-grid">
-          {badges.map((b) => (
-            <div key={b.id} className="badge-chip">
-              <span>{b.label}</span>
-            </div>
-          ))}
-          <div className="badge-chip badge-chip--add">
-            <Plus size={14} />
-          </div>
-        </div>
+        <ProfileBadgesSection
+          badges={viewerProfileBadges}
+          editable={nelDemoIsAdmin}
+          onChange={setViewerProfileBadges}
+        />
 
         {/* Stats */}
         <div className="stats-row">

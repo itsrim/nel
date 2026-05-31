@@ -31,6 +31,7 @@ import {
   syncReportDeleteToSheets,
   syncReportToSheets,
 } from "../lib/appSheetPersistence";
+import { DEFAULT_VIEWER_BADGES } from "../constants/profileBadges";
 
 export interface EventReminder {
   id: string;
@@ -50,6 +51,7 @@ const LS_VIEWER_CITY = "nel_viewer_profile_city";
 const LS_VIEWER_PRO_WEBSITE = "nel_viewer_pro_website_url";
 const LS_VIEWER_PRO_SOCIAL = "nel_viewer_pro_social_url";
 const LS_VIEWER_PRO_PHONE = "nel_viewer_pro_phone";
+const LS_VIEWER_BADGES = "nel_viewer_profile_badges";
 const DEFAULT_VIEWER_AVATAR =
   "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800";
 const DEFAULT_VIEWER_NAME = "Jean J.";
@@ -61,6 +63,19 @@ function readViewerStorage(key: string, fallback: string): string {
     return v != null && v.trim() !== "" ? v.trim() : fallback;
   } catch {
     return fallback;
+  }
+}
+
+function readViewerBadges(): string[] {
+  if (typeof window === "undefined") return [...DEFAULT_VIEWER_BADGES];
+  try {
+    const raw = localStorage.getItem(LS_VIEWER_BADGES);
+    if (!raw) return [...DEFAULT_VIEWER_BADGES];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [...DEFAULT_VIEWER_BADGES];
+    return parsed.filter((b): b is string => typeof b === "string" && b.trim() !== "");
+  } catch {
+    return [...DEFAULT_VIEWER_BADGES];
   }
 }
 
@@ -127,6 +142,7 @@ function syncViewerSettingsFromState(state: MessagingState) {
     viewerProfileAvatarUrl: state.viewerProfileAvatarUrl,
     viewerProfileDisplayName: state.viewerProfileDisplayName,
     viewerProfileIsPro: state.viewerProfileIsPro,
+    viewerProfileBadges: state.viewerProfileBadges,
     viewerProfileCity: state.viewerProfileCity,
     viewerProWebsiteUrl: state.viewerProWebsiteUrl,
     viewerProSocialUrl: state.viewerProSocialUrl,
@@ -155,6 +171,10 @@ interface MessagingState {
   /** Compte professionnel (coche professionnel dans les préférences) */
   viewerProfileIsPro: boolean;
   setViewerProfileIsPro: (value: boolean) => void;
+  viewerProfileBadges: string[];
+  setViewerProfileBadges: (badges: string[]) => void;
+  /** Admin : badges d’un profil (onglet profiles / Sheets). */
+  updateProfileBadges: (profilId: string, badges: string[]) => void;
   viewerProfileCity: string;
   setViewerProfileCity: (city: string) => void;
   viewerProWebsiteUrl: string;
@@ -286,6 +306,53 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     }
     set({ viewerProfileIsPro: value });
     syncViewerSettingsFromState(get());
+  },
+
+  viewerProfileBadges: readViewerBadges(),
+  setViewerProfileBadges: (badges) => {
+    const next = badges.map((b) => b.trim()).filter(Boolean);
+    try {
+      localStorage.setItem(LS_VIEWER_BADGES, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+    set({ viewerProfileBadges: next });
+    syncViewerSettingsFromState(get());
+  },
+
+  updateProfileBadges: (profilId, badges) => {
+    const id = profilId.trim();
+    if (!id) return;
+    const next = badges.map((b) => b.trim()).filter(Boolean);
+    set((state) => {
+      const idx = state.friends.findIndex((f) => f.profilId === id);
+      if (idx >= 0) {
+        const friends = [...state.friends];
+        friends[idx] = { ...friends[idx], badges: next };
+        return { friends };
+      }
+      const sug = state.suggestions.find((s) => s.id === id);
+      const visit = state.profileVisits.find((v) => v.id === id);
+      const label = sug?.pseudo ?? visit?.name ?? id;
+      const imageUrl = sug?.imageUrl ?? visit?.avatarUrl ?? "";
+      const age = sug?.age ?? visit?.age ?? null;
+      const bootstrap: Friend = {
+        profilId: id,
+        name: label,
+        pseudo: label,
+        age,
+        city: "",
+        imageUrl,
+        eventsInCommon: 0,
+        mainChatConversationId: "",
+        badges: next,
+        mutualFriend: false,
+      };
+      return { friends: [...state.friends, bootstrap] };
+    });
+    const updated = get().friends.find((f) => f.profilId === id);
+    if (updated) syncFriendToSheets(updated);
+    get().showToast("Badges mis à jour.");
   },
 
   viewerProfileCity: readViewerStorage(LS_VIEWER_CITY, ""),

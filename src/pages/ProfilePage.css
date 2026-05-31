@@ -301,6 +301,8 @@
   font-size: 13px;
   font-weight: 700;
   border: 1px solid rgba(255,255,255,0.05);
+  display: inline-flex;
+  align-items: center;
 }
 
 .badge-chip--add {
@@ -310,6 +312,58 @@
     align-items: center;
     justify-content: center;
     padding: 0;
+    border: none;
+    cursor: pointer;
+}
+
+.badge-chip--input {
+  padding: 4px 8px;
+  min-width: 120px;
+}
+
+.badge-chip-input {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  width: 100%;
+  min-width: 100px;
+  outline: none;
+}
+
+.badge-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  padding: 0;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.badge-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -12px 0 24px;
+}
+
+.badge-suggestion-btn {
+  background: rgba(255, 214, 10, 0.12);
+  border: 1px solid rgba(255, 214, 10, 0.25);
+  color: #FFD60A;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 8px;
+  cursor: pointer;
 }
 
 /* ── Stats ── */

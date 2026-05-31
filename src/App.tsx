@@ -118,6 +118,9 @@ function App() {
       if (patch.viewerProfileCity != null) {
         msg.setViewerProfileCity(patch.viewerProfileCity);
       }
+      if (patch.viewerProfileBadges != null) {
+        msg.setViewerProfileBadges(patch.viewerProfileBadges);
+      }
       if (loaded.viewerSettings?.emailVerified) {
         const authUser = useAuthStore.getState().user;
         if (authUser) {
