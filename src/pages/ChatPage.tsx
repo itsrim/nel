@@ -567,7 +567,15 @@ export function ChatPage() {
               {nelDemoIsPremium ? (
                 <Search size={22} color="#8E8E93" />
               ) : (
-                <Crown size={20} color="#FFD60A" aria-hidden />
+                <>
+                  <Search
+                    size={22}
+                    color="#8E8E93"
+                    className="search-btn-small-icon--disabled"
+                    aria-hidden
+                  />
+                  <Crown size={20} color="#FFD60A" aria-hidden />
+                </>
               )}
             </button>
           </>

@@ -267,7 +267,11 @@
 }
 
 .search-btn-small--locked {
-  opacity: 0.85;
+  gap: 4px;
+}
+
+.search-btn-small-icon--disabled {
+  opacity: 0.35;
 }
 
 .chat-user-search-wrap {
