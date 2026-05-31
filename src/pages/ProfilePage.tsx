@@ -39,6 +39,10 @@ import { withUrlUploadVersion } from "../lib/versionRemoteAssetUrl";
 import { formatBadgeCount } from "../data/mockData";
 import { ProContactLinks } from "../components/ProContactLinks";
 import { ProfileBadgesSection } from "../components/ProfileBadgesSection";
+import { SubscriptionCheckoutModal } from "../components/SubscriptionCheckoutModal";
+import { SubscriptionSettingActions } from "../components/SubscriptionSettingActions";
+import { isAdminAccount } from "../lib/accountRoles";
+import type { SubscriptionPlan } from "../lib/subscriptionPayment";
 import "../components/ProContactLinks.css";
 import { isEventDateBeforeToday, parseDateKeyLocal, todayDateKey, toDateKey } from "../lib/eventDateKey";
 import "./ProfilePage.css";
@@ -111,7 +115,10 @@ export function ProfilePage() {
     nelDemoIsAdmin,
     setNelDemoIsAdmin,
     nelDemoIsPremium,
-    setNelDemoIsPremium,
+    viewerPremiumExpiresAt,
+    viewerProExpiresAt,
+    activateViewerSubscription,
+    cancelViewerSubscription,
     adminReports,
     markAllAdminReportsRead,
     dismissAdminReport,
@@ -132,6 +139,7 @@ export function ProfilePage() {
     setViewerProPhone,
     viewerProfileBadges,
     setViewerProfileBadges,
+    showToast,
     eventReminders,
     sendEventReminder,
     conversations,
@@ -187,6 +195,8 @@ export function ProfilePage() {
   }, [activeTab]);
   const [editing, setEditing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlan | null>(null);
+  const userIsAdmin = isAdminAccount(user);
 
   // Mock user state (nom + photo partagés avec EventDetail / création de sortie)
   const [age, setAge] = useState("28");
@@ -311,6 +321,30 @@ export function ProfilePage() {
       input.value = "";
     }
   };
+
+  const handleSubscriptionSuccess = (plan: SubscriptionPlan) => {
+    activateViewerSubscription(plan);
+    if (plan === "premium") {
+      showToast(t("paymentSuccessPremium"));
+    } else {
+      if (user) setUser({ ...user, isPro: true });
+      showToast(t("paymentSuccessPro"));
+    }
+    setCheckoutPlan(null);
+  };
+
+  const handleCancelSubscription = (plan: SubscriptionPlan) => {
+    if (!window.confirm(t("cancelSubscriptionConfirm"))) return;
+    cancelViewerSubscription(plan);
+    if (plan === "pro" && user) setUser({ ...user, isPro: false });
+    showToast(
+      plan === "premium"
+        ? t("subscriptionCancelledPremium")
+        : t("subscriptionCancelledPro"),
+    );
+  };
+
+  const subscriptionLocale = language === "en" ? "en-GB" : "fr-FR";
 
   return (
     <div className="profile-page">
@@ -1018,11 +1052,14 @@ export function ProfilePage() {
                     <div className="setting-label">{t("premium")}</div>
                     <div className="setting-sub">{t("premiumSub")}</div>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={nelDemoIsPremium}
-                    onChange={(e) => setNelDemoIsPremium(e.target.checked)}
-                    className="switch"
+                  <SubscriptionSettingActions
+                    plan="premium"
+                    active={nelDemoIsPremium}
+                    expiresAt={viewerPremiumExpiresAt}
+                    priceLabel={t("premiumPrice")}
+                    locale={subscriptionLocale}
+                    onSubscribe={() => setCheckoutPlan("premium")}
+                    onCancel={() => handleCancelSubscription("premium")}
                   />
                 </div>
                 <div className="setting-item">
@@ -1033,19 +1070,17 @@ export function ProfilePage() {
                     <div className="setting-label">{t("professional")}</div>
                     <div className="setting-sub">{t("professionalSub")}</div>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={viewerProfileIsPro}
-                    onChange={(e) => {
-                      const val = e.target.checked;
-                      setViewerProfileIsPro(val);
-                      if (user) {
-                        setUser({ ...user, isPro: val });
-                      }
-                    }}
-                    className="switch"
+                  <SubscriptionSettingActions
+                    plan="pro"
+                    active={viewerProfileIsPro}
+                    expiresAt={viewerProExpiresAt}
+                    priceLabel={t("proPrice")}
+                    locale={subscriptionLocale}
+                    onSubscribe={() => setCheckoutPlan("pro")}
+                    onCancel={() => handleCancelSubscription("pro")}
                   />
                 </div>
+                {userIsAdmin ? (
                 <div className="setting-item">
                   <div className="setting-icon pink">
                     <Shield size={20} color="#fff" />
@@ -1061,6 +1096,7 @@ export function ProfilePage() {
                     className="switch"
                   />
                 </div>
+                ) : null}
                 <div className="setting-item">
                   <div className="setting-icon blue">
                     <Globe size={20} />
@@ -1104,6 +1140,14 @@ export function ProfilePage() {
           </div>
         </div>
       )}
+
+      {checkoutPlan ? (
+        <SubscriptionCheckoutModal
+          plan={checkoutPlan}
+          onClose={() => setCheckoutPlan(null)}
+          onSuccess={handleSubscriptionSuccess}
+        />
+      ) : null}
     </div>
   );
 }

@@ -121,6 +121,19 @@ function App() {
       if (patch.viewerProfileBadges != null) {
         msg.setViewerProfileBadges(patch.viewerProfileBadges);
       }
+      if (patch.nelDemoIsPremium != null) {
+        msg.setNelDemoIsPremium(patch.nelDemoIsPremium);
+      }
+      if (patch.viewerPremiumExpiresAt !== undefined) {
+        useMessagingStore.setState({
+          viewerPremiumExpiresAt: patch.viewerPremiumExpiresAt,
+        });
+      }
+      if (patch.viewerProExpiresAt !== undefined) {
+        useMessagingStore.setState({
+          viewerProExpiresAt: patch.viewerProExpiresAt,
+        });
+      }
       if (loaded.viewerSettings?.emailVerified) {
         const authUser = useAuthStore.getState().user;
         if (authUser) {

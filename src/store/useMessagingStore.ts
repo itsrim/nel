@@ -32,6 +32,13 @@ import {
   syncReportToSheets,
 } from "../lib/appSheetPersistence";
 import { DEFAULT_VIEWER_BADGES } from "../constants/profileBadges";
+import {
+  isSubscriptionStillValid,
+  nextSubscriptionEnd,
+  readStoredTimestamp,
+  writeStoredTimestamp,
+} from "../lib/subscriptionDates";
+import type { SubscriptionPlan } from "../lib/subscriptionPayment";
 
 export interface EventReminder {
   id: string;
@@ -52,6 +59,9 @@ const LS_VIEWER_PRO_WEBSITE = "nel_viewer_pro_website_url";
 const LS_VIEWER_PRO_SOCIAL = "nel_viewer_pro_social_url";
 const LS_VIEWER_PRO_PHONE = "nel_viewer_pro_phone";
 const LS_VIEWER_BADGES = "nel_viewer_profile_badges";
+const LS_VIEWER_PREMIUM = "nel_viewer_premium";
+const LS_VIEWER_PREMIUM_EXPIRES = "nel_viewer_premium_expires_at";
+const LS_VIEWER_PRO_EXPIRES = "nel_viewer_pro_expires_at";
 const DEFAULT_VIEWER_AVATAR =
   "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800";
 const DEFAULT_VIEWER_NAME = "Jean J.";
@@ -63,6 +73,50 @@ function readViewerStorage(key: string, fallback: string): string {
     return v != null && v.trim() !== "" ? v.trim() : fallback;
   } catch {
     return fallback;
+  }
+}
+
+function readViewerPremiumState(): { active: boolean; expiresAt: number | null } {
+  const expiresAt = readStoredTimestamp(LS_VIEWER_PREMIUM_EXPIRES);
+  if (expiresAt != null) {
+    const active = isSubscriptionStillValid(expiresAt);
+    if (!active) {
+      writeStoredTimestamp(LS_VIEWER_PREMIUM_EXPIRES, null);
+      try {
+        localStorage.setItem(LS_VIEWER_PREMIUM, "false");
+      } catch {
+        /* ignore */
+      }
+    }
+    return { active, expiresAt: active ? expiresAt : null };
+  }
+  const legacy = readViewerPremium();
+  return { active: legacy, expiresAt: null };
+}
+
+function readViewerProState(isProFlag: boolean): { active: boolean; expiresAt: number | null } {
+  const expiresAt = readStoredTimestamp(LS_VIEWER_PRO_EXPIRES);
+  if (expiresAt != null) {
+    const active = isSubscriptionStillValid(expiresAt);
+    if (!active) {
+      writeStoredTimestamp(LS_VIEWER_PRO_EXPIRES, null);
+      try {
+        localStorage.setItem(LS_VIEWER_IS_PRO, "false");
+      } catch {
+        /* ignore */
+      }
+    }
+    return { active, expiresAt: active ? expiresAt : null };
+  }
+  return { active: isProFlag, expiresAt: null };
+}
+
+function readViewerPremium(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(LS_VIEWER_PREMIUM) === "true";
+  } catch {
+    return false;
   }
 }
 
@@ -142,6 +196,9 @@ function syncViewerSettingsFromState(state: MessagingState) {
     viewerProfileAvatarUrl: state.viewerProfileAvatarUrl,
     viewerProfileDisplayName: state.viewerProfileDisplayName,
     viewerProfileIsPro: state.viewerProfileIsPro,
+    nelDemoIsPremium: state.nelDemoIsPremium,
+    viewerPremiumExpiresAt: state.viewerPremiumExpiresAt,
+    viewerProExpiresAt: state.viewerProExpiresAt,
     viewerProfileBadges: state.viewerProfileBadges,
     viewerProfileCity: state.viewerProfileCity,
     viewerProWebsiteUrl: state.viewerProWebsiteUrl,
@@ -162,6 +219,10 @@ interface MessagingState {
   /** Synchronisé avec l’interrupteur « Premium » du profil (aperçu nel). */
   nelDemoIsPremium: boolean;
   setNelDemoIsPremium: (value: boolean) => void;
+  viewerPremiumExpiresAt: number | null;
+  viewerProExpiresAt: number | null;
+  activateViewerSubscription: (plan: SubscriptionPlan) => void;
+  cancelViewerSubscription: (plan: SubscriptionPlan) => void;
   /** Photo de profil (hero) — même source que l’onglet Profil, persistée. */
   viewerProfileAvatarUrl: string;
   setViewerProfileAvatarUrl: (url: string) => void;
@@ -262,11 +323,76 @@ interface MessagingState {
   markEventReminderAsRead: (reminderId: string) => void;
 }
 
-export const useMessagingStore = create<MessagingState>((set, get) => ({
-  nelDemoIsAdmin: true,
+export const useMessagingStore = create<MessagingState>((set, get) => {
+  const premiumInit = readViewerPremiumState();
+  const proInit = readViewerProState(
+    typeof window !== "undefined"
+      ? localStorage.getItem(LS_VIEWER_IS_PRO) === "true"
+      : false,
+  );
+
+  return {
+  nelDemoIsAdmin: false,
   setNelDemoIsAdmin: (value) => set({ nelDemoIsAdmin: value }),
-  nelDemoIsPremium: true,
-  setNelDemoIsPremium: (value) => set({ nelDemoIsPremium: value }),
+  nelDemoIsPremium: premiumInit.active,
+  viewerPremiumExpiresAt: premiumInit.expiresAt,
+  viewerProExpiresAt: proInit.expiresAt,
+  setNelDemoIsPremium: (value) => {
+    try {
+      localStorage.setItem(LS_VIEWER_PREMIUM, String(value));
+      if (!value) writeStoredTimestamp(LS_VIEWER_PREMIUM_EXPIRES, null);
+    } catch {
+      /* ignore */
+    }
+    set({
+      nelDemoIsPremium: value,
+      viewerPremiumExpiresAt: value ? get().viewerPremiumExpiresAt : null,
+    });
+    syncViewerSettingsFromState(get());
+  },
+
+  activateViewerSubscription: (plan) => {
+    const expiresAt = nextSubscriptionEnd();
+    if (plan === "premium") {
+      try {
+        localStorage.setItem(LS_VIEWER_PREMIUM, "true");
+        writeStoredTimestamp(LS_VIEWER_PREMIUM_EXPIRES, expiresAt);
+      } catch {
+        /* ignore */
+      }
+      set({ nelDemoIsPremium: true, viewerPremiumExpiresAt: expiresAt });
+    } else {
+      try {
+        localStorage.setItem(LS_VIEWER_IS_PRO, "true");
+        writeStoredTimestamp(LS_VIEWER_PRO_EXPIRES, expiresAt);
+      } catch {
+        /* ignore */
+      }
+      set({ viewerProfileIsPro: true, viewerProExpiresAt: expiresAt });
+    }
+    syncViewerSettingsFromState(get());
+  },
+
+  cancelViewerSubscription: (plan) => {
+    if (plan === "premium") {
+      try {
+        localStorage.setItem(LS_VIEWER_PREMIUM, "false");
+        writeStoredTimestamp(LS_VIEWER_PREMIUM_EXPIRES, null);
+      } catch {
+        /* ignore */
+      }
+      set({ nelDemoIsPremium: false, viewerPremiumExpiresAt: null });
+    } else {
+      try {
+        localStorage.setItem(LS_VIEWER_IS_PRO, "false");
+        writeStoredTimestamp(LS_VIEWER_PRO_EXPIRES, null);
+      } catch {
+        /* ignore */
+      }
+      set({ viewerProfileIsPro: false, viewerProExpiresAt: null });
+    }
+    syncViewerSettingsFromState(get());
+  },
 
   viewerProfileAvatarUrl: readViewerStorage(
     LS_VIEWER_AVATAR,
@@ -297,7 +423,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
     syncViewerSettingsFromState(get());
   },
 
-  viewerProfileIsPro: typeof window !== "undefined" ? localStorage.getItem(LS_VIEWER_IS_PRO) === "true" : false,
+  viewerProfileIsPro: proInit.active,
   setViewerProfileIsPro: (value) => {
     try {
       localStorage.setItem(LS_VIEWER_IS_PRO, String(value));
@@ -1159,7 +1285,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       ),
     }));
   },
-}));
+};
+});
 
 function initLocalChatHistory() {
   void (async () => {

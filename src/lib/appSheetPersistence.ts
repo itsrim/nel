@@ -445,6 +445,9 @@ export function viewerSettingsToRow(
     avatarUrl: string;
     displayName: string;
     isPro: boolean;
+    isPremium?: boolean;
+    premiumExpiresAt?: number | null;
+    proExpiresAt?: number | null;
     city?: string;
     websiteUrl?: string;
     socialUrl?: string;
@@ -465,6 +468,10 @@ export function viewerSettingsToRow(
     avatarUrl: data.avatarUrl,
     displayName: data.displayName,
     isPro: boolToSheet(data.isPro),
+    isPremium: boolToSheet(data.isPremium),
+    premiumExpiresAt:
+      data.premiumExpiresAt != null ? String(data.premiumExpiresAt) : "",
+    proExpiresAt: data.proExpiresAt != null ? String(data.proExpiresAt) : "",
     city: str(data.city),
     websiteUrl: str(data.websiteUrl),
     socialUrl: str(data.socialUrl),
@@ -556,6 +563,9 @@ export interface LoadedAppSheetState {
     avatarUrl: string;
     displayName: string;
     isPro: boolean;
+    isPremium?: boolean;
+    premiumExpiresAt?: number | null;
+    proExpiresAt?: number | null;
     city?: string;
     websiteUrl?: string;
     socialUrl?: string;
@@ -678,6 +688,13 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
           avatarUrl: viewerRow.avatarUrl ?? "",
           displayName: viewerRow.displayName ?? "",
           isPro: boolFromSheet(viewerRow.isPro),
+          isPremium: boolFromSheet(viewerRow.isPremium),
+          premiumExpiresAt: viewerRow.premiumExpiresAt
+            ? numFromSheet(viewerRow.premiumExpiresAt, 0) || null
+            : null,
+          proExpiresAt: viewerRow.proExpiresAt
+            ? numFromSheet(viewerRow.proExpiresAt, 0) || null
+            : null,
           city: str(viewerRow.city) || undefined,
           websiteUrl: str(viewerRow.websiteUrl) || undefined,
           socialUrl: str(viewerRow.socialUrl) || undefined,
@@ -714,6 +731,9 @@ export function mergeLoadedAppState(
   viewerProfileAvatarUrl?: string;
   viewerProfileDisplayName?: string;
   viewerProfileIsPro?: boolean;
+  nelDemoIsPremium?: boolean;
+  viewerPremiumExpiresAt?: number | null;
+  viewerProExpiresAt?: number | null;
   viewerProfileBadges?: string[];
   viewerProfileCity?: string;
   viewerProWebsiteUrl?: string;
@@ -756,6 +776,13 @@ export function mergeLoadedAppState(
     if (vs.avatarUrl) patch.viewerProfileAvatarUrl = vs.avatarUrl;
     if (vs.displayName) patch.viewerProfileDisplayName = vs.displayName;
     patch.viewerProfileIsPro = vs.isPro;
+    patch.nelDemoIsPremium = vs.isPremium;
+    if (vs.premiumExpiresAt != null) {
+      patch.viewerPremiumExpiresAt = vs.premiumExpiresAt;
+    }
+    if (vs.proExpiresAt != null) {
+      patch.viewerProExpiresAt = vs.proExpiresAt;
+    }
     if (vs.viewerProfileBadges?.length) {
       patch.viewerProfileBadges = vs.viewerProfileBadges;
     }
@@ -838,10 +865,14 @@ export function syncViewerSettingsToSheets(data: {
   avatarUrl: string;
   displayName: string;
   isPro: boolean;
+  isPremium?: boolean;
+  premiumExpiresAt?: number | null;
+  proExpiresAt?: number | null;
   city?: string;
   websiteUrl?: string;
   socialUrl?: string;
   phone?: string;
+  viewerProfileBadges?: string[];
   friendRequestSentProfilIds: string[];
   friendRequestRejectedProfilIds: string[];
   favoriteConversationIds: string[];
@@ -879,6 +910,9 @@ export function syncAllViewerStateFromStore(state: {
   viewerProfileAvatarUrl: string;
   viewerProfileDisplayName: string;
   viewerProfileIsPro: boolean;
+  nelDemoIsPremium?: boolean;
+  viewerPremiumExpiresAt?: number | null;
+  viewerProExpiresAt?: number | null;
   viewerProfileBadges: string[];
   viewerProfileCity?: string;
   viewerProWebsiteUrl?: string;
@@ -896,6 +930,9 @@ export function syncAllViewerStateFromStore(state: {
     avatarUrl: state.viewerProfileAvatarUrl,
     displayName: state.viewerProfileDisplayName,
     isPro: state.viewerProfileIsPro,
+    isPremium: state.nelDemoIsPremium,
+    premiumExpiresAt: state.viewerPremiumExpiresAt,
+    proExpiresAt: state.viewerProExpiresAt,
     viewerProfileBadges: state.viewerProfileBadges,
     city: state.viewerProfileCity,
     websiteUrl: state.viewerProWebsiteUrl,

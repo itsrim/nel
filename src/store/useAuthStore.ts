@@ -10,6 +10,7 @@ import {
 } from "../lib/authApi";
 import { shutdownGlobalChatSync } from "../lib/chatSync";
 import { syncEmailVerifiedToSheets } from "../lib/appSheetPersistence";
+import { isAdminAccount } from "../lib/accountRoles";
 
 const LS_VIEWER_PRO_WEBSITE = "nel_viewer_pro_website_url";
 const LS_VIEWER_PRO_SOCIAL = "nel_viewer_pro_social_url";
@@ -39,6 +40,8 @@ export type User = {
   bio?: string;
   isPro?: boolean;
   emailVerified?: boolean;
+  /** Compte staff Nel — affiche le mode admin dans les paramètres. */
+  isAdmin?: boolean;
 };
 
 interface AuthState {
@@ -229,6 +232,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         age: user.age || "",
         bio: user.bio || "",
         isPro: !!user.isPro,
+        isAdmin: isAdminAccount({ email: user.email, id: user.id }),
         avatarUrl:
           normalizedEmail === "demo@nel.com"
             ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800"

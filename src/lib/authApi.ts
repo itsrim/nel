@@ -96,6 +96,7 @@ export function toAppUser(
     email: apiUser.email,
     displayName: apiUser.displayName,
     emailVerified: apiUser.emailVerified ?? isDemo,
+    isAdmin: isAdminAccount({ email: apiUser.email, id: apiUser.id }),
     avatarUrl: isDemo
       ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800"
       : "/event-cover-themes/avatar.jpg",
