@@ -56,7 +56,7 @@ export const translations = {
     profile: "Profil",
     chat: "Messages",
     navChat: "Chat",
-    navSortie: "Sortie",
+    navSortie: "Sorties",
     pro: "Pro",
     professionalsTitle: "Professionnels",
     proSearchPlaceholder: "Rechercher nom, prénom, ville, description…",

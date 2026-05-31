@@ -2,6 +2,7 @@ import { Heart, Check, Plus, Clock, MapPin } from 'lucide-react';
 import type { Event } from '../data/mockData';
 import { useTranslation } from '../i18n/useTranslation';
 import { useMessagingStore } from '../store/useMessagingStore';
+import { resolveEventHostIsPro } from '../lib/eventHost';
 import { resolveEventParticipantAvatars } from '../lib/eventParticipantAvatars';
 import './EventCard.css';
 
@@ -14,7 +15,9 @@ interface EventCardProps {
 
 export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardProps) {
   const { t } = useTranslation();
-  const { conversations, friends, viewerProfileAvatarUrl } = useMessagingStore();
+  const { conversations, friends, viewerProfileAvatarUrl, viewerProfileIsPro } =
+    useMessagingStore();
+  const hostIsPro = resolveEventHostIsPro(item, friends, viewerProfileIsPro);
   const participantAvatars = resolveEventParticipantAvatars(
     item,
     conversations,
@@ -38,6 +41,9 @@ export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardP
           <div className="ecard-tags-left">
             {item.isBeta && (
               <span className="ecard-tag ecard-tag--beta">{t('beta')}</span>
+            )}
+            {hostIsPro && (
+              <span className="ecard-tag ecard-tag--pro">{t('pro')}</span>
             )}
             {item.status === 'inscrit' && (
               <span className="ecard-tag ecard-tag--blue">

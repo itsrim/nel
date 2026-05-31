@@ -53,6 +53,7 @@
 .ecard-tag--join { background: #243E6B; color: rgba(255,255,255,0.95); }
 .ecard-tag--pending { background: #F59E0B; }
 .ecard-tag--beta { background: rgba(236,72,153,0.92); }
+.ecard-tag--pro { background: rgba(255, 214, 10, 0.95); color: #1a1a1a; }
 
 .ecard-price {
   background: rgba(0,0,0,0.55);

@@ -17,6 +17,7 @@ import { useNavigationStore } from "../store/useNavigationStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { isEventDateBeforeToday } from "../lib/eventDateKey";
+import { eventHostedByViewer, resolveEventHostIsPro } from "../lib/eventHost";
 import type { Friend } from "../data/mockData";
 import { ReportModal } from "../components/ReportModal";
 import "./EventDetailPage.css";
@@ -137,11 +138,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
 
   if (!event) return null;
 
-  /** Anciennes sorties nel sans flag : hôte « Moi » / pravatar fixe. */
-  const viewerHosts =
-    event.hostedByViewer === true ||
-    event.hostName === "Moi" ||
-    (event.hostAvatar?.includes("nel-organizer") ?? false);
+  const viewerHosts = eventHostedByViewer(event);
   const hostAvatar = viewerHosts
     ? viewerProfileAvatarUrl
     : event.hostAvatar?.trim() || "https://i.pravatar.cc/150?u=nel-host";
@@ -149,9 +146,11 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     ? viewerProfileDisplayName
     : event.hostName?.trim() || "Organisateur";
 
-  const hostIsPro = viewerHosts
-    ? !!viewerProfileIsPro
-    : friends.some((f) => (f.name === hostName || f.pseudo === hostName || `u-${f.profilId}` === event.creatorId) && f.isPro);
+  const hostIsPro = resolveEventHostIsPro(
+    event,
+    friends,
+    viewerProfileIsPro,
+  );
 
   const isInscribed =
     event.status === "inscrit" || event.status === "organisateur";

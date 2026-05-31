@@ -388,6 +388,7 @@ export function buildAppSeed(): {
         category,
         hostName,
         hostAvatar,
+        creatorId: isAdminEvent ? undefined : host.profilId,
         participantAvatars: buildEventParticipantAvatars(
           hostAvatar,
           members,
