@@ -25,6 +25,8 @@ export interface Event {
   category: string;
   hostName: string;
   hostAvatar: string;
+  /** Photos empilées sur la carte (max 3). */
+  participantAvatars?: string[];
   price: string;
   /** Options création (meetabit). */
   hideAddress?: boolean;

@@ -37,6 +37,23 @@
   min-width: 0;
 }
 
+.cr-header-info--clickable {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 10px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cr-header-info--clickable:active {
+  opacity: 0.88;
+}
+
 .cr-avatar {
   width: 38px;
   height: 38px;

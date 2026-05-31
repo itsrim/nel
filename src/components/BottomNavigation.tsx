@@ -14,8 +14,8 @@ export function BottomNavigation() {
   const { t } = useTranslation();
 
   const navItems: NavItem[] = [
-    { id: "chat", labelKey: "chat", icon: MessageCircle },
-    { id: "events", labelKey: "events", icon: Calendar },
+    { id: "chat", labelKey: "navChat", icon: MessageCircle },
+    { id: "events", labelKey: "navSortie", icon: Calendar },
     { id: "pro", labelKey: "pro", icon: Briefcase },
     { id: "profile", labelKey: "profile", icon: User },
   ];

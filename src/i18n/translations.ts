@@ -55,6 +55,8 @@ export const translations = {
     // Reports
     profile: "Profil",
     chat: "Messages",
+    navChat: "Chat",
+    navSortie: "Sortie",
     pro: "Pro",
     professionalsTitle: "Professionnels",
     proSearchPlaceholder: "Rechercher nom, prénom, ville, description…",
@@ -507,6 +509,8 @@ export const translations = {
     // Reports
     profile: "Profile",
     chat: "Messages",
+    navChat: "Chat",
+    navSortie: "Events",
     pro: "Pro",
     professionalsTitle: "Professionals",
     proSearchPlaceholder: "Search name, city, description…",

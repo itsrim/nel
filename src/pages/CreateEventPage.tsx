@@ -347,7 +347,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           isBeta: beta,
         });
       } else {
-        const conversationId = createEmptyGroup(`Sortie : ${t}`);
+        const groupTitle = `${t} — ${dateLabel.split(" ")[0]}`;
+        const conversationId = createEmptyGroup(groupTitle);
         const eventId = addEvent({
           conversationId,
           title: t,

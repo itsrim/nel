@@ -3,8 +3,9 @@
  * 99 conversations (56 groupes sorties + 43 DM), messages cohérents.
  * RNG déterministe (seed fixe) pour des rendus stables au build.
  */
-import type { Event, Conversation, Friend, Message, GroupMember } from './mockData';
+import type { Event, Conversation, Friend, GroupMember } from './mockData';
 import { formatEventSectionTitle } from '../lib/eventDateKey';
+import { buildEventParticipantAvatars } from '../lib/eventParticipantAvatars';
 
 const SEED = 20260415;
 
@@ -241,6 +242,7 @@ function buildMembers(rng: () => number, pool: Friend[], host: Friend, count: nu
       isSelf: false,
       avatarGradient: memberGrad(0),
       profilId: host.profilId,
+      avatarUrl: host.imageUrl,
     },
   ];
   const used = new Set<string>([host.profilId]);
@@ -256,6 +258,7 @@ function buildMembers(rng: () => number, pool: Friend[], host: Friend, count: nu
       isSelf: false,
       avatarGradient: memberGrad(members.length),
       profilId: p.profilId,
+      avatarUrl: p.imageUrl,
     });
   }
   return members;
@@ -385,6 +388,11 @@ export function buildAppSeed(): {
         category,
         hostName,
         hostAvatar,
+        participantAvatars: buildEventParticipantAvatars(
+          hostAvatar,
+          members,
+          friends,
+        ),
         price: priceLabel,
         hideAddress: rng() > 0.75,
         manualApproval,

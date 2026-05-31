@@ -11,6 +11,7 @@ import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { buildConversationMiniSlots } from "../lib/conversationMiniSlots";
+import { getProfessionalById } from "../store/useProsStore";
 import "./ChatRoomPage.css";
 
 interface ChatRoomPageProps {
@@ -70,6 +71,119 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
     setDraft("");
   };
 
+  const dmPeer = !isGroup
+    ? conversation.members?.find((m) => !m.isSelf)
+    : undefined;
+  const peerProfilId = dmPeer?.profilId;
+  const canOpenPeerProfile = !isGroup && !!peerProfilId;
+  const canOpenLinkedEvent = isGroup && !!linkedEvent;
+  const canOpenHeaderTarget = canOpenPeerProfile || canOpenLinkedEvent;
+
+  const handleOpenPeerProfile = () => {
+    if (!peerProfilId) return;
+    if (getProfessionalById(peerProfilId)) {
+      openDetail("pro", peerProfilId);
+    } else {
+      openDetail("profile", peerProfilId);
+    }
+  };
+
+  const handleHeaderClick = () => {
+    if (canOpenLinkedEvent && linkedEvent) {
+      openDetail("event", linkedEvent.id);
+      return;
+    }
+    handleOpenPeerProfile();
+  };
+
+  const headerAriaLabel = canOpenLinkedEvent
+    ? `${t("viewEventButton")} ${linkedEvent!.title}`
+    : `${t("viewProfileOf")} ${conversation.title}`;
+
+  const headerInfoContent = (
+    <>
+      <div
+        className="cr-avatar"
+        style={{
+          background: `linear-gradient(45deg, ${conversation.avatarGradient[0]}, ${conversation.avatarGradient[1]})`,
+        }}
+      >
+        {isGroup ? (
+          memberN <= 2 ? (
+            <div className="cr-avatar-split">
+              {[0, 1].map((i) => {
+                const s = headerSlots[i];
+                return (
+                  <div key={i} className="cr-avatar-half">
+                    {s?.hasImage && s.src ? (
+                      <img
+                        className="cr-avatar-slot-img"
+                        src={s.src}
+                        alt=""
+                      />
+                    ) : (
+                      <div
+                        className="cr-avatar-fallback"
+                        style={{
+                          background:
+                            i === 0
+                              ? "rgba(0,0,0,0.2)"
+                              : "rgba(255,255,255,0.25)",
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="cr-avatar-grid">
+              {[0, 1, 2, 3].map((i) => {
+                const s = headerSlots[i];
+                return (
+                  <div key={i} className="cr-avatar-quad">
+                    {s?.hasImage && s.src ? (
+                      <img
+                        className="cr-avatar-slot-img"
+                        src={s.src}
+                        alt=""
+                      />
+                    ) : (
+                      <div
+                        className="cr-avatar-fallback"
+                        style={{
+                          background: `rgba(255,255,255,${0.22 + i * 0.08})`,
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : headerSlots[0]?.hasImage && headerSlots[0].src ? (
+          <img
+            className="cr-avatar-dm-img"
+            src={headerSlots[0].src}
+            alt=""
+          />
+        ) : (
+          <span className="cr-avatar-letter">
+            {conversation.title.slice(0, 1)}
+          </span>
+        )}
+      </div>
+      <div className="cr-texts">
+        <h3 className="cr-title">{conversation.title}</h3>
+        <p className="cr-subtitle">
+          {isGroup
+            ? `${conversation.memberCount ?? memberN} ${t("membersCount")}`
+            : t("directMessageLabel")}
+        </p>
+      </div>
+    </>
+  );
+
   return (
     <div className="chat-room-page">
       <header className="cr-header">
@@ -77,87 +191,18 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
           <ChevronLeft size={28} />
         </button>
 
-        <div className="cr-header-info">
-          <div
-            className="cr-avatar"
-            style={{
-              background: `linear-gradient(45deg, ${conversation.avatarGradient[0]}, ${conversation.avatarGradient[1]})`,
-            }}
+        {canOpenHeaderTarget ? (
+          <button
+            type="button"
+            className="cr-header-info cr-header-info--clickable"
+            onClick={handleHeaderClick}
+            aria-label={headerAriaLabel}
           >
-            {isGroup ? (
-              memberN <= 2 ? (
-                <div className="cr-avatar-split">
-                  {[0, 1].map((i) => {
-                    const s = headerSlots[i];
-                    return (
-                      <div key={i} className="cr-avatar-half">
-                        {s?.hasImage && s.src ? (
-                          <img
-                            className="cr-avatar-slot-img"
-                            src={s.src}
-                            alt=""
-                          />
-                        ) : (
-                          <div
-                            className="cr-avatar-fallback"
-                            style={{
-                              background:
-                                i === 0
-                                  ? "rgba(0,0,0,0.2)"
-                                  : "rgba(255,255,255,0.25)",
-                            }}
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="cr-avatar-grid">
-                  {[0, 1, 2, 3].map((i) => {
-                    const s = headerSlots[i];
-                    return (
-                      <div key={i} className="cr-avatar-quad">
-                        {s?.hasImage && s.src ? (
-                          <img
-                            className="cr-avatar-slot-img"
-                            src={s.src}
-                            alt=""
-                          />
-                        ) : (
-                          <div
-                            className="cr-avatar-fallback"
-                            style={{
-                              background: `rgba(255,255,255,${0.22 + i * 0.08})`,
-                            }}
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )
-            ) : headerSlots[0]?.hasImage && headerSlots[0].src ? (
-              <img
-                className="cr-avatar-dm-img"
-                src={headerSlots[0].src}
-                alt=""
-              />
-            ) : (
-              <span className="cr-avatar-letter">
-                {conversation.title.slice(0, 1)}
-              </span>
-            )}
-          </div>
-          <div className="cr-texts">
-            <h3 className="cr-title">{conversation.title}</h3>
-            <p className="cr-subtitle">
-              {isGroup
-                ? `${memberN} ${t("membersCount")}`
-                : t("directMessageLabel")}
-            </p>
-          </div>
-        </div>
+            {headerInfoContent}
+          </button>
+        ) : (
+          <div className="cr-header-info">{headerInfoContent}</div>
+        )}
 
         <div className="cr-header-actions">
           <button

@@ -591,6 +591,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
       category: "Sortie",
       hostName,
       hostAvatar: va,
+      participantAvatars: [va],
       hostedByViewer: true,
       creatorId: hostName,
       hideAddress: input.hideAddress,
@@ -625,7 +626,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
         manualApproval: input.manualApproval,
         isBeta: input.isBeta === true,
       };
-      const convTitle = `Sortie : ${next.title}`;
+      const convTitle = `${next.title} — ${next.dateLabel.split(" ")[0]}`;
       const conversations = state.conversations.map((c) =>
         c.id === ev.conversationId ? { ...c, title: convTitle } : c,
       );
@@ -1036,7 +1037,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => ({
 
   loadDemoData: () => {
     set({
+      events: MOCK_EVENTS,
       conversations: MOCK_CONVERSATIONS,
+      messagesByConversation: MOCK_MESSAGES,
       friends: MOCK_FRIENDS,
       suggestions: MOCK_SUGGESTIONS,
       friendRequestRejectedProfilIds: ["u050", "u051", "u052"],

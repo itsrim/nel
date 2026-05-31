@@ -1,6 +1,8 @@
 import { Heart, Check, Plus, Clock, MapPin } from 'lucide-react';
 import type { Event } from '../data/mockData';
 import { useTranslation } from '../i18n/useTranslation';
+import { useMessagingStore } from '../store/useMessagingStore';
+import { resolveEventParticipantAvatars } from '../lib/eventParticipantAvatars';
 import './EventCard.css';
 
 interface EventCardProps {
@@ -12,6 +14,13 @@ interface EventCardProps {
 
 export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardProps) {
   const { t } = useTranslation();
+  const { conversations, friends, viewerProfileAvatarUrl } = useMessagingStore();
+  const participantAvatars = resolveEventParticipantAvatars(
+    item,
+    conversations,
+    friends,
+    viewerProfileAvatarUrl,
+  );
   const CARD_IMAGE_ASPECT = 2.05;
   const imgH = width ? Math.round(width / CARD_IMAGE_ASPECT) : 90;
 
@@ -52,9 +61,15 @@ export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardP
         {/* Bottom overlay: avatars + count */}
         <div className="ecard-img-bottom">
           <div className="ecard-avatars">
-            <div className="ecard-mini-av" style={{ backgroundColor: '#5AC8FA' }} />
-            <div className="ecard-mini-av" style={{ backgroundColor: '#FF2D55', marginLeft: -6 }} />
-            <div className="ecard-mini-av" style={{ backgroundColor: '#FF9500', marginLeft: -6 }} />
+            {participantAvatars.map((src, i) => (
+              <img
+                key={`${src}-${i}`}
+                src={src}
+                alt=""
+                className="ecard-mini-av"
+                style={i > 0 ? { marginLeft: -6 } : undefined}
+              />
+            ))}
           </div>
           <span className="ecard-count">{item.participantCount}/{item.participantMax}</span>
         </div>
