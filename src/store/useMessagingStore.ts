@@ -34,11 +34,18 @@ import {
 import { DEFAULT_VIEWER_BADGES } from "../constants/profileBadges";
 import {
   isSubscriptionStillValid,
-  nextSubscriptionEnd,
+  subscriptionEndAfterMonths,
   readStoredTimestamp,
   writeStoredTimestamp,
 } from "../lib/subscriptionDates";
 import type { SubscriptionPlan } from "../lib/subscriptionPayment";
+import {
+  clearSubscriptionPaymentRecord,
+  readSubscriptionPaymentRecord,
+  writeSubscriptionPaymentRecord,
+  type SubscriptionPaymentRecord,
+} from "../lib/subscriptionPersistence";
+import { buildEventPublicUrl } from "../lib/eventPublicUrl";
 
 export interface EventReminder {
   id: string;
@@ -199,6 +206,8 @@ function syncViewerSettingsFromState(state: MessagingState) {
     nelDemoIsPremium: state.nelDemoIsPremium,
     viewerPremiumExpiresAt: state.viewerPremiumExpiresAt,
     viewerProExpiresAt: state.viewerProExpiresAt,
+    premiumSubscriptionPayment: state.premiumSubscriptionPayment,
+    proSubscriptionPayment: state.proSubscriptionPayment,
     viewerProfileBadges: state.viewerProfileBadges,
     viewerProfileCity: state.viewerProfileCity,
     viewerProWebsiteUrl: state.viewerProWebsiteUrl,
@@ -221,7 +230,13 @@ interface MessagingState {
   setNelDemoIsPremium: (value: boolean) => void;
   viewerPremiumExpiresAt: number | null;
   viewerProExpiresAt: number | null;
-  activateViewerSubscription: (plan: SubscriptionPlan) => void;
+  premiumSubscriptionPayment: SubscriptionPaymentRecord;
+  proSubscriptionPayment: SubscriptionPaymentRecord;
+  activateViewerSubscription: (
+    plan: SubscriptionPlan,
+    months?: number,
+    payment?: { validated?: boolean; transactionId?: string },
+  ) => void;
   cancelViewerSubscription: (plan: SubscriptionPlan) => void;
   /** Photo de profil (hero) — même source que l’onglet Profil, persistée. */
   viewerProfileAvatarUrl: string;
@@ -330,6 +345,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       ? localStorage.getItem(LS_VIEWER_IS_PRO) === "true"
       : false,
   );
+  const premiumPaymentInit = readSubscriptionPaymentRecord("premium");
+  const proPaymentInit = readSubscriptionPaymentRecord("pro");
 
   return {
   nelDemoIsAdmin: false,
@@ -337,6 +354,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
   nelDemoIsPremium: premiumInit.active,
   viewerPremiumExpiresAt: premiumInit.expiresAt,
   viewerProExpiresAt: proInit.expiresAt,
+  premiumSubscriptionPayment: premiumPaymentInit,
+  proSubscriptionPayment: proPaymentInit,
   setNelDemoIsPremium: (value) => {
     try {
       localStorage.setItem(LS_VIEWER_PREMIUM, String(value));
@@ -351,8 +370,22 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     syncViewerSettingsFromState(get());
   },
 
-  activateViewerSubscription: (plan) => {
-    const expiresAt = nextSubscriptionEnd();
+  activateViewerSubscription: (plan, months = 1, payment) => {
+    const state = get();
+    const currentExpires =
+      plan === "premium" ? state.viewerPremiumExpiresAt : state.viewerProExpiresAt;
+    const start = isSubscriptionStillValid(currentExpires)
+      ? currentExpires!
+      : Date.now();
+    const expiresAt = subscriptionEndAfterMonths(months, start);
+    const paidAt = Date.now();
+    const paymentRecord: SubscriptionPaymentRecord = {
+      paymentValidated: payment?.validated !== false,
+      months,
+      lastPaymentAt: paidAt,
+      lastTransactionId: payment?.transactionId?.trim() || null,
+    };
+    writeSubscriptionPaymentRecord(plan, paymentRecord);
     if (plan === "premium") {
       try {
         localStorage.setItem(LS_VIEWER_PREMIUM, "true");
@@ -360,7 +393,11 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       } catch {
         /* ignore */
       }
-      set({ nelDemoIsPremium: true, viewerPremiumExpiresAt: expiresAt });
+      set({
+        nelDemoIsPremium: true,
+        viewerPremiumExpiresAt: expiresAt,
+        premiumSubscriptionPayment: paymentRecord,
+      });
     } else {
       try {
         localStorage.setItem(LS_VIEWER_IS_PRO, "true");
@@ -368,12 +405,23 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       } catch {
         /* ignore */
       }
-      set({ viewerProfileIsPro: true, viewerProExpiresAt: expiresAt });
+      set({
+        viewerProfileIsPro: true,
+        viewerProExpiresAt: expiresAt,
+        proSubscriptionPayment: paymentRecord,
+      });
     }
     syncViewerSettingsFromState(get());
   },
 
   cancelViewerSubscription: (plan) => {
+    clearSubscriptionPaymentRecord(plan);
+    const cleared: SubscriptionPaymentRecord = {
+      paymentValidated: false,
+      months: null,
+      lastPaymentAt: null,
+      lastTransactionId: null,
+    };
     if (plan === "premium") {
       try {
         localStorage.setItem(LS_VIEWER_PREMIUM, "false");
@@ -381,7 +429,11 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       } catch {
         /* ignore */
       }
-      set({ nelDemoIsPremium: false, viewerPremiumExpiresAt: null });
+      set({
+        nelDemoIsPremium: false,
+        viewerPremiumExpiresAt: null,
+        premiumSubscriptionPayment: cleared,
+      });
     } else {
       try {
         localStorage.setItem(LS_VIEWER_IS_PRO, "false");
@@ -389,7 +441,11 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       } catch {
         /* ignore */
       }
-      set({ viewerProfileIsPro: false, viewerProExpiresAt: null });
+      set({
+        viewerProfileIsPro: false,
+        viewerProExpiresAt: null,
+        proSubscriptionPayment: cleared,
+      });
     }
     syncViewerSettingsFromState(get());
   },
@@ -791,6 +847,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       isPrivate: input.isPrivate === true,
       manualApproval: input.manualApproval,
       invitedProfilIds: [],
+      publicUrl: buildEventPublicUrl(id),
     };
     set((state) => ({ events: [event, ...state.events] }));
     syncEventToSheets(event);

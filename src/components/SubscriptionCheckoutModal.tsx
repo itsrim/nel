@@ -1,6 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { X, CreditCard, Loader2, Crown, Award } from "lucide-react";
 import { useTranslation } from "../i18n/useTranslation";
+import { useLanguageStore } from "../store/useLanguageStore";
+import {
+  formatMonthlyUnitPrice,
+  formatSubscriptionTotal,
+  SUBSCRIPTION_MONTH_OPTIONS,
+  type SubscriptionMonths,
+} from "../lib/subscriptionPricing";
 import {
   formatCardExpiry,
   formatCardNumber,
@@ -12,7 +19,7 @@ import "./SubscriptionCheckoutModal.css";
 interface SubscriptionCheckoutModalProps {
   plan: SubscriptionPlan;
   onClose: () => void;
-  onSuccess: (plan: SubscriptionPlan) => void;
+  onSuccess: (plan: SubscriptionPlan, months: number, transactionId?: string) => void;
 }
 
 export function SubscriptionCheckoutModal({
@@ -21,6 +28,9 @@ export function SubscriptionCheckoutModal({
   onSuccess,
 }: SubscriptionCheckoutModalProps) {
   const { t } = useTranslation();
+  const { language } = useLanguageStore();
+  const locale = language === "en" ? "en-GB" : "fr-FR";
+  const [months, setMonths] = useState<SubscriptionMonths>(1);
   const [cardholderName, setCardholderName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [expiry, setExpiry] = useState("");
@@ -29,9 +39,13 @@ export function SubscriptionCheckoutModal({
   const [submitting, setSubmitting] = useState(false);
 
   const title = plan === "premium" ? t("premium") : t("professional");
-  const price = plan === "premium" ? t("premiumPrice") : t("proPrice");
   const subtitle = plan === "premium" ? t("premiumSub") : t("professionalSub");
   const PlanIcon = plan === "premium" ? Crown : Award;
+  const unitPrice = formatMonthlyUnitPrice(plan, locale);
+  const totalPrice = useMemo(
+    () => formatSubscriptionTotal(plan, months, locale),
+    [plan, months, locale],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +69,7 @@ export function SubscriptionCheckoutModal({
         setError(errors[result.error ?? "paymentFailed"] ?? t("paymentFailed"));
         return;
       }
-      onSuccess(plan);
+      onSuccess(plan, months, result.transactionId);
     } catch {
       setError(t("paymentFailed"));
     } finally {
@@ -86,9 +100,34 @@ export function SubscriptionCheckoutModal({
           </button>
         </div>
 
+        <div className="sub-checkout-duration">
+          <span className="sub-checkout-duration-label">{t("subscriptionDuration")}</span>
+          <div className="sub-checkout-months" role="group" aria-label={t("subscriptionDuration")}>
+            {SUBSCRIPTION_MONTH_OPTIONS.map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={`sub-checkout-month-btn${months === n ? " sub-checkout-month-btn--active" : ""}`}
+                onClick={() => setMonths(n)}
+                aria-pressed={months === n}
+              >
+                {t("subscriptionMonthsCount").replace("{{n}}", String(n))}
+              </button>
+            ))}
+          </div>
+          <p className="sub-checkout-unit-hint">
+            {unitPrice} {t("subscriptionPerMonth")}
+          </p>
+        </div>
+
         <div className="sub-checkout-price-row">
-          <span>{t("subscriptionTotal")}</span>
-          <strong>{price}</strong>
+          <span>
+            {t("subscriptionTotal")}{" "}
+            <span className="sub-checkout-price-meta">
+              ({t("subscriptionMonthsCount").replace("{{n}}", String(months))})
+            </span>
+          </span>
+          <strong>{totalPrice}</strong>
         </div>
 
         <form className="sub-checkout-form" onSubmit={handleSubmit}>
@@ -158,7 +197,7 @@ export function SubscriptionCheckoutModal({
                 {t("paymentProcessing")}
               </>
             ) : (
-              t("payWithCard")
+              t("payWithCardBeta")
             )}
           </button>
         </form>

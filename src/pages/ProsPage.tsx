@@ -169,18 +169,20 @@ export function ProsPage() {
             ))}
           </div>
         ) : (
-          <div className="pros-map-wrap">
-            <ProsMapView
-              professionals={filtered}
-              selectedId={selectedMapId}
-              mapCenter={mapCenter}
-              onSelect={setSelectedMapId}
-              onDeselect={() => setSelectedMapId(null)}
-            />
+          <>
+            <div className="pros-map-wrap">
+              <ProsMapView
+                professionals={filtered}
+                selectedId={selectedMapId}
+                mapCenter={mapCenter}
+                onSelect={setSelectedMapId}
+                onDeselect={() => setSelectedMapId(null)}
+              />
+            </div>
             {selectedMapPro ? (
               <button
                 type="button"
-                className="pros-map-card pros-map-card--clickable"
+                className="pros-map-card pros-map-card--floating pros-map-card--clickable"
                 onClick={(e) => {
                   e.stopPropagation();
                   openProProfile(selectedMapPro.id);
@@ -201,7 +203,7 @@ export function ProsPage() {
                 </div>
               </button>
             ) : null}
-          </div>
+          </>
         )}
       </div>
     </div>

@@ -48,6 +48,8 @@ export interface Event {
   }>;
   /** Amis à qui l’organisateur a envoyé une invitation (démo nel + filtre doublons). */
   invitedProfilIds?: string[];
+  /** Lien public HappyLetsGo (ex. https://happyletsgo.com/event/…). */
+  publicUrl?: string;
 }
 
 /** Notification in-app (centre Profil — démo). */

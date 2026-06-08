@@ -14,6 +14,8 @@ import type {
   SuggestionProfile,
 } from "../data/mockData";
 import type { MockProfessional } from "../data/mockProfessionals";
+import type { SubscriptionPaymentRecord } from "./subscriptionPersistence";
+import { buildEventPublicUrl, resolveEventPublicUrl } from "./eventPublicUrl";
 import { MOCK_PROFESSIONALS } from "../data/mockProfessionals";
 import { proCoordinates } from "./proCoordinates";
 import {
@@ -177,6 +179,7 @@ export function eventToRow(event: Event, userId: string): Record<string, string>
     creatorId: event.creatorId ?? "",
     waitlistEntriesJson: jsonToSheet(event.waitlistEntries ?? []),
     invitedProfilIdsJson: jsonToSheet(event.invitedProfilIds ?? []),
+    publicUrl: event.publicUrl ?? buildEventPublicUrl(event.id),
     deleted: "false",
   };
 }
@@ -212,7 +215,15 @@ export function rowToEvent(row: Record<string, string>): Event {
     creatorId: row.creatorId?.trim() || undefined,
     waitlistEntries: jsonFromSheet(row.waitlistEntriesJson, []),
     invitedProfilIds: jsonFromSheet(row.invitedProfilIdsJson, []),
+    publicUrl: row.publicUrl?.trim() || undefined,
   };
+}
+
+export function eventPublicUrlFromRow(row: Record<string, string>): string {
+  return resolveEventPublicUrl({
+    id: row.id,
+    publicUrl: row.publicUrl?.trim() || undefined,
+  });
 }
 
 // ── Conversation ───────────────────────────────────────────────────────────
@@ -437,6 +448,42 @@ export interface ViewerSettingsRow {
   badgesJson?: string;
 }
 
+function subscriptionPaymentFromRow(
+  row: Record<string, string>,
+  prefix: "premium" | "pro",
+): SubscriptionPaymentRecord {
+  const monthsRaw = row[`${prefix}Months`];
+  const months = monthsRaw?.trim() ? numFromSheet(monthsRaw, 0) || null : null;
+  const paidRaw = row[`${prefix}LastPaymentAt`];
+  const lastPaymentAt = paidRaw?.trim() ? numFromSheet(paidRaw, 0) || null : null;
+  const tx = row[`${prefix}LastTransactionId`]?.trim();
+  return {
+    paymentValidated: boolFromSheet(row[`${prefix}PaymentValidated`]),
+    months: months && months > 0 ? months : null,
+    lastPaymentAt: lastPaymentAt && lastPaymentAt > 0 ? lastPaymentAt : null,
+    lastTransactionId: tx || null,
+  };
+}
+
+function subscriptionPaymentToRowFields(
+  prefix: "premium" | "pro",
+  record: SubscriptionPaymentRecord | undefined,
+): Record<string, string> {
+  const r = record ?? {
+    paymentValidated: false,
+    months: null,
+    lastPaymentAt: null,
+    lastTransactionId: null,
+  };
+  return {
+    [`${prefix}PaymentValidated`]: boolToSheet(r.paymentValidated),
+    [`${prefix}Months`]: r.months != null ? String(r.months) : "",
+    [`${prefix}LastPaymentAt`]:
+      r.lastPaymentAt != null ? String(r.lastPaymentAt) : "",
+    [`${prefix}LastTransactionId`]: r.lastTransactionId ?? "",
+  };
+}
+
 export function viewerSettingsToRow(
   userId: string,
   data: {
@@ -448,6 +495,8 @@ export function viewerSettingsToRow(
     isPremium?: boolean;
     premiumExpiresAt?: number | null;
     proExpiresAt?: number | null;
+    premiumSubscriptionPayment?: SubscriptionPaymentRecord;
+    proSubscriptionPayment?: SubscriptionPaymentRecord;
     city?: string;
     websiteUrl?: string;
     socialUrl?: string;
@@ -472,6 +521,8 @@ export function viewerSettingsToRow(
     premiumExpiresAt:
       data.premiumExpiresAt != null ? String(data.premiumExpiresAt) : "",
     proExpiresAt: data.proExpiresAt != null ? String(data.proExpiresAt) : "",
+    ...subscriptionPaymentToRowFields("premium", data.premiumSubscriptionPayment),
+    ...subscriptionPaymentToRowFields("pro", data.proSubscriptionPayment),
     city: str(data.city),
     websiteUrl: str(data.websiteUrl),
     socialUrl: str(data.socialUrl),
@@ -566,6 +617,8 @@ export interface LoadedAppSheetState {
     isPremium?: boolean;
     premiumExpiresAt?: number | null;
     proExpiresAt?: number | null;
+    premiumSubscriptionPayment?: SubscriptionPaymentRecord;
+    proSubscriptionPayment?: SubscriptionPaymentRecord;
     city?: string;
     websiteUrl?: string;
     socialUrl?: string;
@@ -695,6 +748,8 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
           proExpiresAt: viewerRow.proExpiresAt
             ? numFromSheet(viewerRow.proExpiresAt, 0) || null
             : null,
+          premiumSubscriptionPayment: subscriptionPaymentFromRow(viewerRow, "premium"),
+          proSubscriptionPayment: subscriptionPaymentFromRow(viewerRow, "pro"),
           city: str(viewerRow.city) || undefined,
           websiteUrl: str(viewerRow.websiteUrl) || undefined,
           socialUrl: str(viewerRow.socialUrl) || undefined,
@@ -734,6 +789,8 @@ export function mergeLoadedAppState(
   nelDemoIsPremium?: boolean;
   viewerPremiumExpiresAt?: number | null;
   viewerProExpiresAt?: number | null;
+  premiumSubscriptionPayment?: SubscriptionPaymentRecord;
+  proSubscriptionPayment?: SubscriptionPaymentRecord;
   viewerProfileBadges?: string[];
   viewerProfileCity?: string;
   viewerProWebsiteUrl?: string;
@@ -782,6 +839,12 @@ export function mergeLoadedAppState(
     }
     if (vs.proExpiresAt != null) {
       patch.viewerProExpiresAt = vs.proExpiresAt;
+    }
+    if (vs.premiumSubscriptionPayment) {
+      patch.premiumSubscriptionPayment = vs.premiumSubscriptionPayment;
+    }
+    if (vs.proSubscriptionPayment) {
+      patch.proSubscriptionPayment = vs.proSubscriptionPayment;
     }
     if (vs.viewerProfileBadges?.length) {
       patch.viewerProfileBadges = vs.viewerProfileBadges;
@@ -868,6 +931,8 @@ export function syncViewerSettingsToSheets(data: {
   isPremium?: boolean;
   premiumExpiresAt?: number | null;
   proExpiresAt?: number | null;
+  premiumSubscriptionPayment?: SubscriptionPaymentRecord;
+  proSubscriptionPayment?: SubscriptionPaymentRecord;
   city?: string;
   websiteUrl?: string;
   socialUrl?: string;
@@ -913,6 +978,8 @@ export function syncAllViewerStateFromStore(state: {
   nelDemoIsPremium?: boolean;
   viewerPremiumExpiresAt?: number | null;
   viewerProExpiresAt?: number | null;
+  premiumSubscriptionPayment?: SubscriptionPaymentRecord;
+  proSubscriptionPayment?: SubscriptionPaymentRecord;
   viewerProfileBadges: string[];
   viewerProfileCity?: string;
   viewerProWebsiteUrl?: string;
@@ -933,6 +1000,8 @@ export function syncAllViewerStateFromStore(state: {
     isPremium: state.nelDemoIsPremium,
     premiumExpiresAt: state.viewerPremiumExpiresAt,
     proExpiresAt: state.viewerProExpiresAt,
+    premiumSubscriptionPayment: state.premiumSubscriptionPayment,
+    proSubscriptionPayment: state.proSubscriptionPayment,
     viewerProfileBadges: state.viewerProfileBadges,
     city: state.viewerProfileCity,
     websiteUrl: state.viewerProWebsiteUrl,

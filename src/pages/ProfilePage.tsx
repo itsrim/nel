@@ -322,8 +322,15 @@ export function ProfilePage() {
     }
   };
 
-  const handleSubscriptionSuccess = (plan: SubscriptionPlan) => {
-    activateViewerSubscription(plan);
+  const handleSubscriptionSuccess = (
+    plan: SubscriptionPlan,
+    months: number,
+    transactionId?: string,
+  ) => {
+    activateViewerSubscription(plan, months, {
+      validated: true,
+      transactionId,
+    });
     if (plan === "premium") {
       showToast(t("paymentSuccessPremium"));
     } else {
@@ -1056,7 +1063,6 @@ export function ProfilePage() {
                     plan="premium"
                     active={nelDemoIsPremium}
                     expiresAt={viewerPremiumExpiresAt}
-                    priceLabel={t("premiumPrice")}
                     locale={subscriptionLocale}
                     onSubscribe={() => setCheckoutPlan("premium")}
                     onCancel={() => handleCancelSubscription("premium")}
@@ -1074,7 +1080,6 @@ export function ProfilePage() {
                     plan="pro"
                     active={viewerProfileIsPro}
                     expiresAt={viewerProExpiresAt}
-                    priceLabel={t("proPrice")}
                     locale={subscriptionLocale}
                     onSubscribe={() => setCheckoutPlan("pro")}
                     onCancel={() => handleCancelSubscription("pro")}

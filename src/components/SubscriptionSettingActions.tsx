@@ -6,7 +6,6 @@ interface SubscriptionSettingActionsProps {
   plan: SubscriptionPlan;
   active: boolean;
   expiresAt: number | null;
-  priceLabel: string;
   locale: string;
   onSubscribe: () => void;
   onCancel: () => void;
@@ -16,7 +15,6 @@ export function SubscriptionSettingActions({
   plan,
   active,
   expiresAt,
-  priceLabel,
   locale,
   onSubscribe,
   onCancel,
@@ -30,7 +28,7 @@ export function SubscriptionSettingActions({
         className={`setting-subscribe-btn${plan === "pro" ? " setting-subscribe-btn--pro" : ""}`}
         onClick={onSubscribe}
       >
-        {t("subscribe")} · {priceLabel}
+        {t("subscribe")}
       </button>
     );
   }

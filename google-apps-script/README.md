@@ -13,7 +13,7 @@ conversationId,id,authorId,authorName,text,sentAt,userId
 
 ### `events`
 ```
-userId,id,conversationId,title,location,dateKey,timeShort,dateLabel,sectionDateLabel,imageUri,priceLabel,price,participantCount,participantMax,isFavorite,isBeta,status,notes,visitsCount,category,hostName,hostAvatar,participantAvatarsJson,hideAddress,isPrivate,manualApproval,hostedByViewer,creatorId,waitlistEntriesJson,invitedProfilIdsJson,deleted
+userId,id,conversationId,title,location,dateKey,timeShort,dateLabel,sectionDateLabel,imageUri,priceLabel,price,participantCount,participantMax,isFavorite,isBeta,status,notes,visitsCount,category,hostName,hostAvatar,participantAvatarsJson,hideAddress,isPrivate,manualApproval,hostedByViewer,creatorId,waitlistEntriesJson,invitedProfilIdsJson,publicUrl,deleted
 ```
 
 ### `conversations`
@@ -33,7 +33,7 @@ userId,id,pseudo,age,imageUrl,aspectRatio,deleted
 
 ### `viewer_settings` (profil connecté — avatar, email vérifié, préférences)
 ```
-userId,id,email,emailVerified,avatarUrl,displayName,isPro,isPremium,premiumExpiresAt,proExpiresAt,city,websiteUrl,socialUrl,phone,badgesJson,friendRequestSentJson,friendRequestRejectedJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
+userId,id,email,emailVerified,avatarUrl,displayName,isPro,isPremium,premiumExpiresAt,proExpiresAt,premiumPaymentValidated,premiumMonths,premiumLastPaymentAt,premiumLastTransactionId,proPaymentValidated,proMonths,proLastPaymentAt,proLastTransactionId,city,websiteUrl,socialUrl,phone,badgesJson,friendRequestSentJson,friendRequestRejectedJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
 ```
 
 ### `profile_visits`

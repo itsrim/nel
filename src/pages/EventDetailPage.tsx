@@ -18,6 +18,7 @@ import { useTranslation } from "../i18n/useTranslation";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { isEventDateBeforeToday } from "../lib/eventDateKey";
 import { eventHostedByViewer, resolveEventHostIsPro } from "../lib/eventHost";
+import { resolveEventPublicUrl } from "../lib/eventPublicUrl";
 import type { Friend } from "../data/mockData";
 import { ReportModal } from "../components/ReportModal";
 import "./EventDetailPage.css";
@@ -175,17 +176,21 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   };
 
   const handleShare = () => {
+    const url = resolveEventPublicUrl(event);
     if (navigator.share) {
       navigator
         .share({
           title: event.title,
           text: event.notes,
-          url: window.location.href,
+          url,
         })
         .catch(console.error);
-    } else {
-      alert("Lien copié dans le presse-papier !");
+      return;
     }
+    void navigator.clipboard?.writeText(url).then(
+      () => alert("Lien copié dans le presse-papier !"),
+      () => alert(url),
+    );
   };
 
   return (

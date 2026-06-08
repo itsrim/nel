@@ -4,7 +4,15 @@ export type SubscriptionPlan = "premium" | "pro";
 export const SUBSCRIPTION_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function nextSubscriptionEnd(from = Date.now()): number {
-  return from + SUBSCRIPTION_PERIOD_MS;
+  return subscriptionEndAfterMonths(1, from);
+}
+
+export function subscriptionEndAfterMonths(
+  months: number,
+  from = Date.now(),
+): number {
+  const n = Math.max(1, Math.floor(months));
+  return from + n * SUBSCRIPTION_PERIOD_MS;
 }
 
 export function isSubscriptionStillValid(

@@ -16,6 +16,7 @@ import {
   loadAppStateFromSheets,
   mergeLoadedAppState,
 } from "./lib/appSheetPersistence";
+import { writeSubscriptionPaymentRecord } from "./lib/subscriptionPersistence";
 import { isGoogleSheetsReadConfigured } from "./lib/googleSheetsDb";
 import { useProsStore } from "./store/useProsStore";
 import { BottomNavigation } from "./components/BottomNavigation";
@@ -132,6 +133,18 @@ function App() {
       if (patch.viewerProExpiresAt !== undefined) {
         useMessagingStore.setState({
           viewerProExpiresAt: patch.viewerProExpiresAt,
+        });
+      }
+      if (patch.premiumSubscriptionPayment) {
+        writeSubscriptionPaymentRecord("premium", patch.premiumSubscriptionPayment);
+        useMessagingStore.setState({
+          premiumSubscriptionPayment: patch.premiumSubscriptionPayment,
+        });
+      }
+      if (patch.proSubscriptionPayment) {
+        writeSubscriptionPaymentRecord("pro", patch.proSubscriptionPayment);
+        useMessagingStore.setState({
+          proSubscriptionPayment: patch.proSubscriptionPayment,
         });
       }
       if (loaded.viewerSettings?.emailVerified) {

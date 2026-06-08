@@ -6,6 +6,7 @@
 import type { Event, Conversation, Friend, GroupMember } from './mockData';
 import { formatEventSectionTitle } from '../lib/eventDateKey';
 import { buildEventParticipantAvatars } from '../lib/eventParticipantAvatars';
+import { buildEventPublicUrl } from '../lib/eventPublicUrl';
 
 const SEED = 20260415;
 
@@ -367,6 +368,7 @@ export function buildAppSeed(): {
 
       events.push({
         id: eid,
+        publicUrl: buildEventPublicUrl(eid),
         title: titleFull,
         location,
         dateKey,
