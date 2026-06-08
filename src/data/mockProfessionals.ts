@@ -1,6 +1,7 @@
 import type { ProContactFields } from "../lib/proContact";
 import { proContactSearchText } from "../lib/proContact";
 import { proCoordinates } from "../lib/proCoordinates";
+import { PRO_DEMO_LOCATIONS } from "./proDemoLocations";
 
 export type ProCategory =
   | "therapeute"
@@ -20,6 +21,8 @@ export interface MockProfessional extends ProContactFields {
   /** Libellé affiché (filtre + carte). */
   categoryLabel: string;
   city: string;
+  /** Adresse complète (rue, code postal, ville) — position carte via lat/lng. */
+  address?: string;
   description: string;
   imageUrl: string;
   /** Latitude (WGS84) — dérivée de la ville si absente. */
@@ -277,9 +280,13 @@ const _MOCK_PROFESSIONALS_RAW: Omit<MockProfessional, keyof ProContactFields>[] 
 
 export const MOCK_PROFESSIONALS: MockProfessional[] = _MOCK_PROFESSIONALS_RAW.map(
   (p) => {
-    const coords = proCoordinates(p);
+    const demoLoc = PRO_DEMO_LOCATIONS[p.id];
+    const withAddress = demoLoc ? { ...p, address: demoLoc.address } : p;
+    const coords = demoLoc
+      ? { lat: demoLoc.lat, lng: demoLoc.lng }
+      : proCoordinates(withAddress);
     return {
-      ...p,
+      ...withAddress,
       lat: coords.lat,
       lng: coords.lng,
       ...contactFor(
@@ -295,7 +302,7 @@ export function proFullName(p: MockProfessional): string {
 }
 
 export function proSearchHaystack(p: MockProfessional): string {
-  return `${p.firstName} ${p.lastName} ${p.city} ${p.description} ${p.categoryLabel} ${p.category} ${proContactSearchText(p)}`;
+  return `${p.firstName} ${p.lastName} ${p.city} ${p.address ?? ""} ${p.description} ${p.categoryLabel} ${p.category} ${proContactSearchText(p)}`;
 }
 
 /** Stats démo dérivées de l'id (stable). */

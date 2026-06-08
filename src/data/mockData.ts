@@ -48,8 +48,16 @@ export interface Event {
   }>;
   /** Amis à qui l’organisateur a envoyé une invitation (démo nel + filtre doublons). */
   invitedProfilIds?: string[];
-  /** Lien public HappyLetsGo (ex. https://happyletsgo.com/event/…). */
+  /** Lien public HappyLetsGo (ex. https://happyletsgo.fr/event/…). */
   publicUrl?: string;
+  /** Participants validés présents par l’organisateur (`__viewer__` = profil connecté). */
+  validatedPresentProfilIds?: string[];
+  /** Karma organisateur (+6) déjà attribué pour cette sortie. */
+  karmaOrganizerRewarded?: boolean;
+  /** Profils ayant payé 1 karma pour participer. */
+  karmaJoinPaidProfilIds?: string[];
+  /** 3 karma débités à la création (remboursables si annulation). */
+  karmaOrganizePaid?: boolean;
 }
 
 /** Notification in-app (centre Profil — démo). */
@@ -148,6 +156,8 @@ export interface Friend {
   memberSince?: string;
   verified?: boolean;
   isPro?: boolean;
+  /** Adresse cabinet (pro) — affichée sur la carte et le profil. */
+  proAddress?: string;
   websiteUrl?: string;
   socialUrl?: string;
   phone?: string;
@@ -155,6 +165,8 @@ export interface Friend {
   badges?: string[];
   /** Ami mutuel confirmé (cœur dans Suggestions) — sinon profil connu / suggestion. */
   mutualFriend?: boolean;
+  /** Points karma (défaut 5). */
+  karma?: number;
 }
 
 const _appSeed = buildAppSeed();

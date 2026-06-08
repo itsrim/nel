@@ -3,6 +3,8 @@ import {
   MOCK_PROFESSIONALS,
   type MockProfessional,
 } from "../data/mockProfessionals";
+import { buildViewerProfessional, VIEWER_PRO_ID } from "../lib/proLocation";
+import { useMessagingStore } from "./useMessagingStore";
 
 interface ProsState {
   professionals: MockProfessional[];
@@ -25,7 +27,25 @@ export const useProsStore = create<ProsState>((set, get) => ({
     });
   },
 
-  getById: (id) => get().professionals.find((p) => p.id === id),
+  getById: (id) => {
+    const found = get().professionals.find((p) => p.id === id);
+    if (found) return found;
+    if (id !== VIEWER_PRO_ID) return undefined;
+    const s = useMessagingStore.getState();
+    return (
+      buildViewerProfessional({
+        displayName: s.viewerProfileDisplayName,
+        avatarUrl: s.viewerProfileAvatarUrl,
+        city: s.viewerProfileCity,
+        address: s.viewerProAddress,
+        lat: s.viewerProLat,
+        lng: s.viewerProLng,
+        websiteUrl: s.viewerProWebsiteUrl,
+        socialUrl: s.viewerProSocialUrl,
+        phone: s.viewerProPhone,
+      }) ?? undefined
+    );
+  },
 }));
 
 export function getProfessionalById(id: string): MockProfessional | undefined {

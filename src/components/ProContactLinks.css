@@ -56,3 +56,35 @@
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
+
+.pro-profile-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.pro-profile-detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #e5e5ea;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.pro-profile-detail-row svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.pro-profile-detail-row--muted {
+  color: #8e8e93;
+}
+
+.pro-profile-detail-empty {
+  margin-left: auto;
+  color: #636366;
+  font-weight: 700;
+}

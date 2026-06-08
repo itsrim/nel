@@ -13,7 +13,7 @@ conversationId,id,authorId,authorName,text,sentAt,userId
 
 ### `events`
 ```
-userId,id,conversationId,title,location,dateKey,timeShort,dateLabel,sectionDateLabel,imageUri,priceLabel,price,participantCount,participantMax,isFavorite,isBeta,status,notes,visitsCount,category,hostName,hostAvatar,participantAvatarsJson,hideAddress,isPrivate,manualApproval,hostedByViewer,creatorId,waitlistEntriesJson,invitedProfilIdsJson,publicUrl,deleted
+userId,id,conversationId,title,location,dateKey,timeShort,dateLabel,sectionDateLabel,imageUri,priceLabel,price,participantCount,participantMax,isFavorite,isBeta,status,notes,visitsCount,category,hostName,hostAvatar,participantAvatarsJson,hideAddress,isPrivate,manualApproval,hostedByViewer,creatorId,waitlistEntriesJson,invitedProfilIdsJson,publicUrl,validatedPresentProfilIdsJson,karmaOrganizerRewarded,karmaJoinPaidProfilIdsJson,karmaOrganizePaid,deleted
 ```
 
 ### `conversations`
@@ -23,7 +23,7 @@ userId,id,title,type,lastMessagePreview,avatarGradient0,avatarGradient1,unreadCo
 
 ### `profiles` (amis — inclut `imageUrl`)
 ```
-userId,id,profilId,name,age,city,imageUrl,eventsInCommon,mainChatConversationId,pseudo,bio,memberSince,verified,isPro,websiteUrl,socialUrl,phone,statsJson,badgesJson,mutualFriend,deleted
+userId,id,profilId,name,age,city,imageUrl,eventsInCommon,mainChatConversationId,pseudo,bio,memberSince,verified,isPro,proAddress,karma,websiteUrl,socialUrl,phone,statsJson,badgesJson,mutualFriend,deleted
 ```
 
 ### `suggestions`
@@ -33,7 +33,7 @@ userId,id,pseudo,age,imageUrl,aspectRatio,deleted
 
 ### `viewer_settings` (profil connecté — avatar, email vérifié, préférences)
 ```
-userId,id,email,emailVerified,avatarUrl,displayName,isPro,isPremium,premiumExpiresAt,proExpiresAt,premiumPaymentValidated,premiumMonths,premiumLastPaymentAt,premiumLastTransactionId,proPaymentValidated,proMonths,proLastPaymentAt,proLastTransactionId,city,websiteUrl,socialUrl,phone,badgesJson,friendRequestSentJson,friendRequestRejectedJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
+userId,id,email,emailVerified,avatarUrl,displayName,isPro,isPremium,premiumExpiresAt,proExpiresAt,premiumPaymentValidated,premiumMonths,premiumLastPaymentAt,premiumLastTransactionId,proPaymentValidated,proMonths,proLastPaymentAt,proLastTransactionId,city,websiteUrl,socialUrl,phone,proAddress,proLat,proLng,karma,badgesJson,friendRequestSentJson,friendRequestRejectedJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
 ```
 
 ### `profile_visits`
@@ -53,7 +53,7 @@ userId,id,createdAt,kind,subjectId,subjectLabel,explanation,read,deleted
 
 ### `professionals` (annuaire global — sans `userId`)
 ```
-id,firstName,lastName,category,categoryLabel,city,description,imageUrl,mapX,mapY,lat,lng,verified,websiteUrl,socialUrl,phone,deleted
+id,firstName,lastName,category,categoryLabel,city,address,description,imageUrl,mapX,mapY,lat,lng,verified,websiteUrl,socialUrl,phone,deleted
 ```
 
 Partager le sheet en **« Toute personne disposant du lien → Lecteur »**.

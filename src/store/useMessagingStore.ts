@@ -46,6 +46,19 @@ import {
   type SubscriptionPaymentRecord,
 } from "../lib/subscriptionPersistence";
 import { buildEventPublicUrl } from "../lib/eventPublicUrl";
+import { eventHostedByViewer } from "../lib/eventHost";
+import {
+  KARMA_ATTENDANCE_REWARD,
+  KARMA_DEFAULT,
+  KARMA_JOIN_COST,
+  KARMA_ORGANIZE_COST,
+  KARMA_ORGANIZE_SUCCESS_REWARD,
+  KARMA_PREMIUM_PER_MONTH,
+  VIEWER_KARMA_PARTICIPANT_ID,
+  canAffordJoin,
+  canAffordOrganize,
+  normalizeKarma,
+} from "../lib/karma";
 
 export interface EventReminder {
   id: string;
@@ -65,10 +78,14 @@ const LS_VIEWER_CITY = "nel_viewer_profile_city";
 const LS_VIEWER_PRO_WEBSITE = "nel_viewer_pro_website_url";
 const LS_VIEWER_PRO_SOCIAL = "nel_viewer_pro_social_url";
 const LS_VIEWER_PRO_PHONE = "nel_viewer_pro_phone";
+const LS_VIEWER_PRO_ADDRESS = "nel_viewer_pro_address";
+const LS_VIEWER_PRO_LAT = "nel_viewer_pro_lat";
+const LS_VIEWER_PRO_LNG = "nel_viewer_pro_lng";
 const LS_VIEWER_BADGES = "nel_viewer_profile_badges";
 const LS_VIEWER_PREMIUM = "nel_viewer_premium";
 const LS_VIEWER_PREMIUM_EXPIRES = "nel_viewer_premium_expires_at";
 const LS_VIEWER_PRO_EXPIRES = "nel_viewer_pro_expires_at";
+const LS_VIEWER_KARMA = "nel_viewer_karma";
 const DEFAULT_VIEWER_AVATAR =
   "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800";
 const DEFAULT_VIEWER_NAME = "Jean J.";
@@ -80,6 +97,29 @@ function readViewerStorage(key: string, fallback: string): string {
     return v != null && v.trim() !== "" ? v.trim() : fallback;
   } catch {
     return fallback;
+  }
+}
+
+function readViewerKarma(): number {
+  if (typeof window === "undefined") return KARMA_DEFAULT;
+  try {
+    const v = localStorage.getItem(LS_VIEWER_KARMA);
+    if (v == null || v.trim() === "") return KARMA_DEFAULT;
+    return normalizeKarma(Number(v));
+  } catch {
+    return KARMA_DEFAULT;
+  }
+}
+
+function readViewerCoord(key: string): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const v = localStorage.getItem(key);
+    if (v == null || v.trim() === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
   }
 }
 
@@ -213,6 +253,10 @@ function syncViewerSettingsFromState(state: MessagingState) {
     viewerProWebsiteUrl: state.viewerProWebsiteUrl,
     viewerProSocialUrl: state.viewerProSocialUrl,
     viewerProPhone: state.viewerProPhone,
+    viewerProAddress: state.viewerProAddress,
+    viewerProLat: state.viewerProLat,
+    viewerProLng: state.viewerProLng,
+    viewerKarma: state.viewerKarma,
     friendRequestSentProfilIds: state.friendRequestSentProfilIds,
     friendRequestRejectedProfilIds: state.friendRequestRejectedProfilIds,
     favoriteConversationIds: state.favoriteConversationIds,
@@ -259,6 +303,16 @@ interface MessagingState {
   setViewerProSocialUrl: (url: string) => void;
   viewerProPhone: string;
   setViewerProPhone: (phone: string) => void;
+  viewerProAddress: string;
+  setViewerProAddress: (address: string) => void;
+  viewerProLat: number | null;
+  viewerProLng: number | null;
+  setViewerProLocation: (address: string, lat: number, lng: number) => void;
+  viewerKarma: number;
+  validateEventParticipantPresent: (
+    eventId: string,
+    participantProfilId: string,
+  ) => void;
   events: Event[];
   conversations: Conversation[];
   profileVisits: ProfileVisit[];
@@ -348,6 +402,29 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
   const premiumPaymentInit = readSubscriptionPaymentRecord("premium");
   const proPaymentInit = readSubscriptionPaymentRecord("pro");
 
+  const applyViewerKarma = (delta: number) => {
+    const next = normalizeKarma(get().viewerKarma + delta);
+    try {
+      localStorage.setItem(LS_VIEWER_KARMA, String(next));
+    } catch {
+      /* ignore */
+    }
+    set({ viewerKarma: next });
+    syncViewerSettingsFromState(get());
+  };
+
+  const adjustFriendKarma = (profilId: string, delta: number) => {
+    set((state) => ({
+      friends: state.friends.map((f) =>
+        f.profilId === profilId
+          ? { ...f, karma: normalizeKarma((f.karma ?? KARMA_DEFAULT) + delta) }
+          : f,
+      ),
+    }));
+    const updated = get().friends.find((f) => f.profilId === profilId);
+    if (updated) syncFriendToSheets(updated);
+  };
+
   return {
   nelDemoIsAdmin: false,
   setNelDemoIsAdmin: (value) => set({ nelDemoIsAdmin: value }),
@@ -393,11 +470,20 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       } catch {
         /* ignore */
       }
+      const karmaBonus = KARMA_PREMIUM_PER_MONTH * months;
+      const nextKarma = normalizeKarma(state.viewerKarma + karmaBonus);
+      try {
+        localStorage.setItem(LS_VIEWER_KARMA, String(nextKarma));
+      } catch {
+        /* ignore */
+      }
       set({
         nelDemoIsPremium: true,
         viewerPremiumExpiresAt: expiresAt,
         premiumSubscriptionPayment: paymentRecord,
+        viewerKarma: nextKarma,
       });
+      get().showToast(`+${karmaBonus} karma Premium !`);
     } else {
       try {
         localStorage.setItem(LS_VIEWER_IS_PRO, "true");
@@ -583,6 +669,79 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     }
     set({ viewerProPhone: v });
     syncViewerSettingsFromState(get());
+  },
+
+  viewerProAddress: readViewerStorage(LS_VIEWER_PRO_ADDRESS, ""),
+  setViewerProAddress: (address) => {
+    try {
+      localStorage.setItem(LS_VIEWER_PRO_ADDRESS, address);
+    } catch {
+      /* ignore */
+    }
+    set({ viewerProAddress: address });
+    syncViewerSettingsFromState(get());
+  },
+
+  viewerProLat: readViewerCoord(LS_VIEWER_PRO_LAT),
+  viewerProLng: readViewerCoord(LS_VIEWER_PRO_LNG),
+  setViewerProLocation: (address, lat, lng) => {
+    const v = address.trim();
+    try {
+      localStorage.setItem(LS_VIEWER_PRO_ADDRESS, v);
+      localStorage.setItem(LS_VIEWER_PRO_LAT, String(lat));
+      localStorage.setItem(LS_VIEWER_PRO_LNG, String(lng));
+    } catch {
+      /* ignore */
+    }
+    set({ viewerProAddress: v, viewerProLat: lat, viewerProLng: lng });
+    syncViewerSettingsFromState(get());
+  },
+
+  viewerKarma: readViewerKarma(),
+
+  validateEventParticipantPresent: (eventId, participantProfilId) => {
+    const pid = participantProfilId.trim();
+    if (!pid) return;
+    const state = get();
+    const event = state.events.find((e) => e.id === eventId);
+    if (!event) return;
+    const isOrganizer =
+      event.status === "organisateur" &&
+      (event.hostedByViewer || eventHostedByViewer(event));
+    if (!isOrganizer) return;
+
+    const validated = new Set(event.validatedPresentProfilIds ?? []);
+    if (validated.has(pid)) return;
+    validated.add(pid);
+
+    let karmaOrganizerRewarded = event.karmaOrganizerRewarded === true;
+    const otherValidated = [...validated].some(
+      (id) => id !== VIEWER_KARMA_PARTICIPANT_ID,
+    );
+
+    if (pid !== VIEWER_KARMA_PARTICIPANT_ID) {
+      adjustFriendKarma(pid, KARMA_ATTENDANCE_REWARD);
+    } else {
+      applyViewerKarma(KARMA_ATTENDANCE_REWARD);
+    }
+
+    if (!karmaOrganizerRewarded && otherValidated) {
+      karmaOrganizerRewarded = true;
+      applyViewerKarma(KARMA_ORGANIZE_SUCCESS_REWARD);
+      get().showToast(`+${KARMA_ORGANIZE_SUCCESS_REWARD} karma — sortie réussie !`);
+    } else if (pid !== VIEWER_KARMA_PARTICIPANT_ID) {
+      get().showToast(`+${KARMA_ATTENDANCE_REWARD} karma`);
+    }
+
+    const nextEvent: Event = {
+      ...event,
+      validatedPresentProfilIds: [...validated],
+      karmaOrganizerRewarded,
+    };
+    set((s) => ({
+      events: s.events.map((e) => (e.id === eventId ? nextEvent : e)),
+    }));
+    syncEventToSheets(nextEvent);
   },
 
   events: MOCK_EVENTS,
@@ -812,9 +971,19 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
   },
 
   addEvent: (input) => {
+    const state = get();
+    if (!state.viewerProfileIsPro && !canAffordOrganize(state.viewerKarma, false)) {
+      state.showToast(
+        `Il faut au moins ${KARMA_ORGANIZE_COST} karma pour organiser une sortie.`,
+      );
+      return "";
+    }
     const id = `e_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
     const priceLabel = input.priceLabel?.trim() || "Gratuit";
-    const { viewerProfileDisplayName: vn, viewerProfileAvatarUrl: va } = get();
+    const { viewerProfileDisplayName: vn, viewerProfileAvatarUrl: va } = state;
+    if (!state.viewerProfileIsPro) {
+      applyViewerKarma(-KARMA_ORGANIZE_COST);
+    }
     const hostName = vn.trim() || "Moi";
     const event: Event = {
       id,
@@ -848,8 +1017,11 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       manualApproval: input.manualApproval,
       invitedProfilIds: [],
       publicUrl: buildEventPublicUrl(id),
+      karmaOrganizePaid: !state.viewerProfileIsPro,
+      validatedPresentProfilIds: [],
+      karmaJoinPaidProfilIds: [],
     };
-    set((state) => ({ events: [event, ...state.events] }));
+    set((s) => ({ events: [event, ...s.events] }));
     syncEventToSheets(event);
     return id;
   },
@@ -891,10 +1063,19 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
   },
 
   cancelEvent: (eventId) => {
+    const before = get();
+    const ev = before.events.find((e) => e.id === eventId);
+    if (
+      ev?.karmaOrganizePaid &&
+      !ev.karmaOrganizerRewarded &&
+      !before.viewerProfileIsPro
+    ) {
+      applyViewerKarma(KARMA_ORGANIZE_COST);
+    }
     set((state) => {
-      const ev = state.events.find((e) => e.id === eventId);
-      if (!ev) return state;
-      const cid = ev.conversationId;
+      const event = state.events.find((e) => e.id === eventId);
+      if (!event) return state;
+      const cid = event.conversationId;
       syncEventDeleteToSheets(eventId);
       syncConversationDeleteToSheets(cid);
       const { [cid]: _drop, ...restMsgs } = state.messagesByConversation;
@@ -1153,7 +1334,14 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
   },
 
   joinEvent: (eventId) => {
-    const event = get().events.find((e) => e.id === eventId);
+    const state = get();
+    if (!state.viewerProfileIsPro && !canAffordJoin(state.viewerKarma, false)) {
+      state.showToast(
+        `Il faut au moins ${KARMA_JOIN_COST} karma pour participer.`,
+      );
+      return;
+    }
+    const event = state.events.find((e) => e.id === eventId);
     if (event) {
       // Ensure conversation is added back if missing
       const convExists = get().conversations.some(
@@ -1172,41 +1360,62 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       }
     }
 
-    set((state) => ({
-      events: state.events.map((e) =>
-        e.id === eventId
-          ? {
-              ...e,
-              status: "inscrit",
-              participantCount: Math.min(
-                e.participantMax,
-                e.participantCount + 1,
-              ),
-            }
-          : e,
-      ),
+    if (!state.viewerProfileIsPro) {
+      applyViewerKarma(-KARMA_JOIN_COST);
+    }
+
+    set((s) => ({
+      events: s.events.map((e) => {
+        if (e.id !== eventId) return e;
+        const paid = new Set(e.karmaJoinPaidProfilIds ?? []);
+        if (!s.viewerProfileIsPro) {
+          paid.add(VIEWER_KARMA_PARTICIPANT_ID);
+        }
+        return {
+          ...e,
+          status: "inscrit" as const,
+          participantCount: Math.min(e.participantMax, e.participantCount + 1),
+          karmaJoinPaidProfilIds: [...paid],
+        };
+      }),
     }));
     const ev = get().events.find((e) => e.id === eventId);
     if (ev) syncEventToSheets(ev);
   },
 
   leaveEvent: (eventId) => {
-    const event = get().events.find((e) => e.id === eventId);
+    const state = get();
+    const event = state.events.find((e) => e.id === eventId);
     if (event) {
       // Remove associated conversation
       get().leaveConversation(event.conversationId);
     }
 
-    set((state) => ({
-      events: state.events.map((e) =>
-        e.id === eventId
-          ? {
-              ...e,
-              status: "inscrire",
-              participantCount: Math.max(0, e.participantCount - 1),
-            }
-          : e,
-      ),
+    const paidIds = event?.karmaJoinPaidProfilIds ?? [];
+    const wasValidated = (event?.validatedPresentProfilIds ?? []).includes(
+      VIEWER_KARMA_PARTICIPANT_ID,
+    );
+    if (
+      paidIds.includes(VIEWER_KARMA_PARTICIPANT_ID) &&
+      !wasValidated &&
+      !state.viewerProfileIsPro
+    ) {
+      applyViewerKarma(KARMA_JOIN_COST);
+    }
+
+    set((s) => ({
+      events: s.events.map((e) => {
+        if (e.id !== eventId) return e;
+        const paid = (e.karmaJoinPaidProfilIds ?? []).filter(
+          (id) => id !== VIEWER_KARMA_PARTICIPANT_ID,
+        );
+        return {
+          ...e,
+          status: "inscrire" as const,
+          participantCount: Math.max(0, e.participantCount - 1),
+          karmaJoinPaidProfilIds: paid,
+        };
+      }),
     }));
     const ev = get().events.find((e) => e.id === eventId);
     if (ev) syncEventToSheets(ev);

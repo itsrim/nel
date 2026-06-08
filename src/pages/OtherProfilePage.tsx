@@ -17,7 +17,9 @@ import { useState, useMemo, useCallback } from 'react';
 import { useNavigationStore } from '../store/useNavigationStore';
 import { useMessagingStore } from '../store/useMessagingStore';
 import { ReportModal } from '../components/ReportModal';
-import { ProContactLinks } from '../components/ProContactLinks';
+import { ProProfileDetails } from '../components/ProProfileDetails';
+import { ProfileKarmaBadge } from '../components/ProfileKarmaBadge';
+import { KARMA_DEFAULT } from '../lib/karma';
 import { ProfileBadgesSection } from '../components/ProfileBadgesSection';
 import { isEventDateBeforeToday } from '../lib/eventDateKey';
 import { formatBadgeCount } from '../data/mockData';
@@ -167,6 +169,10 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
                 <span>Professionnel</span>
               </div>
             )}
+            <ProfileKarmaBadge
+              karma={friendRecord?.karma ?? KARMA_DEFAULT}
+              className="op-karma-badge"
+            />
           </div>
         </div>
       </div>
@@ -175,19 +181,25 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
         <div className="op-bio-card">
           <p className="op-bio-text">{(profile as { bio?: string }).bio || 'Pas de bio pour le moment.'}</p>
           <div className="op-divider" />
-          {(profile as { city?: string }).city && (
+          {friendRecord?.isPro ? (
+            <ProProfileDetails
+              city={friendRecord.city}
+              address={friendRecord.proAddress}
+              websiteUrl={friendRecord.websiteUrl}
+              socialUrl={friendRecord.socialUrl}
+              phone={friendRecord.phone}
+              className="pro-contact-links--profile"
+            />
+          ) : (profile as { city?: string }).city ? (
             <div className="op-info-row">
               <MapPin size={18} color="#8E8E93" />
               <span>{(profile as { city?: string }).city}</span>
             </div>
-          )}
+          ) : null}
           <div className="op-info-row">
             <Calendar size={18} color="#8E8E93" />
             <span>Membre depuis {(profile as { memberSince?: string }).memberSince || '2024'}</span>
           </div>
-          {friendRecord?.isPro ? (
-            <ProContactLinks contact={friendRecord} className="pro-contact-links--profile" />
-          ) : null}
         </div>
 
         <div className="op-stats-row">

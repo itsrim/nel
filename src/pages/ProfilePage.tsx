@@ -37,7 +37,8 @@ import {
 } from "../lib/imagekitUpload";
 import { withUrlUploadVersion } from "../lib/versionRemoteAssetUrl";
 import { formatBadgeCount } from "../data/mockData";
-import { ProContactLinks } from "../components/ProContactLinks";
+import { ProProfileDetails } from "../components/ProProfileDetails";
+import { ProfileKarmaBadge } from "../components/ProfileKarmaBadge";
 import { ProfileBadgesSection } from "../components/ProfileBadgesSection";
 import { SubscriptionCheckoutModal } from "../components/SubscriptionCheckoutModal";
 import { SubscriptionSettingActions } from "../components/SubscriptionSettingActions";
@@ -45,6 +46,7 @@ import { isAdminAccount } from "../lib/accountRoles";
 import type { SubscriptionPlan } from "../lib/subscriptionPayment";
 import "../components/ProContactLinks.css";
 import { isEventDateBeforeToday, parseDateKeyLocal, todayDateKey, toDateKey } from "../lib/eventDateKey";
+import { geocodeProAddress, isPlausibleProAddress } from "../lib/proGeocode";
 import "./ProfilePage.css";
 
 type TabId = "favorites" | "friends" | "history" | "notifications" | "reports" | "calendar";
@@ -137,8 +139,12 @@ export function ProfilePage() {
     setViewerProSocialUrl,
     viewerProPhone,
     setViewerProPhone,
+    viewerProAddress,
+    setViewerProAddress,
+    setViewerProLocation,
     viewerProfileBadges,
     setViewerProfileBadges,
+    viewerKarma,
     showToast,
     eventReminders,
     sendEventReminder,
@@ -204,6 +210,38 @@ export function ProfilePage() {
     "Passionné de rando et de sorties culturelles sur Paris ! 🏔️🎭",
   );
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [geocodingAddress, setGeocodingAddress] = useState(false);
+  const [draftProAddress, setDraftProAddress] = useState("");
+
+  const handleSaveProfile = async () => {
+    if (viewerProfileIsPro && draftProAddress.trim()) {
+      if (!isPlausibleProAddress(draftProAddress)) {
+        showToast(t("proAddressFormatHint"));
+        return;
+      }
+      setGeocodingAddress(true);
+      try {
+        const result = await geocodeProAddress(
+          draftProAddress,
+          viewerProfileCity,
+        );
+        if (!result) {
+          showToast(t("proAddressInvalid"));
+          return;
+        }
+        setViewerProLocation(result.displayAddress, result.lat, result.lng);
+        showToast(t("proAddressValidated"));
+      } catch {
+        showToast(t("proAddressInvalid"));
+        return;
+      } finally {
+        setGeocodingAddress(false);
+      }
+    } else if (viewerProfileIsPro && !draftProAddress.trim()) {
+      setViewerProAddress("");
+    }
+    setEditing(false);
+  };
   const unreadAdminReportsCount = useMemo(
     () => adminReports.filter((r) => !r.read).length,
     [adminReports],
@@ -422,18 +460,20 @@ export function ProfilePage() {
                 placeholder={t("name")}
                 className="hero-input"
               />
-              <input
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
-                placeholder={t("age")}
-                className="hero-input hero-input--small"
-              />
-              <input
-                value={viewerProfileCity}
-                onChange={(e) => setViewerProfileCity(e.target.value)}
-                placeholder={t("cityPlaceholder")}
-                className="hero-input hero-input--small"
-              />
+              <div className="hero-edit-row">
+                <input
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  placeholder={t("age")}
+                  className="hero-input hero-input--age"
+                />
+                <input
+                  value={viewerProfileCity}
+                  onChange={(e) => setViewerProfileCity(e.target.value)}
+                  placeholder={t("cityPlaceholder")}
+                  className="hero-input hero-input--city"
+                />
+              </div>
             </div>
           )}
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
@@ -447,6 +487,7 @@ export function ProfilePage() {
                 <span>Pro</span>
               </div>
             )}
+            <ProfileKarmaBadge karma={viewerKarma} />
           </div>
         </div>
       </div>
@@ -469,24 +510,39 @@ export function ProfilePage() {
             <Calendar size={16} color="#8E8E93" />
             <span>{t("memberSince")}</span>
           </div>
-          {!editing && viewerProfileCity.trim() ? (
+          {!editing && viewerProfileCity.trim() && !viewerProfileIsPro ? (
             <div className="member-since">
               <MapPin size={16} color="#8E8E93" />
               <span>{viewerProfileCity.trim()}</span>
             </div>
           ) : null}
           {viewerProfileIsPro && !editing ? (
-            <ProContactLinks
-              contact={{
-                websiteUrl: viewerProWebsiteUrl,
-                socialUrl: viewerProSocialUrl,
-                phone: viewerProPhone,
-              }}
+            <ProProfileDetails
+              city={viewerProfileCity}
+              address={viewerProAddress}
+              websiteUrl={viewerProWebsiteUrl}
+              socialUrl={viewerProSocialUrl}
+              phone={viewerProPhone}
+              showEmptyContactFields
               className="pro-contact-links--profile"
             />
           ) : null}
           {viewerProfileIsPro && editing ? (
             <div className="pro-contact-edit">
+              <label className="pro-contact-edit-label">
+                <MapPin size={16} aria-hidden />
+                <span>{t("proAddressLabel")}</span>
+              </label>
+              <input
+                type="text"
+                value={draftProAddress}
+                onChange={(e) => setDraftProAddress(e.target.value)}
+                placeholder={t("proAddressPlaceholder")}
+                className="hero-input"
+                autoComplete="street-address"
+                spellCheck={false}
+              />
+              <p className="pro-address-hint">{t("proAddressHint")}</p>
               <label className="pro-contact-edit-label">
                 <Globe size={16} aria-hidden />
                 <span>{t("proWebsiteLabel")}</span>
@@ -527,7 +583,10 @@ export function ProfilePage() {
               <button
                 type="button"
                 className="edit-btn"
-                onClick={() => setEditing(true)}
+                onClick={() => {
+                  setDraftProAddress(viewerProAddress);
+                  setEditing(true);
+                }}
               >
                 <Pencil size={16} color="#FBBF24" />
                 <span>{t("editProfile")}</span>
@@ -544,9 +603,17 @@ export function ProfilePage() {
                 <button
                   type="button"
                   className="save-btn"
-                  onClick={() => setEditing(false)}
+                  onClick={() => void handleSaveProfile()}
+                  disabled={geocodingAddress}
                 >
-                  {t("save")}
+                  {geocodingAddress ? (
+                    <>
+                      <Loader2 size={16} className="spin" aria-hidden />
+                      {t("proAddressGeocoding")}
+                    </>
+                  ) : (
+                    t("save")
+                  )}
                 </button>
               </div>
             )}

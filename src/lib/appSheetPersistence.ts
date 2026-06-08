@@ -180,6 +180,10 @@ export function eventToRow(event: Event, userId: string): Record<string, string>
     waitlistEntriesJson: jsonToSheet(event.waitlistEntries ?? []),
     invitedProfilIdsJson: jsonToSheet(event.invitedProfilIds ?? []),
     publicUrl: event.publicUrl ?? buildEventPublicUrl(event.id),
+    validatedPresentProfilIdsJson: jsonToSheet(event.validatedPresentProfilIds ?? []),
+    karmaOrganizerRewarded: boolToSheet(event.karmaOrganizerRewarded),
+    karmaJoinPaidProfilIdsJson: jsonToSheet(event.karmaJoinPaidProfilIds ?? []),
+    karmaOrganizePaid: boolToSheet(event.karmaOrganizePaid),
     deleted: "false",
   };
 }
@@ -216,6 +220,10 @@ export function rowToEvent(row: Record<string, string>): Event {
     waitlistEntries: jsonFromSheet(row.waitlistEntriesJson, []),
     invitedProfilIds: jsonFromSheet(row.invitedProfilIdsJson, []),
     publicUrl: row.publicUrl?.trim() || undefined,
+    validatedPresentProfilIds: jsonFromSheet(row.validatedPresentProfilIdsJson, []),
+    karmaOrganizerRewarded: boolFromSheet(row.karmaOrganizerRewarded),
+    karmaJoinPaidProfilIds: jsonFromSheet(row.karmaJoinPaidProfilIdsJson, []),
+    karmaOrganizePaid: boolFromSheet(row.karmaOrganizePaid),
   };
 }
 
@@ -289,6 +297,8 @@ export function friendToRow(friend: Friend, userId: string): Record<string, stri
     memberSince: friend.memberSince ?? "",
     verified: boolToSheet(friend.verified),
     isPro: boolToSheet(friend.isPro),
+    proAddress: str(friend.proAddress),
+    karma: String(friend.karma ?? 5),
     websiteUrl: str(friend.websiteUrl),
     socialUrl: str(friend.socialUrl),
     phone: str(friend.phone),
@@ -314,6 +324,8 @@ export function rowToFriend(row: Record<string, string>): Friend {
     memberSince: row.memberSince?.trim() || undefined,
     verified: boolFromSheet(row.verified),
     isPro: boolFromSheet(row.isPro),
+    proAddress: str(row.proAddress) || undefined,
+    karma: row.karma != null && row.karma !== "" ? numFromSheet(row.karma, 5) : 5,
     websiteUrl: str(row.websiteUrl) || undefined,
     socialUrl: str(row.socialUrl) || undefined,
     phone: str(row.phone) || undefined,
@@ -333,6 +345,7 @@ function professionalToRow(p: MockProfessional): Record<string, string> {
     category: p.category,
     categoryLabel: p.categoryLabel,
     city: p.city,
+    address: str(p.address),
     description: p.description,
     imageUrl: p.imageUrl,
     mapX: String(p.mapX),
@@ -360,6 +373,7 @@ function rowToProfessional(row: Record<string, string>): MockProfessional {
     category: (str(row.category) || fallback?.category || "therapeute") as MockProfessional["category"],
     categoryLabel: str(row.categoryLabel) || fallback?.categoryLabel || "",
     city,
+    address: str(row.address) || fallback?.address,
     description: str(row.description) || fallback?.description || "",
     imageUrl: str(row.imageUrl) || fallback?.imageUrl || "",
     mapX,
@@ -501,6 +515,10 @@ export function viewerSettingsToRow(
     websiteUrl?: string;
     socialUrl?: string;
     phone?: string;
+    proAddress?: string;
+    proLat?: number | null;
+    proLng?: number | null;
+    karma?: number;
     friendRequestSentProfilIds: string[];
     friendRequestRejectedProfilIds: string[];
     favoriteConversationIds: string[];
@@ -527,6 +545,10 @@ export function viewerSettingsToRow(
     websiteUrl: str(data.websiteUrl),
     socialUrl: str(data.socialUrl),
     phone: str(data.phone),
+    proAddress: str(data.proAddress),
+    proLat: data.proLat != null ? String(data.proLat) : "",
+    proLng: data.proLng != null ? String(data.proLng) : "",
+    karma: data.karma != null ? String(data.karma) : "",
     friendRequestSentJson: jsonToSheet(data.friendRequestSentProfilIds),
     friendRequestRejectedJson: jsonToSheet(data.friendRequestRejectedProfilIds),
     favoriteConversationIdsJson: jsonToSheet(data.favoriteConversationIds),
@@ -623,6 +645,10 @@ export interface LoadedAppSheetState {
     websiteUrl?: string;
     socialUrl?: string;
     phone?: string;
+    proAddress?: string;
+    proLat?: number | null;
+    proLng?: number | null;
+    karma?: number;
     friendRequestSentProfilIds: string[];
     friendRequestRejectedProfilIds: string[];
     favoriteConversationIds: string[];
@@ -754,6 +780,13 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
           websiteUrl: str(viewerRow.websiteUrl) || undefined,
           socialUrl: str(viewerRow.socialUrl) || undefined,
           phone: str(viewerRow.phone) || undefined,
+          proAddress: str(viewerRow.proAddress) || undefined,
+          proLat: str(viewerRow.proLat) ? numFromSheet(viewerRow.proLat) : null,
+          proLng: str(viewerRow.proLng) ? numFromSheet(viewerRow.proLng) : null,
+          karma:
+            str(viewerRow.karma) !== ""
+              ? numFromSheet(viewerRow.karma, 5)
+              : undefined,
           friendRequestSentProfilIds: jsonFromSheet(viewerRow.friendRequestSentJson, []),
           friendRequestRejectedProfilIds: jsonFromSheet(viewerRow.friendRequestRejectedJson, []),
           favoriteConversationIds: jsonFromSheet(viewerRow.favoriteConversationIdsJson, []),
@@ -796,6 +829,10 @@ export function mergeLoadedAppState(
   viewerProWebsiteUrl?: string;
   viewerProSocialUrl?: string;
   viewerProPhone?: string;
+  viewerProAddress?: string;
+  viewerProLat?: number | null;
+  viewerProLng?: number | null;
+  viewerKarma?: number;
 } {
   const patch: Partial<typeof current> & {
     viewerProfileAvatarUrl?: string;
@@ -804,6 +841,10 @@ export function mergeLoadedAppState(
     viewerProWebsiteUrl?: string;
     viewerProSocialUrl?: string;
     viewerProPhone?: string;
+    viewerProAddress?: string;
+    viewerProLat?: number | null;
+    viewerProLng?: number | null;
+    viewerKarma?: number;
   } = {};
 
   if (loaded.events.length > 0) {
@@ -853,6 +894,10 @@ export function mergeLoadedAppState(
     if (vs.websiteUrl != null) patch.viewerProWebsiteUrl = vs.websiteUrl;
     if (vs.socialUrl != null) patch.viewerProSocialUrl = vs.socialUrl;
     if (vs.phone != null) patch.viewerProPhone = vs.phone;
+    if (vs.proAddress != null) patch.viewerProAddress = vs.proAddress;
+    if (vs.proLat != null) patch.viewerProLat = vs.proLat;
+    if (vs.proLng != null) patch.viewerProLng = vs.proLng;
+    if (vs.karma != null) patch.viewerKarma = vs.karma;
     if (vs.friendRequestSentProfilIds.length > 0) {
       patch.friendRequestSentProfilIds = vs.friendRequestSentProfilIds;
     }
@@ -937,6 +982,9 @@ export function syncViewerSettingsToSheets(data: {
   websiteUrl?: string;
   socialUrl?: string;
   phone?: string;
+  proAddress?: string;
+  proLat?: number | null;
+  proLng?: number | null;
   viewerProfileBadges?: string[];
   friendRequestSentProfilIds: string[];
   friendRequestRejectedProfilIds: string[];
@@ -985,6 +1033,10 @@ export function syncAllViewerStateFromStore(state: {
   viewerProWebsiteUrl?: string;
   viewerProSocialUrl?: string;
   viewerProPhone?: string;
+  viewerProAddress?: string;
+  viewerProLat?: number | null;
+  viewerProLng?: number | null;
+  viewerKarma?: number;
   friendRequestSentProfilIds: string[];
   friendRequestRejectedProfilIds: string[];
   favoriteConversationIds: string[];
@@ -1007,6 +1059,10 @@ export function syncAllViewerStateFromStore(state: {
     websiteUrl: state.viewerProWebsiteUrl,
     socialUrl: state.viewerProSocialUrl,
     phone: state.viewerProPhone,
+    proAddress: state.viewerProAddress,
+    proLat: state.viewerProLat,
+    proLng: state.viewerProLng,
+    karma: state.viewerKarma,
     friendRequestSentProfilIds: state.friendRequestSentProfilIds,
     friendRequestRejectedProfilIds: state.friendRequestRejectedProfilIds,
     favoriteConversationIds: state.favoriteConversationIds,

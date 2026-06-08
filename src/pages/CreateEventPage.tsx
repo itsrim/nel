@@ -366,6 +366,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           manualApproval,
           isBeta: beta,
         });
+        if (!eventId) return;
         postEventGroupWelcome(conversationId, t);
         if (viewerProfileIsPro && selectedInviteProfilIds.length > 0) {
           for (const profilId of selectedInviteProfilIds) {

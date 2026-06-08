@@ -6,6 +6,7 @@ import { useMessagingStore } from "../store/useMessagingStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { ProsMapView } from "../components/ProsMapView";
 import { mapCenterForCity } from "../lib/proCoordinates";
+import { buildViewerProfessional, VIEWER_PRO_ID } from "../lib/proLocation";
 import {
   PRO_CATEGORY_OPTIONS,
   proFullName,
@@ -66,7 +67,18 @@ export function ProsPage() {
   const { t } = useTranslation();
   const { openDetail } = useNavigationStore();
   const professionals = useProsStore((s) => s.professionals);
-  const viewerProfileCity = useMessagingStore((s) => s.viewerProfileCity);
+  const {
+    viewerProfileCity,
+    viewerProfileIsPro,
+    viewerProfileDisplayName,
+    viewerProfileAvatarUrl,
+    viewerProAddress,
+    viewerProLat,
+    viewerProLng,
+    viewerProWebsiteUrl,
+    viewerProSocialUrl,
+    viewerProPhone,
+  } = useMessagingStore();
   const mapCenter = useMemo(
     () => mapCenterForCity(viewerProfileCity),
     [viewerProfileCity],
@@ -76,12 +88,45 @@ export function ProsPage() {
   const [categoryFilter, setCategoryFilter] = useState<ProCategory | "all">("all");
   const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
 
+  const professionalsWithViewer = useMemo(() => {
+    const viewerPro = viewerProfileIsPro
+      ? buildViewerProfessional({
+          displayName: viewerProfileDisplayName,
+          avatarUrl: viewerProfileAvatarUrl,
+          city: viewerProfileCity,
+          address: viewerProAddress,
+          lat: viewerProLat,
+          lng: viewerProLng,
+          websiteUrl: viewerProWebsiteUrl,
+          socialUrl: viewerProSocialUrl,
+          phone: viewerProPhone,
+        })
+      : null;
+    if (!viewerPro) return professionals;
+    return [
+      viewerPro,
+      ...professionals.filter((p) => p.id !== VIEWER_PRO_ID),
+    ];
+  }, [
+    professionals,
+    viewerProfileIsPro,
+    viewerProfileDisplayName,
+    viewerProfileAvatarUrl,
+    viewerProfileCity,
+    viewerProAddress,
+    viewerProLat,
+    viewerProLng,
+    viewerProWebsiteUrl,
+    viewerProSocialUrl,
+    viewerProPhone,
+  ]);
+
   const filtered = useMemo(() => {
-    return professionals.filter((pro) => {
+    return professionalsWithViewer.filter((pro) => {
       if (categoryFilter !== "all" && pro.category !== categoryFilter) return false;
       return matchesSearch(pro, searchQuery);
     });
-  }, [professionals, categoryFilter, searchQuery]);
+  }, [professionalsWithViewer, categoryFilter, searchQuery]);
 
   const selectedMapPro = selectedMapId
     ? (filtered.find((p) => p.id === selectedMapId) ?? null)

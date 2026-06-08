@@ -119,6 +119,24 @@ function App() {
       if (patch.viewerProfileCity != null) {
         msg.setViewerProfileCity(patch.viewerProfileCity);
       }
+      if (patch.viewerProAddress != null) {
+        msg.setViewerProAddress(patch.viewerProAddress);
+      }
+      if (patch.viewerProLat != null && patch.viewerProLng != null) {
+        msg.setViewerProLocation(
+          patch.viewerProAddress ?? msg.viewerProAddress,
+          patch.viewerProLat,
+          patch.viewerProLng,
+        );
+      }
+      if (patch.viewerKarma != null) {
+        try {
+          localStorage.setItem("nel_viewer_karma", String(patch.viewerKarma));
+        } catch {
+          /* ignore */
+        }
+        useMessagingStore.setState({ viewerKarma: patch.viewerKarma });
+      }
       if (patch.viewerProfileBadges != null) {
         msg.setViewerProfileBadges(patch.viewerProfileBadges);
       }

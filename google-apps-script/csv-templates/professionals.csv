@@ -1,1 +1,1 @@
-id,firstName,lastName,category,categoryLabel,city,description,imageUrl,mapX,mapY,lat,lng,verified,websiteUrl,socialUrl,phone,deleted
+id,firstName,lastName,category,categoryLabel,city,address,description,imageUrl,mapX,mapY,lat,lng,verified,websiteUrl,socialUrl,phone,deleted

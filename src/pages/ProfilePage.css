@@ -118,8 +118,20 @@
   font-weight: 600;
 }
 
-.hero-input--small {
-    width: 60px;
+.hero-edit-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.hero-input--age {
+  width: 72px;
+  flex-shrink: 0;
+}
+
+.hero-input--city {
+  flex: 1;
+  min-width: 0;
 }
 
 .verified-badge {
@@ -230,6 +242,25 @@
   font-size: 13px;
   font-weight: 700;
   margin-top: 4px;
+}
+
+.pro-address-hint {
+  margin: -4px 0 4px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #8e8e93;
+}
+
+.save-btn .spin {
+  animation: profile-spin 0.8s linear infinite;
+  margin-right: 6px;
+  vertical-align: -2px;
+}
+
+@keyframes profile-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .pro-contact-links--profile {

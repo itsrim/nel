@@ -11,6 +11,24 @@
   overflow: hidden;
 }
 
+.ecard-theme-tag {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 3;
+  max-width: calc(100% - 72px);
+  padding: 3px 7px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
 .ecard-img {
   width: 100%;
   height: 100%;
@@ -28,6 +46,10 @@
   align-items: flex-start;
   justify-content: space-between;
   pointer-events: none;
+}
+
+.ecard-img-top--with-theme {
+  padding-top: 30px;
 }
 
 .ecard-tags-left {
@@ -50,7 +72,6 @@
 
 .ecard-tag--blue { background: #5AC8FA; }
 .ecard-tag--pink { background: #FF2D55; }
-.ecard-tag--join { background: #243E6B; color: rgba(255,255,255,0.95); }
 .ecard-tag--pending { background: #F59E0B; }
 .ecard-tag--beta { background: rgba(236,72,153,0.92); }
 .ecard-tag--pro { background: rgba(255, 214, 10, 0.95); color: #1a1a1a; }
@@ -136,14 +157,40 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+.ecard-body-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .ecard-meta {
   display: flex;
   align-items: center;
   gap: 4px;
   flex-wrap: nowrap;
+  flex: 1;
+  min-width: 0;
   color: #8E8E93;
   font-size: 11px;
   font-weight: 600;
+}
+
+.ecard-status-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 7px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.ecard-status-badge--registered {
+  background: #5AC8FA;
 }
 
 .ecard-meta-sep {

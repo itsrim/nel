@@ -12,6 +12,7 @@ import {
   X,
   AlertTriangle,
   Award,
+  CheckCircle2,
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useTranslation } from "../i18n/useTranslation";
@@ -19,6 +20,7 @@ import { useMessagingStore } from "../store/useMessagingStore";
 import { isEventDateBeforeToday } from "../lib/eventDateKey";
 import { eventHostedByViewer, resolveEventHostIsPro } from "../lib/eventHost";
 import { resolveEventPublicUrl } from "../lib/eventPublicUrl";
+import { VIEWER_KARMA_PARTICIPANT_ID } from "../lib/karma";
 import type { Friend } from "../data/mockData";
 import { ReportModal } from "../components/ReportModal";
 import "./EventDetailPage.css";
@@ -57,6 +59,8 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     viewerProfileAvatarUrl,
     viewerProfileDisplayName,
     viewerProfileIsPro,
+    showToast,
+    validateEventParticipantPresent,
   } = useMessagingStore();
 
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -139,6 +143,8 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
 
   if (!event) return null;
 
+  const publicShareUrl = resolveEventPublicUrl(event);
+
   const viewerHosts = eventHostedByViewer(event);
   const hostAvatar = viewerHosts
     ? viewerProfileAvatarUrl
@@ -158,6 +164,11 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const isFull = event.participantCount >= event.participantMax;
   const isHostOrganizer = viewerHosts && event.status === "organisateur";
   const isPastEvent = isEventDateBeforeToday(event.dateKey);
+  const validatedPresent = new Set(event.validatedPresentProfilIds ?? []);
+
+  const markParticipantPresent = (participantProfilId: string) => {
+    validateEventParticipantPresent(event.id, participantProfilId);
+  };
 
   const handleInviteFriend = (f: Friend) => {
     inviteFriendToEvent(event.id, f);
@@ -175,22 +186,27 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     }
   };
 
-  const handleShare = () => {
-    const url = resolveEventPublicUrl(event);
-    if (navigator.share) {
-      navigator
-        .share({
-          title: event.title,
-          text: event.notes,
-          url,
-        })
-        .catch(console.error);
-      return;
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(publicShareUrl);
+      showToast(t("linkCopied"));
+    } catch {
+      showToast(publicShareUrl);
     }
-    void navigator.clipboard?.writeText(url).then(
-      () => alert("Lien copié dans le presse-papier !"),
-      () => alert(url),
-    );
+
+    if (!navigator.share) return;
+
+    try {
+      await navigator.share({
+        title: event.title,
+        text: event.notes,
+        url: publicShareUrl,
+      });
+    } catch (err) {
+      if ((err as Error)?.name !== "AbortError") {
+        console.error(err);
+      }
+    }
   };
 
   return (
@@ -212,11 +228,16 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           <div className="ed-header-actions">
             <button
               type="button"
-              className="ed-icon-btn"
-              onClick={handleShare}
+              className="ed-icon-btn ed-share-btn"
+              onClick={() => void handleShare()}
               aria-label={t("shareButton")}
+              title={publicShareUrl}
             >
               <Share2 size={24} color="#fff" />
+              <span className="ed-share-tooltip" role="tooltip">
+                <span className="ed-share-tooltip-url">{publicShareUrl}</span>
+                <span className="ed-share-tooltip-hint">{t("shareLinkTooltip")}</span>
+              </span>
             </button>
             <button
               type="button"
@@ -354,16 +375,32 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                 );
               }
               if (slot.kind === "profile") {
+                const validated = validatedPresent.has(slot.profilId);
                 return (
-                  <button
-                    key={slot.key}
-                    type="button"
-                    className="ed-participant-avatar ed-participant-avatar--clickable"
-                    onClick={() => openDetail("profile", slot.profilId)}
-                    aria-label={`${t("viewProfileLabel")} ${slot.name}`}
-                  >
-                    <img src={slot.imageUrl} alt="" />
-                  </button>
+                  <div key={slot.key} className="ed-participant-slot">
+                    <button
+                      type="button"
+                      className={`ed-participant-avatar ed-participant-avatar--clickable${validated ? " ed-participant-avatar--validated" : ""}`}
+                      onClick={() => openDetail("profile", slot.profilId)}
+                      aria-label={`${t("viewProfileLabel")} ${slot.name}`}
+                    >
+                      <img src={slot.imageUrl} alt="" />
+                    </button>
+                    {isHostOrganizer && !isPastEvent ? (
+                      <button
+                        type="button"
+                        className={`ed-validate-present-btn${validated ? " ed-validate-present-btn--done" : ""}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!validated) markParticipantPresent(slot.profilId);
+                        }}
+                        aria-label={t("validatePresenceAriaLabel")}
+                        disabled={validated}
+                      >
+                        <CheckCircle2 size={14} aria-hidden />
+                      </button>
+                    ) : null}
+                  </div>
                 );
               }
               return (

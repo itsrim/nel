@@ -5,14 +5,13 @@ import {
   Briefcase,
   Calendar,
   ChevronLeft,
-  MapPin,
   MessageCircle,
   ShieldCheck,
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { ReportModal } from "../components/ReportModal";
-import { ProContactLinks } from "../components/ProContactLinks";
+import { ProProfileDetails } from "../components/ProProfileDetails";
 import { useTranslation } from "../i18n/useTranslation";
 import { proDemoStats, proFullName } from "../data/mockProfessionals";
 import { getProfessionalById } from "../store/useProsStore";
@@ -92,15 +91,18 @@ export function ProProfilePage({ id }: ProProfilePageProps) {
         <div className="op-bio-card">
           <p className="op-bio-text">{pro.description}</p>
           <div className="op-divider" />
-          <div className="op-info-row">
-            <MapPin size={18} color="#8E8E93" />
-            <span>{pro.city}</span>
-          </div>
+          <ProProfileDetails
+            city={pro.city}
+            address={pro.address}
+            websiteUrl={pro.websiteUrl}
+            socialUrl={pro.socialUrl}
+            phone={pro.phone}
+            className="pro-contact-links--profile"
+          />
           <div className="op-info-row">
             <Calendar size={18} color="#8E8E93" />
             <span>{t("memberSince")}</span>
           </div>
-          <ProContactLinks contact={pro} className="pro-contact-links--profile" />
         </div>
 
         <div className="op-stats-row">

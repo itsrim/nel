@@ -1,0 +1,23 @@
+.profile-karma-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(167, 139, 250, 0.45);
+  color: #ddd6fe;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.profile-karma-badge-value {
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-karma-badge-label {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.9;
+}

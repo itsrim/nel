@@ -7,6 +7,8 @@ import type { Event, Conversation, Friend, GroupMember } from './mockData';
 import { formatEventSectionTitle } from '../lib/eventDateKey';
 import { buildEventParticipantAvatars } from '../lib/eventParticipantAvatars';
 import { buildEventPublicUrl } from '../lib/eventPublicUrl';
+import { DEFAULT_EVENT_COVER_THEMES } from '../constants/defaultEventCoverThemes';
+import { KARMA_DEFAULT } from '../lib/karma';
 
 const SEED = 20260415;
 
@@ -122,11 +124,13 @@ function buildFriends(rng: () => number, placeholderGroupId: string): Friend[] {
       memberSince: '2024',
       verified: true,
       isPro: true,
+      proAddress: "24 rue Oberkampf, 75011 Paris",
       websiteUrl: "https://www.marie-atelier.fr",
       socialUrl: "https://instagram.com/marie.nel",
       phone: "+33 6 12 34 56 78",
       stats: { reliability: 4.9, events: 24, friends: 38 },
       badges: ['Ponctuelle', 'Organisatrice', 'Foodie'],
+      karma: KARMA_DEFAULT,
     },
     {
       profilId: 'f2',
@@ -142,11 +146,13 @@ function buildFriends(rng: () => number, placeholderGroupId: string): Friend[] {
       memberSince: '2023',
       verified: true,
       isPro: true,
+      proAddress: "16 rue de la République, 69002 Lyon",
       websiteUrl: "https://www.lucas-trail.fr",
       socialUrl: "https://instagram.com/lucas.nel",
       phone: "+33 6 98 76 54 32",
       stats: { reliability: 4.7, events: 18, friends: 52 },
       badges: ['Explorateur', 'Photographe'],
+      karma: KARMA_DEFAULT,
     },
     {
       profilId: 'f3',
@@ -225,6 +231,7 @@ function buildFriends(rng: () => number, placeholderGroupId: string): Friend[] {
       isPro: rng() > 0.75,
       stats: { reliability: rel, events: evc, friends: frc },
       badges,
+      karma: KARMA_DEFAULT,
     });
   }
   return core;
@@ -365,6 +372,8 @@ export function buildAppSeed(): {
         : host.imageUrl;
 
       const visitsCount = Math.floor(rng() * 250);
+      const coverTheme =
+        DEFAULT_EVENT_COVER_THEMES[eventIndex % DEFAULT_EVENT_COVER_THEMES.length];
 
       events.push({
         id: eid,
@@ -375,7 +384,7 @@ export function buildAppSeed(): {
         timeShort: slotTimes[slot],
         dateLabel,
         sectionDateLabel,
-        imageUri: img(imgSeed++),
+        imageUri: coverTheme.imageUrl,
         priceLabel,
         participantCount,
         participantMax,
@@ -384,7 +393,7 @@ export function buildAppSeed(): {
         status,
         notes: isAdminEvent
           ? 'Sortie réservée aux équipes admin Nel — alignement signalements & règles communautaires.'
-          : `Point de rendez-vous précis dans le fil. #nel ${category.toLowerCase()}`,
+          : `Point de rendez-vous précis dans le fil. #${coverTheme.tag}`,
         conversationId: cid,
         visitsCount,
         category,

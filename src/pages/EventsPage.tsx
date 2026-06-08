@@ -14,7 +14,10 @@ import { useMessagingStore } from "../store/useMessagingStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { EventCard } from "../components/EventCard";
 import type { Event } from "../data/mockData";
-import { EVENT_THEME_TAG_OPTIONS } from "../constants/defaultEventCoverThemes";
+import {
+  EVENT_THEME_TAG_OPTIONS,
+  eventThemeChipStyle,
+} from "../constants/defaultEventCoverThemes";
 import {
   formatEventSectionTitle,
   parseDateKeyLocal,
@@ -304,7 +307,7 @@ export function EventsPage() {
   }, []);
 
   const filterChipsActive = Boolean(
-    filterDate || filterLocation.trim() || filterTag.trim(),
+    filterDate || filterLocation.trim(),
   );
 
   useEffect(() => {
@@ -447,19 +450,6 @@ export function EventsPage() {
                     onChange={(e) => setFilterLocation(e.target.value)}
                     aria-label="Filtrer par lieu"
                   />
-                  <select
-                    className="events-filter-field events-filter-field--grow events-filter-select"
-                    value={filterTag}
-                    onChange={(e) => setFilterTag(e.target.value)}
-                    aria-label="Filtrer par thème (même liste que les couvertures)"
-                  >
-                    <option value="">Thème / tag…</option>
-                    {EVENT_THEME_TAG_OPTIONS.map((tag) => (
-                      <option key={tag} value={tag}>
-                        #{tag}
-                      </option>
-                    ))}
-                  </select>
                 </>
               )}
               <button
@@ -479,6 +469,37 @@ export function EventsPage() {
                 />
               </button>
             </div>
+          </div>
+          <div
+            className="events-theme-filters"
+            role="listbox"
+            aria-label={t("themeFilterAriaLabel")}
+          >
+            <button
+              type="button"
+              role="option"
+              aria-selected={!filterTag.trim()}
+              className={`events-theme-chip events-theme-chip--all${!filterTag.trim() ? " events-theme-chip--active" : ""}`}
+              onClick={() => setFilterTag("")}
+            >
+              {t("proFilterAll")}
+            </button>
+            {EVENT_THEME_TAG_OPTIONS.map((tag) => {
+              const active = filterTag === tag;
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  className={`events-theme-chip${active ? " events-theme-chip--active" : ""}`}
+                  style={eventThemeChipStyle(tag, active)}
+                  onClick={() => setFilterTag((prev) => (prev === tag ? "" : tag))}
+                >
+                  #{tag}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

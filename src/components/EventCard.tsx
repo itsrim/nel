@@ -1,9 +1,13 @@
-import { Heart, Check, Plus, Clock, MapPin } from 'lucide-react';
+import { Heart, Check, Clock, MapPin } from 'lucide-react';
 import type { Event } from '../data/mockData';
 import { useTranslation } from '../i18n/useTranslation';
 import { useMessagingStore } from '../store/useMessagingStore';
 import { resolveEventHostIsPro } from '../lib/eventHost';
 import { resolveEventParticipantAvatars } from '../lib/eventParticipantAvatars';
+import {
+  getEventThemeBadgeColors,
+  resolveEventCoverTheme,
+} from '../constants/defaultEventCoverThemes';
 import './EventCard.css';
 
 interface EventCardProps {
@@ -18,6 +22,10 @@ export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardP
   const { conversations, friends, viewerProfileAvatarUrl, viewerProfileIsPro } =
     useMessagingStore();
   const hostIsPro = resolveEventHostIsPro(item, friends, viewerProfileIsPro);
+  const coverTheme = resolveEventCoverTheme(item);
+  const themeBadgeColors = coverTheme
+    ? getEventThemeBadgeColors(coverTheme.tag)
+    : null;
   const participantAvatars = resolveEventParticipantAvatars(
     item,
     conversations,
@@ -36,24 +44,27 @@ export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardP
           className="ecard-img"
           loading="lazy"
         />
+        {coverTheme && themeBadgeColors ? (
+          <span
+            className="ecard-theme-tag"
+            style={{
+              backgroundColor: themeBadgeColors.bg,
+              color: themeBadgeColors.fg,
+            }}
+          >
+            #{coverTheme.tag}
+          </span>
+        ) : null}
         {/* Top overlay: status + price */}
-        <div className="ecard-img-top">
+        <div
+          className={`ecard-img-top${coverTheme ? ' ecard-img-top--with-theme' : ''}`}
+        >
           <div className="ecard-tags-left">
             {item.isBeta && (
               <span className="ecard-tag ecard-tag--beta">{t('beta')}</span>
             )}
             {hostIsPro && (
               <span className="ecard-tag ecard-tag--pro">{t('pro')}</span>
-            )}
-            {item.status === 'inscrit' && (
-              <span className="ecard-tag ecard-tag--blue">
-                <Check size={10} /> {t('registered')}
-              </span>
-            )}
-            {item.status === 'inscrire' && (
-              <span className="ecard-tag ecard-tag--join">
-                <Plus size={10} /> {t('register')}
-              </span>
             )}
             {item.status === 'organisateur' && (
               <span className="ecard-tag ecard-tag--pink">{t('organizer')}</span>
@@ -96,12 +107,20 @@ export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardP
             />
           </button>
         </div>
-        <div className="ecard-meta">
-          <Clock size={11} color="#8E8E93" />
-          <span>{item.timeShort}</span>
-          <span className="ecard-meta-sep" />
-          <MapPin size={11} color="#8E8E93" />
-          <span className="ecard-meta-loc">{item.location}</span>
+        <div className="ecard-body-footer">
+          <div className="ecard-meta">
+            <Clock size={11} color="#8E8E93" />
+            <span>{item.timeShort}</span>
+            <span className="ecard-meta-sep" />
+            <MapPin size={11} color="#8E8E93" />
+            <span className="ecard-meta-loc">{item.location}</span>
+          </div>
+          {item.status === 'inscrit' ? (
+            <span className="ecard-status-badge ecard-status-badge--registered">
+              <Check size={10} aria-hidden />
+              {t('registered')}
+            </span>
+          ) : null}
         </div>
       </div>
     </div>

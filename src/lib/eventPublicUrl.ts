@@ -1,4 +1,4 @@
-const DEFAULT_EVENT_PUBLIC_BASE = "https://happyletsgo.com";
+const DEFAULT_EVENT_PUBLIC_BASE = "https://happyletsgo.fr";
 
 export function eventPublicBaseUrl(): string {
   const fromEnv = (
