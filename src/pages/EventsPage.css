@@ -16,8 +16,38 @@
 }
 
 .cal-gradient {
-  background: linear-gradient(90deg, #2d1a45, #4f1d52, #7a2462, #9b2d6e);
-  padding: calc(env(safe-area-inset-top, 0px) + 6px) 0 8px;
+  background: #fadccb;
+  padding: calc(env(safe-area-inset-top, 0px) + 2px) 0 4px;
+}
+
+.cal-gradient .cal-top-row {
+  min-height: 44px;
+  margin-bottom: 4px;
+}
+
+.cal-gradient .cal-month {
+  color: #7a3428;
+}
+
+.cal-gradient .cal-day-col--selected {
+  background: rgba(168, 73, 51, 0.18);
+  border: 1px solid rgba(168, 73, 51, 0.45);
+}
+
+.cal-gradient .cal-letter {
+  color: rgba(92, 45, 31, 0.55);
+}
+
+.cal-gradient .cal-letter--sel {
+  color: #7a3428;
+}
+
+.cal-gradient .cal-num {
+  color: #5c2d1f;
+}
+
+.cal-gradient .cal-num--sel {
+  color: #7a3428;
 }
 
 .search-header-gradient {

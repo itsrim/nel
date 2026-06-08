@@ -339,7 +339,7 @@ export function EventsPage() {
               onClick={() => shiftWeek(-1)}
               aria-label={t("previousWeek")}
             >
-              <ChevronLeft size={22} color="#fff" />
+              <ChevronLeft size={22} color="#7a3428" />
             </button>
             <span className="cal-month">{monthTitle}</span>
             <div className="cal-top-row-right">
@@ -356,7 +356,7 @@ export function EventsPage() {
                 onClick={() => shiftWeek(1)}
                 aria-label={t("nextWeek")}
               >
-                <ChevronRight size={22} color="#fff" />
+                <ChevronRight size={22} color="#7a3428" />
               </button>
             </div>
           </div>
