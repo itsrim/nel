@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   MapPin,
@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   Award,
   CheckCircle2,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useTranslation } from "../i18n/useTranslation";
@@ -61,6 +63,8 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     viewerProfileIsPro,
     showToast,
     validateEventParticipantPresent,
+    submitOrganizerRating,
+    finalizeEventOrganizerKarma,
   } = useMessagingStore();
 
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -141,6 +145,13 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     );
   }, [event, friends, conversations]);
 
+  useEffect(() => {
+    if (!event) return;
+    if (isEventDateBeforeToday(event.dateKey)) {
+      finalizeEventOrganizerKarma(event.id);
+    }
+  }, [event, finalizeEventOrganizerKarma]);
+
   if (!event) return null;
 
   const publicShareUrl = resolveEventPublicUrl(event);
@@ -165,6 +176,17 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const isHostOrganizer = viewerHosts && event.status === "organisateur";
   const isPastEvent = isEventDateBeforeToday(event.dateKey);
   const validatedPresent = new Set(event.validatedPresentProfilIds ?? []);
+  const viewerValidatedPresent = validatedPresent.has(
+    VIEWER_KARMA_PARTICIPANT_ID,
+  );
+  const myOrganizerRating = (event.organizerRatings ?? []).find(
+    (r) => r.profilId === VIEWER_KARMA_PARTICIPANT_ID,
+  )?.rating;
+  const canRateOrganizer =
+    isPastEvent &&
+    !isHostOrganizer &&
+    viewerValidatedPresent &&
+    isInscribed;
 
   const markParticipantPresent = (participantProfilId: string) => {
     validateEventParticipantPresent(event.id, participantProfilId);
@@ -485,6 +507,37 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {canRateOrganizer && (
+          <div className="ed-section ed-rate-organizer-section">
+            <h2 className="ed-section-title">{t("rateOrganizerTitle")}</h2>
+            <p className="ed-rate-organizer-sub">{t("rateOrganizerSubtitle")}</p>
+            {myOrganizerRating ? (
+              <p className="ed-rate-organizer-done">{t("rateOrganizerThanks")}</p>
+            ) : (
+              <div className="ed-rate-organizer-actions">
+                <button
+                  type="button"
+                  className="ed-rate-organizer-btn ed-rate-organizer-btn--good"
+                  onClick={() => submitOrganizerRating(event.id, "good")}
+                  aria-label={t("rateOrganizerGoodAria")}
+                >
+                  <ThumbsUp size={20} aria-hidden />
+                  <span>{t("rateOrganizerGood")}</span>
+                </button>
+                <button
+                  type="button"
+                  className="ed-rate-organizer-btn ed-rate-organizer-btn--bad"
+                  onClick={() => submitOrganizerRating(event.id, "bad")}
+                  aria-label={t("rateOrganizerBadAria")}
+                >
+                  <ThumbsDown size={20} aria-hidden />
+                  <span>{t("rateOrganizerBad")}</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 

@@ -46,18 +46,21 @@ import {
   type SubscriptionPaymentRecord,
 } from "../lib/subscriptionPersistence";
 import { buildEventPublicUrl } from "../lib/eventPublicUrl";
+import { isEventDateBeforeToday } from "../lib/eventDateKey";
 import { eventHostedByViewer } from "../lib/eventHost";
 import {
   KARMA_ATTENDANCE_REWARD,
   KARMA_DEFAULT,
-  KARMA_JOIN_COST,
   KARMA_ORGANIZE_COST,
   KARMA_ORGANIZE_SUCCESS_REWARD,
   KARMA_PREMIUM_PER_MONTH,
   VIEWER_KARMA_PARTICIPANT_ID,
-  canAffordJoin,
-  canAffordOrganize,
+  type OrganizerRatingValue,
+  isMajorityBadOrganizerRating,
   normalizeKarma,
+  presentParticipantIds,
+  shouldAwardOrganizerKarma,
+  shouldFinalizeOrganizerKarma,
 } from "../lib/karma";
 
 export interface EventReminder {
@@ -313,6 +316,11 @@ interface MessagingState {
     eventId: string,
     participantProfilId: string,
   ) => void;
+  submitOrganizerRating: (
+    eventId: string,
+    rating: OrganizerRatingValue,
+  ) => void;
+  finalizeEventOrganizerKarma: (eventId: string) => void;
   events: Event[];
   conversations: Conversation[];
   profileVisits: ProfileVisit[];
@@ -423,6 +431,46 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     }));
     const updated = get().friends.find((f) => f.profilId === profilId);
     if (updated) syncFriendToSheets(updated);
+  };
+
+  const applyOrganizerKarmaOutcome = (event: Event): Event => {
+    const isPast = isEventDateBeforeToday(event.dateKey);
+    const presentIds = presentParticipantIds(event.validatedPresentProfilIds ?? []);
+    const ratings = event.organizerRatings ?? [];
+    const rewarded = event.karmaOrganizerRewarded === true;
+    const denied = event.karmaOrganizerDenied === true;
+
+    if (rewarded || denied) return event;
+    if (!shouldFinalizeOrganizerKarma(presentIds, ratings, isPast)) return event;
+
+    if (isMajorityBadOrganizerRating(presentIds, ratings)) {
+      if (event.hostedByViewer || eventHostedByViewer(event)) {
+        get().showToast("Pas de bonus karma : majorité de participants insatisfaits.");
+      }
+      return { ...event, karmaOrganizerDenied: true };
+    }
+
+    if (
+      !shouldAwardOrganizerKarma(presentIds, ratings, isPast, rewarded, denied)
+    ) {
+      return event;
+    }
+
+    if (event.hostedByViewer || eventHostedByViewer(event)) {
+      applyViewerKarma(KARMA_ORGANIZE_SUCCESS_REWARD);
+      get().showToast(
+        `+${KARMA_ORGANIZE_SUCCESS_REWARD} karma — sortie réussie !`,
+      );
+    }
+
+    return { ...event, karmaOrganizerRewarded: true };
+  };
+
+  const persistEventKarmaUpdate = (eventId: string, nextEvent: Event) => {
+    set((s) => ({
+      events: s.events.map((e) => (e.id === eventId ? nextEvent : e)),
+    }));
+    syncEventToSheets(nextEvent);
   };
 
   return {
@@ -714,34 +762,46 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     if (validated.has(pid)) return;
     validated.add(pid);
 
-    let karmaOrganizerRewarded = event.karmaOrganizerRewarded === true;
-    const otherValidated = [...validated].some(
-      (id) => id !== VIEWER_KARMA_PARTICIPANT_ID,
-    );
-
     if (pid !== VIEWER_KARMA_PARTICIPANT_ID) {
       adjustFriendKarma(pid, KARMA_ATTENDANCE_REWARD);
     } else {
       applyViewerKarma(KARMA_ATTENDANCE_REWARD);
     }
+    get().showToast(`+${KARMA_ATTENDANCE_REWARD} karma`);
 
-    if (!karmaOrganizerRewarded && otherValidated) {
-      karmaOrganizerRewarded = true;
-      applyViewerKarma(KARMA_ORGANIZE_SUCCESS_REWARD);
-      get().showToast(`+${KARMA_ORGANIZE_SUCCESS_REWARD} karma — sortie réussie !`);
-    } else if (pid !== VIEWER_KARMA_PARTICIPANT_ID) {
-      get().showToast(`+${KARMA_ATTENDANCE_REWARD} karma`);
-    }
-
-    const nextEvent: Event = {
+    const withPresence: Event = {
       ...event,
       validatedPresentProfilIds: [...validated],
-      karmaOrganizerRewarded,
     };
-    set((s) => ({
-      events: s.events.map((e) => (e.id === eventId ? nextEvent : e)),
-    }));
-    syncEventToSheets(nextEvent);
+    persistEventKarmaUpdate(eventId, applyOrganizerKarmaOutcome(withPresence));
+  },
+
+  submitOrganizerRating: (eventId, rating) => {
+    const state = get();
+    const event = state.events.find((e) => e.id === eventId);
+    if (!event) return;
+    if (event.hostedByViewer || eventHostedByViewer(event)) return;
+
+    const validated = event.validatedPresentProfilIds ?? [];
+    if (!validated.includes(VIEWER_KARMA_PARTICIPANT_ID)) return;
+
+    const ratings = [...(event.organizerRatings ?? [])];
+    const idx = ratings.findIndex(
+      (r) => r.profilId === VIEWER_KARMA_PARTICIPANT_ID,
+    );
+    const entry = { profilId: VIEWER_KARMA_PARTICIPANT_ID, rating };
+    if (idx >= 0) ratings[idx] = entry;
+    else ratings.push(entry);
+
+    const withRating: Event = { ...event, organizerRatings: ratings };
+    persistEventKarmaUpdate(eventId, applyOrganizerKarmaOutcome(withRating));
+  },
+
+  finalizeEventOrganizerKarma: (eventId) => {
+    const event = get().events.find((e) => e.id === eventId);
+    if (!event) return;
+    if (!isEventDateBeforeToday(event.dateKey)) return;
+    persistEventKarmaUpdate(eventId, applyOrganizerKarmaOutcome(event));
   },
 
   events: MOCK_EVENTS,
@@ -972,12 +1032,6 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
   addEvent: (input) => {
     const state = get();
-    if (!state.viewerProfileIsPro && !canAffordOrganize(state.viewerKarma, false)) {
-      state.showToast(
-        `Il faut au moins ${KARMA_ORGANIZE_COST} karma pour organiser une sortie.`,
-      );
-      return "";
-    }
     const id = `e_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
     const priceLabel = input.priceLabel?.trim() || "Gratuit";
     const { viewerProfileDisplayName: vn, viewerProfileAvatarUrl: va } = state;
@@ -1020,6 +1074,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       karmaOrganizePaid: !state.viewerProfileIsPro,
       validatedPresentProfilIds: [],
       karmaJoinPaidProfilIds: [],
+      organizerRatings: [],
     };
     set((s) => ({ events: [event, ...s.events] }));
     syncEventToSheets(event);
@@ -1335,12 +1390,6 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
   joinEvent: (eventId) => {
     const state = get();
-    if (!state.viewerProfileIsPro && !canAffordJoin(state.viewerKarma, false)) {
-      state.showToast(
-        `Il faut au moins ${KARMA_JOIN_COST} karma pour participer.`,
-      );
-      return;
-    }
     const event = state.events.find((e) => e.id === eventId);
     if (event) {
       // Ensure conversation is added back if missing

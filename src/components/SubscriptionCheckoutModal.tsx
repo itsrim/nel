@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { scrollLockSurfaceAttr, useLockBodyScroll } from "../lib/useLockBodyScroll";
 import { X, CreditCard, Loader2, Crown, Award } from "lucide-react";
 import { useTranslation } from "../i18n/useTranslation";
 import { useLanguageStore } from "../store/useLanguageStore";
@@ -47,6 +49,8 @@ export function SubscriptionCheckoutModal({
     [plan, months, locale],
   );
 
+  useLockBodyScroll(true);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -77,13 +81,19 @@ export function SubscriptionCheckoutModal({
     }
   };
 
-  return (
-    <div className="sub-checkout-overlay" onClick={onClose}>
+  return createPortal(
+    <div
+      className="sub-checkout-overlay"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sub-checkout-title"
+    >
       <div
         className="sub-checkout-modal"
         onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-labelledby="sub-checkout-title"
+        role="document"
+        {...{ [scrollLockSurfaceAttr]: "" }}
       >
         <div className="sub-checkout-header">
           <div className="sub-checkout-plan">
@@ -202,6 +212,7 @@ export function SubscriptionCheckoutModal({
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

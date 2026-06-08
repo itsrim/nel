@@ -7,13 +7,19 @@
   align-items: center;
   justify-content: center;
   padding: 16px;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .sub-checkout-modal {
   width: 100%;
   max-width: 420px;
+  max-height: calc(100dvh - 32px);
   box-sizing: border-box;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   background: #1c1c1e;
   border-radius: 18px;
   padding: 20px;

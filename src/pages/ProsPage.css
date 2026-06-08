@@ -8,8 +8,46 @@
 }
 
 .pros-header {
-  background: linear-gradient(90deg, #1a3a2f, #2d4a3e, #3d5a4a);
+  background: #fadccb;
   padding: calc(env(safe-area-inset-top, 0px) + 8px) 14px 12px;
+}
+
+.pros-header .pros-title {
+  color: #7a3428;
+}
+
+.pros-header .pros-filter-chip {
+  border-color: rgba(122, 52, 40, 0.22);
+  background: rgba(255, 255, 255, 0.42);
+  color: #5c2d1f;
+}
+
+.pros-header .pros-filter-chip--active {
+  background: rgba(168, 73, 51, 0.18);
+  border-color: rgba(168, 73, 51, 0.45);
+  color: #7a3428;
+}
+
+.pros-header .pros-view-btn {
+  border-color: rgba(122, 52, 40, 0.25);
+  background: rgba(255, 255, 255, 0.35);
+  color: #5c2d1f;
+}
+
+.pros-header .pros-view-btn--active {
+  background: linear-gradient(145deg, #fde047, #fbbf24);
+  color: #0a0a0a;
+  border-color: transparent;
+}
+
+.pros-header .pros-search-input {
+  border-color: rgba(122, 52, 40, 0.2);
+  background: rgba(255, 255, 255, 0.5);
+  color: #3d2018;
+}
+
+.pros-header .pros-search-icon {
+  color: rgba(92, 45, 31, 0.55);
 }
 
 .pros-header-row {

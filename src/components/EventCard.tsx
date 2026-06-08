@@ -44,20 +44,15 @@ export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardP
           className="ecard-img"
           loading="lazy"
         />
-        {coverTheme && themeBadgeColors ? (
-          <span
-            className="ecard-theme-tag"
-            style={{
-              backgroundColor: themeBadgeColors.bg,
-              color: themeBadgeColors.fg,
-            }}
-          >
-            #{coverTheme.tag}
+        {item.status === 'inscrit' ? (
+          <span className="ecard-status-badge ecard-status-badge--registered ecard-status-badge--on-img">
+            <Check size={10} aria-hidden />
+            {t('registered')}
           </span>
         ) : null}
         {/* Top overlay: status + price */}
         <div
-          className={`ecard-img-top${coverTheme ? ' ecard-img-top--with-theme' : ''}`}
+          className={`ecard-img-top${item.status === 'inscrit' ? ' ecard-img-top--with-status-badge' : ''}`}
         >
           <div className="ecard-tags-left">
             {item.isBeta && (
@@ -115,10 +110,15 @@ export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardP
             <MapPin size={11} color="#8E8E93" />
             <span className="ecard-meta-loc">{item.location}</span>
           </div>
-          {item.status === 'inscrit' ? (
-            <span className="ecard-status-badge ecard-status-badge--registered">
-              <Check size={10} aria-hidden />
-              {t('registered')}
+          {coverTheme && themeBadgeColors ? (
+            <span
+              className="ecard-theme-tag ecard-theme-tag--footer"
+              style={{
+                backgroundColor: themeBadgeColors.bg,
+                color: themeBadgeColors.fg,
+              }}
+            >
+              #{coverTheme.tag}
             </span>
           ) : null}
         </div>

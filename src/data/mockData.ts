@@ -54,6 +54,10 @@ export interface Event {
   validatedPresentProfilIds?: string[];
   /** Karma organisateur (+6) déjà attribué pour cette sortie. */
   karmaOrganizerRewarded?: boolean;
+  /** Bonus karma organisateur refusé (majorité de notes négatives). */
+  karmaOrganizerDenied?: boolean;
+  /** Notes des participants présents sur l'organisateur. */
+  organizerRatings?: Array<{ profilId: string; rating: "good" | "bad" }>;
   /** Profils ayant payé 1 karma pour participer. */
   karmaJoinPaidProfilIds?: string[];
   /** 3 karma débités à la création (remboursables si annulation). */

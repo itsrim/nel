@@ -11,12 +11,9 @@
   overflow: hidden;
 }
 
-.ecard-theme-tag {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  z-index: 3;
-  max-width: calc(100% - 72px);
+.ecard-theme-tag--footer {
+  flex-shrink: 0;
+  max-width: 46%;
   padding: 3px 7px;
   border-radius: 8px;
   font-size: 10px;
@@ -25,8 +22,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .ecard-img {
@@ -48,7 +43,7 @@
   pointer-events: none;
 }
 
-.ecard-img-top--with-theme {
+.ecard-img-top--with-status-badge {
   padding-top: 30px;
 }
 
@@ -191,6 +186,16 @@
 
 .ecard-status-badge--registered {
   background: #5AC8FA;
+}
+
+.ecard-status-badge--on-img {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 3;
+  max-width: calc(100% - 72px);
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .ecard-meta-sep {

@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Settings,
   Camera,
@@ -47,6 +48,7 @@ import type { SubscriptionPlan } from "../lib/subscriptionPayment";
 import "../components/ProContactLinks.css";
 import { isEventDateBeforeToday, parseDateKeyLocal, todayDateKey, toDateKey } from "../lib/eventDateKey";
 import { geocodeProAddress, isPlausibleProAddress } from "../lib/proGeocode";
+import { scrollLockSurfaceAttr, useLockBodyScroll } from "../lib/useLockBodyScroll";
 import "./ProfilePage.css";
 
 type TabId = "favorites" | "friends" | "history" | "notifications" | "reports" | "calendar";
@@ -202,6 +204,7 @@ export function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlan | null>(null);
+  useLockBodyScroll(settingsOpen);
   const userIsAdmin = isAdminAccount(user);
 
   // Mock user state (nom + photo partagés avec EventDetail / création de sortie)
@@ -1107,11 +1110,17 @@ export function ProfilePage() {
       </div>
 
       {/* Settings Modal */}
-      {settingsOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
+      {settingsOpen &&
+        createPortal(
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="profile-settings-title"
+        >
+          <div className="modal-content" {...{ [scrollLockSurfaceAttr]: "" }}>
             <div className="modal-header">
-              <h3>{t("settings")}</h3>
+              <h3 id="profile-settings-title">{t("settings")}</h3>
               <button type="button" onClick={() => setSettingsOpen(false)}>
                 <X size={24} />
               </button>
@@ -1210,7 +1219,8 @@ export function ProfilePage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {checkoutPlan ? (

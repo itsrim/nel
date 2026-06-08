@@ -911,14 +911,20 @@
   justify-content: center;
   z-index: 1000;
   padding: 20px;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .modal-content {
   background: #1C1C1E;
   width: 100%;
   max-width: 400px;
+  max-height: calc(100dvh - 40px);
   border-radius: 24px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-header {

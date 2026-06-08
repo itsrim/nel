@@ -182,6 +182,8 @@ export function eventToRow(event: Event, userId: string): Record<string, string>
     publicUrl: event.publicUrl ?? buildEventPublicUrl(event.id),
     validatedPresentProfilIdsJson: jsonToSheet(event.validatedPresentProfilIds ?? []),
     karmaOrganizerRewarded: boolToSheet(event.karmaOrganizerRewarded),
+    karmaOrganizerDenied: boolToSheet(event.karmaOrganizerDenied),
+    organizerRatingsJson: jsonToSheet(event.organizerRatings ?? []),
     karmaJoinPaidProfilIdsJson: jsonToSheet(event.karmaJoinPaidProfilIds ?? []),
     karmaOrganizePaid: boolToSheet(event.karmaOrganizePaid),
     deleted: "false",
@@ -222,6 +224,8 @@ export function rowToEvent(row: Record<string, string>): Event {
     publicUrl: row.publicUrl?.trim() || undefined,
     validatedPresentProfilIds: jsonFromSheet(row.validatedPresentProfilIdsJson, []),
     karmaOrganizerRewarded: boolFromSheet(row.karmaOrganizerRewarded),
+    karmaOrganizerDenied: boolFromSheet(row.karmaOrganizerDenied),
+    organizerRatings: jsonFromSheet(row.organizerRatingsJson, []),
     karmaJoinPaidProfilIds: jsonFromSheet(row.karmaJoinPaidProfilIdsJson, []),
     karmaOrganizePaid: boolFromSheet(row.karmaOrganizePaid),
   };

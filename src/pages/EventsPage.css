@@ -9,12 +9,87 @@
   position: relative;
 }
 
-/* ── Calendar / recherche : même hauteur de bandeau (ligne titre + ligne 48px) ── */
+/* ── Calendar / recherche ── */
 .cal-gradient,
 .search-header-gradient {
+  box-sizing: border-box;
+}
+
+.cal-gradient {
   background: linear-gradient(90deg, #2d1a45, #4f1d52, #7a2462, #9b2d6e);
   padding: calc(env(safe-area-inset-top, 0px) + 6px) 0 8px;
-  box-sizing: border-box;
+}
+
+.search-header-gradient {
+  background: #fadccb;
+  padding: calc(env(safe-area-inset-top, 0px) + 2px) 0 4px;
+}
+
+.search-header-gradient .search-mode-top {
+  min-height: 44px;
+  margin-bottom: 4px;
+}
+
+.search-header-gradient .events-header-icon-btn {
+  width: 44px;
+  height: 44px;
+}
+
+.search-header-gradient .events-search-row {
+  margin-bottom: 4px;
+}
+
+.search-header-gradient .events-search-bar,
+.search-header-gradient .events-filter-toggle,
+.search-header-gradient .events-search-loupe-only {
+  height: 44px;
+}
+
+.search-header-gradient .events-filter-toggle,
+.search-header-gradient .events-search-loupe-only {
+  border-color: rgba(122, 52, 40, 0.4);
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.search-header-gradient .events-filter-toggle--active {
+  border-color: #7a3428;
+  background: rgba(168, 73, 51, 0.14);
+}
+
+.search-header-gradient .events-theme-filters {
+  padding: 0 12px 2px;
+}
+
+.search-header-gradient .events-theme-chip {
+  padding: 5px 12px;
+}
+
+.search-header-gradient .search-mode-title {
+  color: #7a3428;
+}
+
+.search-header-gradient .events-theme-chip--all {
+  background: rgba(255, 255, 255, 0.42);
+  border-color: rgba(122, 52, 40, 0.22);
+  color: #5c2d1f;
+}
+
+.search-header-gradient .events-theme-chip--all.events-theme-chip--active {
+  background: rgba(168, 73, 51, 0.18);
+  border-color: rgba(168, 73, 51, 0.45);
+  color: #7a3428;
+}
+
+.search-header-gradient .events-search-bar {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.search-header-gradient .events-search-input {
+  color: #3d2018;
+}
+
+.search-header-gradient .events-search-input::placeholder {
+  color: rgba(92, 45, 31, 0.5);
 }
 
 .cal-top-row {

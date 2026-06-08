@@ -11,9 +11,23 @@
 /* ── Header gradient ── */
 /* Aligné sur .cal-gradient (Events) : safe-area + 6 / 8, rangée titre ~44px + 8, rangée ~48px */
 .chat-header-gradient {
-  background: linear-gradient(90deg, #FF6B35, #FF4081, #AB47BC);
+  background: #fadccb;
   padding: calc(env(safe-area-inset-top, 0px) + 6px) 0 8px;
   box-sizing: border-box;
+}
+
+.chat-header-gradient .favorites-title {
+  color: #7a3428;
+}
+
+.chat-header-gradient .story-label,
+.chat-header-gradient .story-label-new {
+  color: #5c2d1f;
+}
+
+.chat-header-gradient .story-new-ring {
+  border-color: rgba(122, 52, 40, 0.55);
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .favorites-section { width: 100%; }
@@ -56,7 +70,7 @@
   top: 0;
   bottom: 0;
   width: 64px;
-  background: linear-gradient(90deg, rgba(255,107,53,0), rgba(255,64,129,0.45), rgba(171,71,188,0.92));
+  background: linear-gradient(90deg, rgba(250, 220, 203, 0), rgba(250, 220, 203, 0.65), #fadccb);
   pointer-events: none;
   z-index: 2;
 }

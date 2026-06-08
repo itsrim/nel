@@ -388,7 +388,7 @@ export function EventsPage() {
             >
               {!searchFilterPanelOpen ? (
                 <div className="events-search-bar events-search-bar--grow">
-                  <Search size={20} color="rgba(255,255,255,0.6)" />
+                  <Search size={20} color="#000" />
                   <input
                     className="events-search-input"
                     placeholder={t("searchActivity")}
@@ -425,7 +425,7 @@ export function EventsPage() {
                     onClick={() => setSearchFilterPanelOpen(false)}
                     aria-label="Retour à la recherche texte"
                   >
-                    <Search size={22} color="#FFD60A" />
+                    <Search size={22} color="#7a3428" />
                   </button>
                   <input
                     type="date"
@@ -463,8 +463,8 @@ export function EventsPage() {
                   size={22}
                   color={
                     searchFilterPanelOpen || filterChipsActive
-                      ? "#FFD60A"
-                      : "#fff"
+                      ? "#7a3428"
+                      : "#000"
                   }
                 />
               </button>
