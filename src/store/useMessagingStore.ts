@@ -45,6 +45,7 @@ import {
   writeSubscriptionPaymentRecord,
   type SubscriptionPaymentRecord,
 } from "../lib/subscriptionPersistence";
+import { hasViewerProAccess } from "../lib/viewerEntitlements";
 import { buildEventPublicUrl } from "../lib/eventPublicUrl";
 import { isEventDateBeforeToday } from "../lib/eventDateKey";
 import { eventHostedByViewer } from "../lib/eventHost";
@@ -1035,7 +1036,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     const id = `e_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
     const priceLabel = input.priceLabel?.trim() || "Gratuit";
     const { viewerProfileDisplayName: vn, viewerProfileAvatarUrl: va } = state;
-    if (!state.viewerProfileIsPro) {
+    if (!hasViewerProAccess(state)) {
       applyViewerKarma(-KARMA_ORGANIZE_COST);
     }
     const hostName = vn.trim() || "Moi";
@@ -1071,7 +1072,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       manualApproval: input.manualApproval,
       invitedProfilIds: [],
       publicUrl: buildEventPublicUrl(id),
-      karmaOrganizePaid: !state.viewerProfileIsPro,
+      karmaOrganizePaid: !hasViewerProAccess(state),
       validatedPresentProfilIds: [],
       karmaJoinPaidProfilIds: [],
       organizerRatings: [],
@@ -1123,7 +1124,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     if (
       ev?.karmaOrganizePaid &&
       !ev.karmaOrganizerRewarded &&
-      !before.viewerProfileIsPro
+      !hasViewerProAccess(before)
     ) {
       applyViewerKarma(KARMA_ORGANIZE_COST);
     }
@@ -1409,7 +1410,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       }
     }
 
-    if (!state.viewerProfileIsPro) {
+    if (!hasViewerProAccess(state)) {
       applyViewerKarma(-KARMA_JOIN_COST);
     }
 
@@ -1417,7 +1418,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       events: s.events.map((e) => {
         if (e.id !== eventId) return e;
         const paid = new Set(e.karmaJoinPaidProfilIds ?? []);
-        if (!s.viewerProfileIsPro) {
+        if (!hasViewerProAccess(s)) {
           paid.add(VIEWER_KARMA_PARTICIPANT_ID);
         }
         return {
@@ -1447,7 +1448,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     if (
       paidIds.includes(VIEWER_KARMA_PARTICIPANT_ID) &&
       !wasValidated &&
-      !state.viewerProfileIsPro
+      !hasViewerProAccess(state)
     ) {
       applyViewerKarma(KARMA_JOIN_COST);
     }

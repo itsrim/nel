@@ -8,6 +8,7 @@ import {
   getEventThemeBadgeColors,
   resolveEventCoverTheme,
 } from '../constants/defaultEventCoverThemes';
+import { hasViewerProAccess } from '../lib/viewerEntitlements';
 import './EventCard.css';
 
 interface EventCardProps {
@@ -19,9 +20,9 @@ interface EventCardProps {
 
 export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardProps) {
   const { t } = useTranslation();
-  const { conversations, friends, viewerProfileAvatarUrl, viewerProfileIsPro } =
-    useMessagingStore();
-  const hostIsPro = resolveEventHostIsPro(item, friends, viewerProfileIsPro);
+  const { conversations, friends, viewerProfileAvatarUrl } = useMessagingStore();
+  const viewerProAccess = useMessagingStore(hasViewerProAccess);
+  const hostIsPro = resolveEventHostIsPro(item, friends, viewerProAccess);
   const coverTheme = resolveEventCoverTheme(item);
   const themeBadgeColors = coverTheme
     ? getEventThemeBadgeColors(coverTheme.tag)

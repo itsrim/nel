@@ -5,7 +5,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: #000;
+  background: var(--bg-primary);
   position: relative;
 }
 
@@ -414,7 +414,7 @@
 
 .events-top5 {
   padding: 10px 0 14px;
-  background: #000;
+  background: var(--bg-primary);
 }
 
 .events-top5-title {
@@ -434,7 +434,7 @@
 .events-top5-scroll::-webkit-scrollbar { display: none; }
 
 .events-section-header {
-  background: #000;
+  background: var(--bg-primary);
   padding: 12px 0 8px;
   text-align: center;
   position: sticky;

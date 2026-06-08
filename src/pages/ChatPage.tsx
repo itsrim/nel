@@ -21,6 +21,7 @@ import {
   type SuggestionProfile,
 } from "../data/mockData";
 import { buildConversationMiniSlots } from "../lib/conversationMiniSlots";
+import { hasViewerPremiumAccess } from "../lib/viewerEntitlements";
 import "./ChatPage.css";
 
 /* ── Helpers ── */
@@ -327,19 +328,19 @@ export function ChatPage() {
     friendRequestRejectedProfilIds,
     sendFriendRequest,
     moderationHiddenProfilIds,
-    nelDemoIsPremium,
     showToast,
   } = useMessagingStore();
+  const viewerPremiumAccess = useMessagingStore(hasViewerPremiumAccess);
   const [sub, setSub] = useState<SubTab>("messages");
   const [userSearchOpen, setUserSearchOpen] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const userSearchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (userSearchOpen && nelDemoIsPremium) {
+    if (userSearchOpen && viewerPremiumAccess) {
       userSearchInputRef.current?.focus();
     }
-  }, [userSearchOpen, nelDemoIsPremium]);
+  }, [userSearchOpen, viewerPremiumAccess]);
 
   /** Ami mutuel (cœur rose) — distinct du simple fait d’être dans l’annuaire « Amis » nel. */
   const isMutualFriend = useCallback(
@@ -478,7 +479,7 @@ export function ChatPage() {
   }, [searchableUsers, userSearchQuery]);
 
   const handleSearchToggle = useCallback(() => {
-    if (!nelDemoIsPremium) {
+    if (!viewerPremiumAccess) {
       showToast(t("chatUserSearchPremiumOnly"));
       return;
     }
@@ -486,7 +487,7 @@ export function ChatPage() {
       if (open) setUserSearchQuery("");
       return !open;
     });
-  }, [nelDemoIsPremium, showToast, t]);
+  }, [viewerPremiumAccess, showToast, t]);
 
   const closeUserSearch = useCallback(() => {
     setUserSearchOpen(false);
@@ -513,7 +514,7 @@ export function ChatPage() {
 
       {/* Sub-tab bar */}
       <div className="sub-tab-bar">
-        {userSearchOpen && nelDemoIsPremium ? (
+        {userSearchOpen && viewerPremiumAccess ? (
           <div className="chat-user-search-wrap">
             <Search size={20} color="#8E8E93" aria-hidden />
             <input
@@ -560,11 +561,11 @@ export function ChatPage() {
             </div>
             <button
               type="button"
-              className={`search-btn-small${nelDemoIsPremium ? "" : " search-btn-small--locked"}`}
+              className={`search-btn-small${viewerPremiumAccess ? "" : " search-btn-small--locked"}`}
               aria-label={t("searchButton")}
               onClick={handleSearchToggle}
             >
-              {nelDemoIsPremium ? (
+              {viewerPremiumAccess ? (
                 <Search size={22} color="#8E8E93" />
               ) : (
                 <>
@@ -584,7 +585,7 @@ export function ChatPage() {
 
       {/* Content */}
       <div className="chat-content">
-        {userSearchOpen && nelDemoIsPremium ? (
+        {userSearchOpen && viewerPremiumAccess ? (
           <div className="chat-user-search-results">
             {userSearchQuery.trim() === "" ? (
               <p className="chat-user-search-hint">{t("chatUserSearchHint")}</p>

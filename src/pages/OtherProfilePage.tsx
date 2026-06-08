@@ -20,6 +20,7 @@ import { ReportModal } from '../components/ReportModal';
 import { ProProfileDetails } from '../components/ProProfileDetails';
 import { ProfileKarmaBadge } from '../components/ProfileKarmaBadge';
 import { KARMA_DEFAULT } from '../lib/karma';
+import { hasViewerPremiumAccess } from '../lib/viewerEntitlements';
 import { ProfileBadgesSection } from '../components/ProfileBadgesSection';
 import { isEventDateBeforeToday } from '../lib/eventDateKey';
 import { formatBadgeCount } from '../data/mockData';
@@ -45,7 +46,6 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
     friendRequestSentProfilIds,
     friendRequestRejectedProfilIds,
     nelDemoIsAdmin,
-    nelDemoIsPremium,
     events,
     conversations,
     toggleEventFavorite,
@@ -55,7 +55,7 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
   const [reportOpen, setReportOpen] = useState(false);
   const [activeOpTab, setActiveOpTab] = useState<OtherProfileTab>('favorites');
 
-  const showInsightTabs = nelDemoIsAdmin || nelDemoIsPremium;
+  const showInsightTabs = useMessagingStore(hasViewerPremiumAccess);
 
   // Find profile in suggestions, visites de profil ou amis
   const profile =

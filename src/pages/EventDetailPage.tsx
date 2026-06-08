@@ -23,6 +23,7 @@ import { isEventDateBeforeToday } from "../lib/eventDateKey";
 import { eventHostedByViewer, resolveEventHostIsPro } from "../lib/eventHost";
 import { resolveEventPublicUrl } from "../lib/eventPublicUrl";
 import { VIEWER_KARMA_PARTICIPANT_ID } from "../lib/karma";
+import { hasViewerProAccess } from "../lib/viewerEntitlements";
 import type { Friend } from "../data/mockData";
 import { ReportModal } from "../components/ReportModal";
 import "./EventDetailPage.css";
@@ -60,12 +61,12 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     inviteFriendToEvent,
     viewerProfileAvatarUrl,
     viewerProfileDisplayName,
-    viewerProfileIsPro,
     showToast,
     validateEventParticipantPresent,
     submitOrganizerRating,
     finalizeEventOrganizerKarma,
   } = useMessagingStore();
+  const viewerProAccess = useMessagingStore(hasViewerProAccess);
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -167,7 +168,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const hostIsPro = resolveEventHostIsPro(
     event,
     friends,
-    viewerProfileIsPro,
+    viewerProAccess,
   );
 
   const isInscribed =

@@ -63,7 +63,7 @@ export function LoginPage() {
       <div className="login-page">
         <div className="login-container">
           <div className="login-header">
-            <h1 className="login-title">Nel</h1>
+            <h1 className="login-title">Happy, let's GO !</h1>
             <p className="login-subtitle">Vérification de votre email…</p>
           </div>
           <p className="login-pending-text">
@@ -79,7 +79,7 @@ export function LoginPage() {
       <div className="login-page">
         <div className="login-container">
           <div className="login-header">
-            <h1 className="login-title">Nel</h1>
+            <h1 className="login-title">Happy, let's GO !</h1>
             <p className="login-subtitle">Vérifiez votre email</p>
           </div>
 
@@ -131,7 +131,7 @@ export function LoginPage() {
     <div className="login-page">
       <div className="login-container">
         <div className="login-header">
-          <h1 className="login-title">Nel</h1>
+          <h1 className="login-title">Happy, let's GO !</h1>
           <p className="login-subtitle">
             {isSignup ? "Créer un compte" : "Se connecter"}
           </p>

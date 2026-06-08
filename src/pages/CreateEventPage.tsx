@@ -23,6 +23,7 @@ import {
   uploadLocalImageToImageKitEventCover,
 } from "../lib/imagekitUpload";
 import { withUrlUploadVersion } from "../lib/versionRemoteAssetUrl";
+import { hasViewerProAccess } from "../lib/viewerEntitlements";
 import {
   DEFAULT_EVENT_COVER_THEMES,
   findDefaultCoverThemeByImageUrl,
@@ -115,8 +116,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     nelDemoIsAdmin,
     getEventById,
     friends,
-    viewerProfileIsPro,
   } = useMessagingStore();
+  const viewerProAccess = useMessagingStore(hasViewerProAccess);
 
   const isEditMode = formEventId !== "new";
 
@@ -368,7 +369,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
         });
         if (!eventId) return;
         postEventGroupWelcome(conversationId, t);
-        if (viewerProfileIsPro && selectedInviteProfilIds.length > 0) {
+        if (viewerProAccess && selectedInviteProfilIds.length > 0) {
           for (const profilId of selectedInviteProfilIds) {
             const friend = friends.find((f) => f.profilId === profilId);
             if (friend) inviteFriendToEvent(eventId, friend);
@@ -399,7 +400,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     postEventGroupWelcome,
     closeDetail,
     participantFloor,
-    viewerProfileIsPro,
+    viewerProAccess,
     selectedInviteProfilIds,
     friends,
     inviteFriendToEvent,
@@ -622,7 +623,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
         <div className="ce-card-section">
           <h2 className="ce-section-title">{t("optionsSectionTitle")}</h2>
           <div className="ce-card" style={{ marginBottom: 0 }}>
-            {viewerProfileIsPro && !isEditMode && (
+            {viewerProAccess && !isEditMode && (
               <div className="ce-invite-block ce-option-row--border">
                 <div className="ce-invite-head">
                   <div className="ce-option-bg ce-option-bg--teal">

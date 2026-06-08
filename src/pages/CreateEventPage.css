@@ -4,7 +4,7 @@
   position: fixed;
   inset: 0;
   z-index: 1250;
-  background: #000;
+  background: var(--bg-primary);
   display: flex;
   flex-direction: column;
   overflow: hidden;

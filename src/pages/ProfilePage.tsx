@@ -49,6 +49,7 @@ import "../components/ProContactLinks.css";
 import { isEventDateBeforeToday, parseDateKeyLocal, todayDateKey, toDateKey } from "../lib/eventDateKey";
 import { geocodeProAddress, isPlausibleProAddress } from "../lib/proGeocode";
 import { scrollLockSurfaceAttr, useLockBodyScroll } from "../lib/useLockBodyScroll";
+import { hasViewerProAccess } from "../lib/viewerEntitlements";
 import "./ProfilePage.css";
 
 type TabId = "favorites" | "friends" | "history" | "notifications" | "reports" | "calendar";
@@ -152,6 +153,7 @@ export function ProfilePage() {
     sendEventReminder,
     conversations,
   } = useMessagingStore();
+  const viewerProAccess = useMessagingStore(hasViewerProAccess);
   const { openDetail } = useNavigationStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const profileTabsRef = useRef<HTMLDivElement>(null);
@@ -217,7 +219,7 @@ export function ProfilePage() {
   const [draftProAddress, setDraftProAddress] = useState("");
 
   const handleSaveProfile = async () => {
-    if (viewerProfileIsPro && draftProAddress.trim()) {
+    if (viewerProAccess && draftProAddress.trim()) {
       if (!isPlausibleProAddress(draftProAddress)) {
         showToast(t("proAddressFormatHint"));
         return;
@@ -240,7 +242,7 @@ export function ProfilePage() {
       } finally {
         setGeocodingAddress(false);
       }
-    } else if (viewerProfileIsPro && !draftProAddress.trim()) {
+    } else if (viewerProAccess && !draftProAddress.trim()) {
       setViewerProAddress("");
     }
     setEditing(false);
@@ -484,7 +486,7 @@ export function ProfilePage() {
               <ShieldCheck size={16} color="#22C55E" />
               <span>{t("verified")}</span>
             </div>
-            {viewerProfileIsPro && (
+            {viewerProAccess && (
               <div className="pro-badge">
                 <Award size={16} color="#FFD60A" />
                 <span>Pro</span>
@@ -513,13 +515,13 @@ export function ProfilePage() {
             <Calendar size={16} color="#8E8E93" />
             <span>{t("memberSince")}</span>
           </div>
-          {!editing && viewerProfileCity.trim() && !viewerProfileIsPro ? (
+          {!editing && viewerProfileCity.trim() && !viewerProAccess ? (
             <div className="member-since">
               <MapPin size={16} color="#8E8E93" />
               <span>{viewerProfileCity.trim()}</span>
             </div>
           ) : null}
-          {viewerProfileIsPro && !editing ? (
+          {viewerProAccess && !editing ? (
             <ProProfileDetails
               city={viewerProfileCity}
               address={viewerProAddress}
@@ -530,7 +532,7 @@ export function ProfilePage() {
               className="pro-contact-links--profile"
             />
           ) : null}
-          {viewerProfileIsPro && editing ? (
+          {viewerProAccess && editing ? (
             <div className="pro-contact-edit">
               <label className="pro-contact-edit-label">
                 <MapPin size={16} aria-hidden />
@@ -663,7 +665,7 @@ export function ProfilePage() {
               e.preventDefault();
           }}
         >
-          {viewerProfileIsPro && (
+          {viewerProAccess && (
             <button
               type="button"
               className={`p-tab ${activeTab === "calendar" ? "p-tab--active" : ""}`}
@@ -769,7 +771,7 @@ export function ProfilePage() {
 
         {/* Tab Content */}
         <div className="tab-container">
-          {activeTab === "calendar" && viewerProfileIsPro && (
+          {activeTab === "calendar" && viewerProAccess && (
             <div className="profile-calendar">
               <div className="profile-cal-header">
                 <button

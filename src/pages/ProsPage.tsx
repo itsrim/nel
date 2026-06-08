@@ -7,6 +7,7 @@ import { useTranslation } from "../i18n/useTranslation";
 import { ProsMapView } from "../components/ProsMapView";
 import { mapCenterForCity } from "../lib/proCoordinates";
 import { buildViewerProfessional, VIEWER_PRO_ID } from "../lib/proLocation";
+import { hasViewerProAccess } from "../lib/viewerEntitlements";
 import {
   PRO_CATEGORY_OPTIONS,
   proFullName,
@@ -69,7 +70,6 @@ export function ProsPage() {
   const professionals = useProsStore((s) => s.professionals);
   const {
     viewerProfileCity,
-    viewerProfileIsPro,
     viewerProfileDisplayName,
     viewerProfileAvatarUrl,
     viewerProAddress,
@@ -79,6 +79,7 @@ export function ProsPage() {
     viewerProSocialUrl,
     viewerProPhone,
   } = useMessagingStore();
+  const viewerProAccess = useMessagingStore(hasViewerProAccess);
   const mapCenter = useMemo(
     () => mapCenterForCity(viewerProfileCity),
     [viewerProfileCity],
@@ -89,7 +90,7 @@ export function ProsPage() {
   const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
 
   const professionalsWithViewer = useMemo(() => {
-    const viewerPro = viewerProfileIsPro
+    const viewerPro = viewerProAccess
       ? buildViewerProfessional({
           displayName: viewerProfileDisplayName,
           avatarUrl: viewerProfileAvatarUrl,
@@ -109,7 +110,7 @@ export function ProsPage() {
     ];
   }, [
     professionals,
-    viewerProfileIsPro,
+    viewerProAccess,
     viewerProfileDisplayName,
     viewerProfileAvatarUrl,
     viewerProfileCity,
