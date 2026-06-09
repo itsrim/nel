@@ -15,6 +15,7 @@ import type {
 } from "../data/mockData";
 import type { MockProfessional } from "../data/mockProfessionals";
 import type { SubscriptionPaymentRecord } from "./subscriptionPersistence";
+import { resolveAvatarUrl } from "./avatarUrl";
 import { buildEventPublicUrl, resolveEventPublicUrl } from "./eventPublicUrl";
 import { MOCK_PROFESSIONALS } from "../data/mockProfessionals";
 import { proCoordinates } from "./proCoordinates";
@@ -875,7 +876,7 @@ export function mergeLoadedAppState(
 
   if (loaded.viewerSettings) {
     const vs = loaded.viewerSettings;
-    if (vs.avatarUrl) patch.viewerProfileAvatarUrl = vs.avatarUrl;
+    if (vs.avatarUrl) patch.viewerProfileAvatarUrl = resolveAvatarUrl(vs.avatarUrl);
     if (vs.displayName) patch.viewerProfileDisplayName = vs.displayName;
     patch.viewerProfileIsPro = vs.isPro;
     patch.nelDemoIsPremium = vs.isPremium;

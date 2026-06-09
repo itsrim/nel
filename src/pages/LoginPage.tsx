@@ -1,5 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
+import { useTranslation } from "../i18n/useTranslation";
+import {
+  isValidSignupAge,
+  MAX_SIGNUP_AGE,
+  MIN_SIGNUP_AGE,
+} from "../lib/signupValidation";
 import "./LoginPage.css";
 
 function readVerifyTokenFromUrl(): string | null {
@@ -14,6 +20,7 @@ function readVerifyTokenFromUrl(): string | null {
 }
 
 export function LoginPage() {
+  const { t } = useTranslation();
   const {
     login,
     signup,
@@ -43,9 +50,20 @@ export function LoginPage() {
     void verifyEmail(token).finally(() => setVerifyingLink(false));
   }, [verifyEmail]);
 
+  const signupFormValid = useMemo(() => {
+    if (!isSignup) return true;
+    if (!email.trim() || !password || !displayName.trim()) return false;
+    return isValidSignupAge(age);
+  }, [isSignup, email, password, displayName, age]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError("");
+
+    if (isSignup && !isValidSignupAge(age)) {
+      setLocalError(t("loginAgeInvalid"));
+      return;
+    }
 
     try {
       if (isSignup) {
@@ -54,7 +72,7 @@ export function LoginPage() {
         await login(email, password);
       }
     } catch {
-      setLocalError(error || "Une erreur est survenue");
+      setLocalError(error || t("loginGenericError"));
     }
   };
 
@@ -63,11 +81,11 @@ export function LoginPage() {
       <div className="login-page">
         <div className="login-container">
           <div className="login-header">
-            <h1 className="login-title">Happy, let's GO !</h1>
-            <p className="login-subtitle">Vérification de votre email…</p>
+            <h1 className="login-title">{t("loginTitle")}</h1>
+            <p className="login-subtitle">{t("loginVerifyInProgress")}</p>
           </div>
           <p className="login-pending-text">
-            <span className="spinner" aria-hidden /> Patientez un instant.
+            <span className="spinner" aria-hidden /> {t("loginPleaseWait")}
           </p>
         </div>
       </div>
@@ -79,8 +97,8 @@ export function LoginPage() {
       <div className="login-page">
         <div className="login-container">
           <div className="login-header">
-            <h1 className="login-title">Happy, let's GO !</h1>
-            <p className="login-subtitle">Vérifiez votre email</p>
+            <h1 className="login-title">{t("loginTitle")}</h1>
+            <p className="login-subtitle">{t("loginVerifyTitle")}</p>
           </div>
 
           {verificationMessage ? (
@@ -95,9 +113,8 @@ export function LoginPage() {
           ) : null}
 
           <p className="login-pending-text">
-            Un email a été envoyé à{" "}
-            <strong>{pendingVerificationEmail}</strong>. Cliquez sur le lien pour
-            activer votre compte, puis connectez-vous.
+            {t("loginVerifySentPrefix")}{" "}
+            <strong>{pendingVerificationEmail}</strong>. {t("loginVerifySentSuffix")}
           </p>
 
           <button
@@ -106,7 +123,7 @@ export function LoginPage() {
             disabled={isLoading}
             onClick={() => void resendVerification()}
           >
-            {isLoading ? "Envoi…" : "Renvoyer l'email"}
+            {isLoading ? t("loginResending") : t("loginResendEmail")}
           </button>
 
           <div className="login-footer">
@@ -119,7 +136,7 @@ export function LoginPage() {
               }}
               disabled={isLoading}
             >
-              Retour à la connexion
+              {t("loginBackToSignIn")}
             </button>
           </div>
         </div>
@@ -131,9 +148,9 @@ export function LoginPage() {
     <div className="login-page">
       <div className="login-container">
         <div className="login-header">
-          <h1 className="login-title">Happy, let's GO !</h1>
+          <h1 className="login-title">{t("loginTitle")}</h1>
           <p className="login-subtitle">
-            {isSignup ? "Créer un compte" : "Se connecter"}
+            {isSignup ? t("loginSignUp") : t("loginSignIn")}
           </p>
         </div>
 
@@ -146,13 +163,16 @@ export function LoginPage() {
 
           <div className="login-field">
             <label htmlFor="email" className="login-label">
-              Email
+              {isSignup ? t("loginEmail") : t("loginEmailOrId")}
             </label>
             <input
               id="email"
-              type="email"
+              type={isSignup ? "email" : "text"}
               className="login-input"
-              placeholder="votre@email.com"
+              placeholder={
+                isSignup ? t("loginPlaceholderEmail") : t("loginPlaceholderId")
+              }
+              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={isLoading}
@@ -164,13 +184,13 @@ export function LoginPage() {
             <>
               <div className="login-field">
                 <label htmlFor="displayName" className="login-label">
-                  Nom d'affichage
+                  {t("loginDisplayName")}
                 </label>
                 <input
                   id="displayName"
                   type="text"
                   className="login-input"
-                  placeholder="Votre nom"
+                  placeholder={t("loginPlaceholderDisplayName")}
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   disabled={isLoading}
@@ -180,29 +200,34 @@ export function LoginPage() {
 
               <div className="login-field">
                 <label htmlFor="age" className="login-label">
-                  Âge (optionnel)
+                  {t("loginAge")}
                 </label>
                 <input
                   id="age"
                   type="number"
                   className="login-input"
-                  placeholder="Votre âge"
+                  placeholder={t("loginPlaceholderAge")}
                   value={age}
                   onChange={(e) => setAge(e.target.value)}
                   disabled={isLoading}
-                  min="13"
-                  max="120"
+                  min={MIN_SIGNUP_AGE}
+                  max={MAX_SIGNUP_AGE}
+                  required
+                  aria-describedby="login-age-hint"
                 />
+                <p id="login-age-hint" className="login-field-hint">
+                  {t("loginAgeHint")}
+                </p>
               </div>
 
               <div className="login-field">
                 <label htmlFor="bio" className="login-label">
-                  Bio (optionnel)
+                  {t("loginBioOptional")}
                 </label>
                 <textarea
                   id="bio"
                   className="login-input"
-                  placeholder="Dites-nous un peu sur vous..."
+                  placeholder={t("loginPlaceholderBio")}
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   disabled={isLoading}
@@ -220,7 +245,7 @@ export function LoginPage() {
                   disabled={isLoading}
                 />
                 <label htmlFor="isPro" className="login-label login-label--checkbox">
-                  Compte professionnel
+                  {t("loginProAccount")}
                 </label>
               </div>
             </>
@@ -228,7 +253,7 @@ export function LoginPage() {
 
           <div className="login-field">
             <label htmlFor="password" className="login-label">
-              Mot de passe
+              {t("loginPassword")}
             </label>
             <input
               id="password"
@@ -242,29 +267,34 @@ export function LoginPage() {
             />
           </div>
 
-          <button type="submit" className="login-button" disabled={isLoading}>
+          <button
+            type="submit"
+            className="login-button"
+            disabled={isLoading || (isSignup && !signupFormValid)}
+          >
             {isLoading ? (
               <span className="login-button-loading">
                 <span className="spinner" />
-                Chargement...
+                {t("loginLoading")}
               </span>
             ) : isSignup ? (
-              "Créer un compte"
+              t("loginSignUp")
             ) : (
-              "Se connecter"
+              t("loginSignIn")
             )}
           </button>
         </form>
 
         <div className="login-footer">
           <p className="login-toggle-text">
-            {isSignup ? "Déjà un compte ?" : "Pas de compte ?"}
+            {isSignup ? t("loginHasAccount") : t("loginNoAccount")}
           </p>
           <button
             type="button"
             className="login-toggle-button"
             onClick={() => {
-              setIsSignup(!isSignup);
+              const nextSignup = !isSignup;
+              setIsSignup(nextSignup);
               setLocalError("");
               clearPendingVerification();
               setEmail("");
@@ -276,17 +306,14 @@ export function LoginPage() {
             }}
             disabled={isLoading}
           >
-            {isSignup ? "Se connecter" : "Créer un compte"}
+            {isSignup ? t("loginSignIn") : t("loginSignUp")}
           </button>
         </div>
 
         <div className="login-demo-hint">
-          <p>Pour tester, utilisez:</p>
+          <p>{t("loginDemoHint")}</p>
           <p>
-            <strong>Email:</strong> demo@nel.com
-          </p>
-          <p>
-            <strong>Mot de passe:</strong> password
+            <strong>{t("loginDemoLabel")}</strong> demo@nel.com / password
           </p>
         </div>
       </div>

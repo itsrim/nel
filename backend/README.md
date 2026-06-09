@@ -131,7 +131,7 @@ Recopier `VITE_VAPID_PUBLIC_KEY` côté frontend (fichier `.env` à la racine du
 | Email | Mot de passe | ID |
 |-------|--------------|-----|
 | `demo@nel.com` | `password` | `user_demo_001` |
-| `admin@yo.com` | `1234` | `user_admin_001` |
+| `rim` | `1234` | `user_admin_001` |
 
 ### REST
 

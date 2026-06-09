@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useEffect } from "react";
+import { useLayoutEffect, useRef, useEffect, useState, useCallback } from "react";
 import {
   useNavigationStore,
   type DetailState,
@@ -31,6 +31,12 @@ import { CreateEventPage } from "./pages/CreateEventPage";
 import { OtherProfilePage } from "./pages/OtherProfilePage";
 import { ChatSettingsPage } from "./pages/ChatSettingsPage";
 import { LoginPage } from "./pages/LoginPage";
+import { QuestionnaireModal } from "./components/QuestionnaireModal";
+import { resolveAvatarUrl } from "./lib/avatarUrl";
+import {
+  markDailyQuestionnaireShown,
+  shouldShowDailyQuestionnaire,
+} from "./lib/questionnaireDaily";
 import "./App.css";
 
 function renderDetailContent(detail: DetailState) {
@@ -61,6 +67,20 @@ function App() {
   const { loadDemoData, resetData } = useMessagingStore();
   const { user, loadUser } = useAuthStore();
   const mainRef = useRef<HTMLElement>(null);
+  const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
+
+  const closeQuestionnaire = useCallback(() => {
+    if (user?.id) markDailyQuestionnaireShown(user.id);
+    setQuestionnaireOpen(false);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setQuestionnaireOpen(false);
+      return;
+    }
+    setQuestionnaireOpen(shouldShowDailyQuestionnaire(user.id));
+  }, [user?.id]);
 
   // Load user from storage on app start
   useEffect(() => {
@@ -81,9 +101,7 @@ function App() {
         loadDemoData();
       } else {
         // New account: use default avatar and reset data
-        setViewerProfileAvatarUrl(
-          user.avatarUrl || "/event-cover-themes/avatar.jpg",
-        );
+        setViewerProfileAvatarUrl(resolveAvatarUrl(user.avatarUrl));
         resetData();
       }
     }
@@ -265,6 +283,7 @@ function App() {
           {toast.message}
         </div>
       ) : null}
+      <QuestionnaireModal isOpen={questionnaireOpen} onClose={closeQuestionnaire} />
     </div>
   );
 }

@@ -1,4 +1,11 @@
-import { useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
+import {
+  useState,
+  useMemo,
+  useRef,
+  useLayoutEffect,
+  useCallback,
+  useEffect,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   Settings,
@@ -26,6 +33,7 @@ import {
   ChevronRight,
   Send,
   CheckCheck,
+  Sparkles,
 } from "lucide-react";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useNavigationStore } from "../store/useNavigationStore";
@@ -44,6 +52,7 @@ import { ProfileBadgesSection } from "../components/ProfileBadgesSection";
 import { SubscriptionCheckoutModal } from "../components/SubscriptionCheckoutModal";
 import { SubscriptionSettingActions } from "../components/SubscriptionSettingActions";
 import { isAdminAccount } from "../lib/accountRoles";
+import { DEFAULT_AVATAR_URL, resolveAvatarUrl } from "../lib/avatarUrl";
 import type { SubscriptionPlan } from "../lib/subscriptionPayment";
 import "../components/ProContactLinks.css";
 import { isEventDateBeforeToday, parseDateKeyLocal, todayDateKey, toDateKey } from "../lib/eventDateKey";
@@ -215,6 +224,13 @@ export function ProfilePage() {
     "Passionné de rando et de sorties culturelles sur Paris ! 🏔️🎭",
   );
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [heroAvatarBroken, setHeroAvatarBroken] = useState(false);
+  const heroAvatarSrc = heroAvatarBroken
+    ? DEFAULT_AVATAR_URL
+    : resolveAvatarUrl(viewerProfileAvatarUrl);
+  useEffect(() => {
+    setHeroAvatarBroken(false);
+  }, [viewerProfileAvatarUrl]);
   const [geocodingAddress, setGeocodingAddress] = useState(false);
   const [draftProAddress, setDraftProAddress] = useState("");
 
@@ -323,9 +339,10 @@ export function ProfilePage() {
     () =>
       events.filter(
         (e) =>
-          e.status === "inscrit" ||
-          e.status === "organisateur" ||
-          e.status === "en_attente",
+          !isEventDateBeforeToday(e.dateKey) &&
+          (e.status === "inscrit" ||
+            e.status === "organisateur" ||
+            e.status === "en_attente"),
       ),
     [events],
   );
@@ -400,7 +417,12 @@ export function ProfilePage() {
     <div className="profile-page">
       {/* Hero Section */}
       <div className="profile-hero">
-        <img src={viewerProfileAvatarUrl} alt="Profile" className="hero-img" />
+        <img
+          src={heroAvatarSrc}
+          alt="Profile"
+          className="hero-img"
+          onError={() => setHeroAvatarBroken(true)}
+        />
         <div className="hero-overlay" />
 
         {uploadingPhoto ? (
@@ -636,16 +658,19 @@ export function ProfilePage() {
         {/* Stats */}
         <div className="stats-row">
           <div className="stat-item">
-            <span className="stat-num" style={{ color: "#FBBF24" }}>
-              4.8
+            <span className="stat-num" style={{ color: "#A78BFA" }}>
+              {viewerKarma}
             </span>
-            <span className="stat-label">{t("reliability")}</span>
+            <span className="stat-label stat-label--with-icon">
+              <Sparkles size={12} color="#A78BFA" aria-hidden />
+              {t("karmaShort")}
+            </span>
           </div>
           <div className="stat-item">
             <span className="stat-num" style={{ color: "#8B5CF6" }}>
               {upcomingEvents.length}
             </span>
-            <span className="stat-label">{t("upcoming")}</span>
+            <span className="stat-label">{t("upcomingOutings")}</span>
           </div>
           <div className="stat-item">
             <span className="stat-num" style={{ color: "#9CA3AF" }}>

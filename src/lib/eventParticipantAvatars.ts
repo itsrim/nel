@@ -1,7 +1,7 @@
 import type { Conversation, Event, Friend } from "../data/mockData";
+import { DEFAULT_AVATAR_URL } from "./avatarUrl";
 
-const DEFAULT_VIEWER_AVATAR =
-  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800";
+const DEFAULT_VIEWER_AVATAR = DEFAULT_AVATAR_URL;
 
 /** Jusqu’à 3 photos pour la pile sur la carte sortie. */
 export function buildEventParticipantAvatars(

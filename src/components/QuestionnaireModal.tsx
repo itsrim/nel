@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { X, Check } from "lucide-react";
 import { useTranslation } from "../i18n/useTranslation";
 import "./QuestionnaireModal.css";
@@ -47,6 +47,15 @@ export function QuestionnaireModal({
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
   const [selectedBadge, setSelectedBadge] = useState<string | null>(null);
   const [note, setNote] = useState("");
+
+  useEffect(() => {
+    if (!isOpen) {
+      setStep(1);
+      setSelectedEmoji(null);
+      setSelectedBadge(null);
+      setNote("");
+    }
+  }, [isOpen]);
 
   // Generate random stars for the background
   const stars = useMemo(() => {

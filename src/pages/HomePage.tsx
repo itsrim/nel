@@ -4,7 +4,6 @@ import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { EventCard } from "../components/EventCard";
-import { QuestionnaireModal } from "../components/QuestionnaireModal";
 import { formatEventSectionTitle } from "../lib/eventDateKey";
 import { eventIsVisibleInDiscovery } from "../lib/eventVisibility";
 import "./HomePage.css";
@@ -21,8 +20,6 @@ export function HomePage() {
   const [searchDraft, setSearchDraft] = useState("");
   const [committedSearch, setCommittedSearch] = useState("");
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
-  const [isQuestionnaireOpen, setIsQuestionnaireOpen] = useState(true); // Open on first load matching meetabit
-
   // Mock tags matching meetabit
   const tags = [
     { id: "1", label: t("all") },
@@ -172,11 +169,6 @@ export function HomePage() {
         ))}
       </main>
 
-      {/* Questionnaire Trigger Logic could go here or in App */}
-      <QuestionnaireModal
-        isOpen={isQuestionnaireOpen}
-        onClose={() => setIsQuestionnaireOpen(false)}
-      />
     </div>
   );
 }

@@ -426,6 +426,12 @@
   font-weight: 700;
 }
 
+.stat-label--with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* ── Tabs : ancrage scroll (sticky + scroll-margin) pour limiter les sauts au changement d’onglet ── */
 .profile-tabs {
   display: flex;

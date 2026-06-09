@@ -64,7 +64,7 @@ seedDemoUser({
 
 seedDemoUser({
   id: "user_admin_001",
-  email: "admin@yo.com",
+  email: "rim",
   displayName: "Admin",
   password: "1234",
   emailVerified: true,

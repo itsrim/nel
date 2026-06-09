@@ -68,6 +68,7 @@ export const translations = {
     badgeRemoveAria: "Retirer le badge",
     reliability: "Fiabilité",
     upcoming: "À venir",
+    upcomingOutings: "Sorties à venir",
     noShows: "No-shows",
 
     // Bio card
@@ -167,6 +168,9 @@ export const translations = {
     rateOrganizerGoodAria: "Noter positivement l'organisateur",
     rateOrganizerBadAria: "Noter négativement l'organisateur",
     rateOrganizerThanks: "Merci pour votre retour !",
+    createEventKarmaCost: "−{cost} karma",
+    createEventKarmaFree: "Gratuit (Pro)",
+    createEventKarmaReward: "+{reward} karma si sortie réussie (≥ moitié inscrits)",
     shareLinkTooltip: "Cliquer pour copier le lien",
     participants: "Participants",
     unregister: "Se désinscrire",
@@ -274,6 +278,14 @@ export const translations = {
     increaseMax: "Augmenter le maximum",
     decreaseMax: "Diminuer le maximum",
     privateEventToggle: "Sortie privée",
+    privateEventHint:
+      "Masquée de l'agenda public ; visible par vous et les inscrits",
+    aboutSectionTitle: "À PROPOS",
+    optionsSectionTitle: "OPTIONS",
+    createEventParticipantsRangeAlert:
+      "Le nombre de participants doit être entre {min} et {max}.",
+    createEventKarmaEnrollmentHint:
+      "Bonus seulement si au moins la moitié des places sont inscrites",
     deleteEvent: "Annuler la sortie",
     editEvent: "Modifier la sortie",
     newEvent: "Nouvelle sortie",
@@ -291,6 +303,40 @@ export const translations = {
     locationExample: "Ex: Parc Monceau",
     descriptionPlaceholder:
       "Ajoutez des détails, le déroulé, le matériel à prévoir...",
+
+    // LoginPage
+    loginTitle: "Happy, let's GO !",
+    loginSignIn: "Se connecter",
+    loginSignUp: "Créer un compte",
+    loginEmailOrId: "Identifiant ou email",
+    loginEmail: "Email",
+    loginPassword: "Mot de passe",
+    loginDisplayName: "Nom d'affichage",
+    loginAge: "Âge",
+    loginAgeHint: "Obligatoire — plus de 16 ans",
+    loginAgeInvalid: "L'âge est obligatoire et doit être supérieur à 16 ans.",
+    loginBioOptional: "Bio (optionnel)",
+    loginProAccount: "Compte professionnel",
+    loginLoading: "Chargement...",
+    loginNoAccount: "Pas de compte ?",
+    loginHasAccount: "Déjà un compte ?",
+    loginDemoHint: "Pour tester :",
+    loginDemoLabel: "Démo :",
+    loginVerifyInProgress: "Vérification de votre email…",
+    loginPleaseWait: "Patientez un instant.",
+    loginVerifyTitle: "Vérifiez votre email",
+    loginVerifySentPrefix: "Un email a été envoyé à",
+    loginVerifySentSuffix:
+      "Cliquez sur le lien pour activer votre compte, puis connectez-vous.",
+    loginResendEmail: "Renvoyer l'email",
+    loginResending: "Envoi…",
+    loginBackToSignIn: "Retour à la connexion",
+    loginGenericError: "Une erreur est survenue",
+    loginPlaceholderEmail: "votre@email.com",
+    loginPlaceholderId: "em@il.com",
+    loginPlaceholderDisplayName: "Votre nom",
+    loginPlaceholderAge: "Votre âge",
+    loginPlaceholderBio: "Dites-nous un peu sur vous...",
 
     // EventDetailPage
     returnAriaLabel: "Retour",
@@ -573,6 +619,7 @@ export const translations = {
     badgeRemoveAria: "Retirer le badge",
     reliability: "Reliability",
     upcoming: "Upcoming",
+    upcomingOutings: "Upcoming outings",
     noShows: "No-shows",
 
     // Bio card
@@ -671,6 +718,9 @@ export const translations = {
     rateOrganizerGoodAria: "Rate organizer positively",
     rateOrganizerBadAria: "Rate organizer negatively",
     rateOrganizerThanks: "Thanks for your feedback!",
+    createEventKarmaCost: "−{cost} karma",
+    createEventKarmaFree: "Free (Pro)",
+    createEventKarmaReward: "+{reward} karma if outing succeeds (≥ half registered)",
     shareLinkTooltip: "Click to copy link",
     participants: "Participants",
     unregister: "Unregister",
@@ -778,6 +828,14 @@ export const translations = {
     increaseMax: "Increase maximum",
     decreaseMax: "Decrease maximum",
     privateEventToggle: "Private event",
+    privateEventHint:
+      "Hidden from the public agenda; visible to you and registered members",
+    aboutSectionTitle: "ABOUT",
+    optionsSectionTitle: "OPTIONS",
+    createEventParticipantsRangeAlert:
+      "The number of participants must be between {min} and {max}.",
+    createEventKarmaEnrollmentHint:
+      "Bonus only if at least half the spots are filled",
     deleteEvent: "Cancel the event",
     editEvent: "Edit the event",
     newEvent: "New event",
@@ -794,6 +852,40 @@ export const translations = {
     eventTitleInput: "Event title",
     locationExample: "Ex: Central Park",
     descriptionPlaceholder: "Add details, schedule, materials to prepare...",
+
+    // LoginPage
+    loginTitle: "Happy, let's GO !",
+    loginSignIn: "Sign in",
+    loginSignUp: "Create an account",
+    loginEmailOrId: "Username or email",
+    loginEmail: "Email",
+    loginPassword: "Password",
+    loginDisplayName: "Display name",
+    loginAge: "Age",
+    loginAgeHint: "Required — must be over 16",
+    loginAgeInvalid: "Age is required and must be over 16.",
+    loginBioOptional: "Bio (optional)",
+    loginProAccount: "Professional account",
+    loginLoading: "Loading...",
+    loginNoAccount: "Don't have an account?",
+    loginHasAccount: "Already have an account?",
+    loginDemoHint: "To try the app:",
+    loginDemoLabel: "Demo:",
+    loginVerifyInProgress: "Verifying your email…",
+    loginPleaseWait: "Please wait a moment.",
+    loginVerifyTitle: "Verify your email",
+    loginVerifySentPrefix: "An email was sent to",
+    loginVerifySentSuffix:
+      "Click the link to activate your account, then sign in.",
+    loginResendEmail: "Resend email",
+    loginResending: "Sending…",
+    loginBackToSignIn: "Back to sign in",
+    loginGenericError: "Something went wrong",
+    loginPlaceholderEmail: "you@email.com",
+    loginPlaceholderId: "em@il.com",
+    loginPlaceholderDisplayName: "Your name",
+    loginPlaceholderAge: "Your age",
+    loginPlaceholderBio: "Tell us a bit about yourself...",
 
     // EventDetailPage
     returnAriaLabel: "Back",

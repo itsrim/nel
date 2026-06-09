@@ -25,13 +25,20 @@ import {
 import { withUrlUploadVersion } from "../lib/versionRemoteAssetUrl";
 import { hasViewerProAccess } from "../lib/viewerEntitlements";
 import {
+  KARMA_ORGANIZE_COST,
+  KARMA_ORGANIZE_SUCCESS_REWARD,
+} from "../lib/karma";
+import {
+  EVENT_PARTICIPANT_MIN_MAX,
+  getEventParticipantMaxCap,
+} from "../lib/eventParticipantLimits";
+import {
   DEFAULT_EVENT_COVER_THEMES,
   findDefaultCoverThemeByImageUrl,
   type DefaultEventCoverTheme,
 } from "../constants/defaultEventCoverThemes";
 import "./CreateEventPage.css";
 
-const MAX_PARTICIPANTS_CAP = 150;
 const MAX_TITLE_LEN = 50;
 const MAX_DESCRIPTION_LEN = 300;
 const MAX_LOCATION_LEN = 99;
@@ -114,10 +121,34 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     postEventGroupWelcome,
     inviteFriendToEvent,
     nelDemoIsAdmin,
+    nelDemoIsPremium,
+    viewerPremiumExpiresAt,
+    viewerProfileIsPro,
+    viewerProExpiresAt,
     getEventById,
     friends,
   } = useMessagingStore();
   const viewerProAccess = useMessagingStore(hasViewerProAccess);
+  const entitlementState = useMemo(
+    () => ({
+      nelDemoIsAdmin,
+      nelDemoIsPremium,
+      viewerPremiumExpiresAt,
+      viewerProfileIsPro,
+      viewerProExpiresAt,
+    }),
+    [
+      nelDemoIsAdmin,
+      nelDemoIsPremium,
+      viewerPremiumExpiresAt,
+      viewerProfileIsPro,
+      viewerProExpiresAt,
+    ],
+  );
+  const participantMaxCap = useMemo(
+    () => getEventParticipantMaxCap(entitlementState),
+    [entitlementState],
+  );
 
   const isEditMode = formEventId !== "new";
 
@@ -125,7 +156,9 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
-  const [maxParticipants, setMaxParticipants] = useState("50");
+  const [maxParticipants, setMaxParticipants] = useState(
+    String(EVENT_PARTICIPANT_MIN_MAX),
+  );
   const [eventDate, setEventDate] = useState(() =>
     roundDateToQuarterHour(new Date()),
   );
@@ -163,11 +196,14 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const [markAsBeta, setMarkAsBeta] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   /** En édition : ne pas descendre sous le nombre de participants déjà inscrits. */
-  const [participantFloor, setParticipantFloor] = useState(2);
+  const [participantFloor, setParticipantFloor] = useState(
+    EVENT_PARTICIPANT_MIN_MAX,
+  );
 
   useEffect(() => {
     if (!isEditMode) {
-      setParticipantFloor(2);
+      setParticipantFloor(EVENT_PARTICIPANT_MIN_MAX);
+      setMaxParticipants(String(participantMaxCap));
       setIsPrivate(false);
       return;
     }
@@ -187,8 +223,19 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     setIsPrivate(ev.isPrivate ?? false);
     setManualApproval(ev.manualApproval ?? false);
     setMarkAsBeta(ev.isBeta ?? false);
-    setParticipantFloor(Math.max(2, ev.participantCount));
+    setParticipantFloor(
+      Math.max(EVENT_PARTICIPANT_MIN_MAX, ev.participantCount),
+    );
   }, [isEditMode, formEventId, getEventById, closeDetail]);
+
+  useEffect(() => {
+    setMaxParticipants((prev) => {
+      const n = parseInt(prev, 10);
+      const cur = Number.isFinite(n) ? n : participantMaxCap;
+      const next = Math.min(participantMaxCap, Math.max(participantFloor, cur));
+      return String(next);
+    });
+  }, [participantMaxCap, participantFloor]);
 
   const dateInputValue = useMemo(() => toIsoDateKey(eventDate), [eventDate]);
   const timeInputValue = useMemo(
@@ -198,7 +245,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   );
 
   const maxN = useMemo(() => parseInt(maxParticipants, 10), [maxParticipants]);
-  const maxValid = Number.isFinite(maxN) ? maxN : MAX_PARTICIPANTS_CAP;
+  const maxValid = Number.isFinite(maxN) ? maxN : participantMaxCap;
 
   const selectedDefaultCoverId = useMemo(() => {
     if (!imageUri) return null;
@@ -209,15 +256,15 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     (delta: number) => {
       setMaxParticipants((p) => {
         const n = parseInt(p, 10);
-        const cur = Number.isFinite(n) ? n : MAX_PARTICIPANTS_CAP;
+        const cur = Number.isFinite(n) ? n : participantMaxCap;
         const next = Math.min(
-          MAX_PARTICIPANTS_CAP,
+          participantMaxCap,
           Math.max(participantFloor, cur + delta),
         );
         return String(next);
       });
     },
-    [participantFloor],
+    [participantFloor, participantMaxCap],
   );
 
   const onDateChange = useCallback((v: string) => {
@@ -310,17 +357,20 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     if (
       !Number.isFinite(maxParsed) ||
       maxParsed < participantFloor ||
-      maxParsed > MAX_PARTICIPANTS_CAP
+      maxParsed > participantMaxCap ||
+      maxParsed < EVENT_PARTICIPANT_MIN_MAX
     ) {
       window.alert(
-        `Le nombre de participants doit être entre ${participantFloor} et ${MAX_PARTICIPANTS_CAP}.`,
+        t("createEventParticipantsRangeAlert")
+          .replace("{min}", String(Math.max(participantFloor, EVENT_PARTICIPANT_MIN_MAX)))
+          .replace("{max}", String(participantMaxCap)),
       );
       return;
     }
 
     setSubmitting(true);
     try {
-      const cappedMax = Math.min(maxParsed, MAX_PARTICIPANTS_CAP);
+      const cappedMax = Math.min(maxParsed, participantMaxCap);
       const dateKey = toIsoDateKey(parsed);
       const sectionDateLabel = frenchSectionLabel(parsed);
       const dateLabel = frenchShortDate(parsed);
@@ -400,6 +450,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     postEventGroupWelcome,
     closeDetail,
     participantFloor,
+    participantMaxCap,
+    t,
     viewerProAccess,
     selectedInviteProfilIds,
     friends,
@@ -566,20 +618,20 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           <div className="ce-lieu-col">
             <div className="ce-inline-label-row">
               <MapPin size={18} color="#fff" aria-hidden />
-              <span className="ce-inline-label">Lieu</span>
+              <span className="ce-inline-label">{t("locationLabel")}</span>
             </div>
             <input
               className="ce-lieu-field"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="Ex: Parc Monceau"
+              placeholder={t("locationExample")}
               maxLength={MAX_LOCATION_LEN}
             />
           </div>
           <div className="ce-max-col">
             <div className="ce-inline-label-row">
               <Users size={18} color="#fff" aria-hidden />
-              <span className="ce-inline-label">Max</span>
+              <span className="ce-inline-label">{t("maxLabel")}</span>
             </div>
             <div className="ce-max-field">
               <span className="ce-max-field-value">{maxParticipants}</span>
@@ -588,8 +640,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
                   type="button"
                   className="ce-stepper-btn"
                   onClick={() => bumpMax(1)}
-                  disabled={maxValid >= MAX_PARTICIPANTS_CAP}
-                  aria-label="Augmenter le maximum"
+                  disabled={maxValid >= participantMaxCap}
+                  aria-label={t("increaseMax")}
                 >
                   <ChevronUp size={18} color="#fff" />
                 </button>
@@ -598,7 +650,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
                   className="ce-stepper-btn"
                   onClick={() => bumpMax(-1)}
                   disabled={maxValid <= participantFloor}
-                  aria-label="Diminuer le maximum"
+                  aria-label={t("decreaseMax")}
                 >
                   <ChevronDown size={18} color="#fff" />
                 </button>
@@ -614,7 +666,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
               className="ce-textarea"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ajoutez des détails, le déroulé, le matériel à prévoir..."
+              placeholder={t("descriptionPlaceholder")}
               maxLength={MAX_DESCRIPTION_LEN}
             />
           </div>
@@ -695,10 +747,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
                 <EyeOff size={18} color="#fff" aria-hidden />
               </div>
               <div className="ce-option-text">
-                <span className="ce-option-label">Masquer l&apos;adresse</span>
-                <span className="ce-option-sublabel">
-                  Visible uniquement par les inscrits
-                </span>
+                <span className="ce-option-label">{t("hideAddressLabel")}</span>
+                <span className="ce-option-sublabel">{t("hideAddressHint")}</span>
               </div>
               <label className="ce-switch">
                 <input
@@ -738,10 +788,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
                 <ShieldCheck size={18} color="#fff" aria-hidden />
               </div>
               <div className="ce-option-text">
-                <span className="ce-option-label">Validation manuelle</span>
-                <span className="ce-option-sublabel">
-                  Valider chaque inscription
-                </span>
+                <span className="ce-option-label">{t("manualApprovalLabel")}</span>
+                <span className="ce-option-sublabel">{t("manualApprovalHint")}</span>
               </div>
               <label className="ce-switch">
                 <input
@@ -803,10 +851,31 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
             onClick={submit}
             disabled={submitting || uploadingEventCover}
             aria-label={
-              isEditMode ? "Enregistrer les modifications" : "Créer l'événement"
+              isEditMode
+                ? "Enregistrer les modifications"
+                : viewerProAccess
+                  ? `Créer l'événement, +${KARMA_ORGANIZE_SUCCESS_REWARD} karma si sortie réussie`
+                  : `Créer l'événement, −${KARMA_ORGANIZE_COST} karma, +${KARMA_ORGANIZE_SUCCESS_REWARD} karma si sortie réussie`
             }
           >
-            {isEditMode ? "✨ Enregistrer" : "✨ Créer l'événement"}
+            <span className="ce-create-btn-label">
+              {isEditMode ? "✨ Enregistrer" : "✨ Créer l'événement"}
+            </span>
+            {!isEditMode ? (
+              <span className="ce-create-btn-karma" aria-hidden>
+                {viewerProAccess
+                  ? t("createEventKarmaFree")
+                  : t("createEventKarmaCost").replace(
+                      "{cost}",
+                      String(KARMA_ORGANIZE_COST),
+                    )}
+                {" · "}
+                {t("createEventKarmaReward").replace(
+                  "{reward}",
+                  String(KARMA_ORGANIZE_SUCCESS_REWARD),
+                )}
+              </span>
+            ) : null}
           </button>
         </div>
       </div>

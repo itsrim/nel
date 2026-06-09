@@ -60,9 +60,11 @@ import {
   isMajorityBadOrganizerRating,
   normalizeKarma,
   presentParticipantIds,
+  meetsEnrollmentThresholdForOrganizerKarma,
   shouldAwardOrganizerKarma,
   shouldFinalizeOrganizerKarma,
 } from "../lib/karma";
+import { DEFAULT_AVATAR_URL, resolveAvatarUrl } from "../lib/avatarUrl";
 
 export interface EventReminder {
   id: string;
@@ -90,8 +92,8 @@ const LS_VIEWER_PREMIUM = "nel_viewer_premium";
 const LS_VIEWER_PREMIUM_EXPIRES = "nel_viewer_premium_expires_at";
 const LS_VIEWER_PRO_EXPIRES = "nel_viewer_pro_expires_at";
 const LS_VIEWER_KARMA = "nel_viewer_karma";
-const DEFAULT_VIEWER_AVATAR =
-  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800";
+
+const DEFAULT_VIEWER_AVATAR = DEFAULT_AVATAR_URL;
 const DEFAULT_VIEWER_NAME = "Jean J.";
 
 function readViewerStorage(key: string, fallback: string): string {
@@ -452,7 +454,29 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     }
 
     if (
-      !shouldAwardOrganizerKarma(presentIds, ratings, isPast, rewarded, denied)
+      !meetsEnrollmentThresholdForOrganizerKarma(
+        event.participantCount,
+        event.participantMax,
+      )
+    ) {
+      if (event.hostedByViewer || eventHostedByViewer(event)) {
+        get().showToast(
+          "Pas de bonus karma : moins de la moitié des places étaient inscrites.",
+        );
+      }
+      return { ...event, karmaOrganizerDenied: true };
+    }
+
+    if (
+      !shouldAwardOrganizerKarma(
+        presentIds,
+        ratings,
+        isPast,
+        rewarded,
+        denied,
+        event.participantCount,
+        event.participantMax,
+      )
     ) {
       return event;
     }
@@ -585,17 +609,17 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     syncViewerSettingsFromState(get());
   },
 
-  viewerProfileAvatarUrl: readViewerStorage(
-    LS_VIEWER_AVATAR,
-    DEFAULT_VIEWER_AVATAR,
+  viewerProfileAvatarUrl: resolveAvatarUrl(
+    readViewerStorage(LS_VIEWER_AVATAR, DEFAULT_VIEWER_AVATAR),
   ),
   setViewerProfileAvatarUrl: (url) => {
+    const resolved = resolveAvatarUrl(url);
     try {
-      localStorage.setItem(LS_VIEWER_AVATAR, url);
+      localStorage.setItem(LS_VIEWER_AVATAR, resolved);
     } catch {
       /* ignore */
     }
-    set({ viewerProfileAvatarUrl: url });
+    set({ viewerProfileAvatarUrl: resolved });
     syncViewerSettingsFromState(get());
   },
 

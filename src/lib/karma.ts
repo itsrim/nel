@@ -58,15 +58,29 @@ export function shouldFinalizeOrganizerKarma(
   return ratedCount >= presentIds.length;
 }
 
+/** Au moins la moitié des places (participantMax) doivent être inscrites. */
+export function meetsEnrollmentThresholdForOrganizerKarma(
+  participantCount: number,
+  participantMax: number,
+): boolean {
+  if (participantMax <= 0) return false;
+  return participantCount >= participantMax / 2;
+}
+
 export function shouldAwardOrganizerKarma(
   presentIds: string[],
   ratings: OrganizerRating[],
   isPastEvent: boolean,
   alreadyRewarded: boolean,
   alreadyDenied: boolean,
+  participantCount: number,
+  participantMax: number,
 ): boolean {
   if (alreadyRewarded || alreadyDenied) return false;
   if (presentIds.length === 0) return false;
+  if (!meetsEnrollmentThresholdForOrganizerKarma(participantCount, participantMax)) {
+    return false;
+  }
   if (!shouldFinalizeOrganizerKarma(presentIds, ratings, isPastEvent)) return false;
   return !isMajorityBadOrganizerRating(presentIds, ratings);
 }

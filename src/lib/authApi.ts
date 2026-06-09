@@ -1,5 +1,7 @@
 import { CHAT_API_BASE } from "./chatConfig";
 import type { User } from "../store/useAuthStore";
+import { isAdminAccount } from "./accountRoles";
+import { resolveAvatarUrl } from "./avatarUrl";
 
 export const LS_AUTH_TOKEN = "nel_auth_token";
 
@@ -90,16 +92,19 @@ export function toAppUser(
   apiUser: AuthResponse["user"],
   extras?: Partial<User>,
 ): User {
-  const isDemo = apiUser.email === "demo@nel.com";
+  const emailNorm = apiUser.email.trim().toLowerCase();
+  const isDemo = emailNorm === "demo@nel.com";
+  const isRimAdmin = emailNorm === "rim" || apiUser.id === "user_admin_001";
   return {
     id: apiUser.id,
     email: apiUser.email,
     displayName: apiUser.displayName,
-    emailVerified: apiUser.emailVerified ?? isDemo,
+    emailVerified: apiUser.emailVerified ?? (isDemo || isRimAdmin),
     isAdmin: isAdminAccount({ email: apiUser.email, id: apiUser.id }),
     avatarUrl: isDemo
       ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800"
-      : "/event-cover-themes/avatar.jpg",
+      : resolveAvatarUrl(),
+    isPro: extras?.isPro ?? isRimAdmin,
     ...extras,
   };
 }

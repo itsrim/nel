@@ -767,7 +767,9 @@
 
 .ce-create-btn {
   flex: 2;
-  height: 56px;
+  min-height: 56px;
+  height: auto;
+  padding: 10px 14px;
   border-radius: 18px;
   border: none;
   cursor: pointer;
@@ -776,6 +778,23 @@
   font-size: 16px;
   font-weight: 800;
   box-shadow: 0 8px 24px rgba(194, 59, 142, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.ce-create-btn-label {
+  line-height: 1.2;
+}
+
+.ce-create-btn-karma {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.88);
+  letter-spacing: 0.01em;
 }
 
 .ce-create-btn:hover:not(:disabled) {

@@ -9,8 +9,11 @@ import {
   resendVerificationWithApi,
 } from "../lib/authApi";
 import { shutdownGlobalChatSync } from "../lib/chatSync";
+import { useMessagingStore } from "./useMessagingStore";
 import { syncEmailVerifiedToSheets } from "../lib/appSheetPersistence";
 import { isAdminAccount } from "../lib/accountRoles";
+import { resolveAvatarUrl } from "../lib/avatarUrl";
+import { isValidSignupAge } from "../lib/signupValidation";
 
 const LS_VIEWER_PRO_WEBSITE = "nel_viewer_pro_website_url";
 const LS_VIEWER_PRO_SOCIAL = "nel_viewer_pro_social_url";
@@ -91,8 +94,8 @@ const localUsers: Record<
     bio: "Bienvenue sur Nel!",
     isPro: false,
   },
-  "admin@yo.com": {
-    email: "admin@yo.com",
+  "rim": {
+    email: "rim",
     password: "1234",
     displayName: "Admin",
     id: "user_admin_001",
@@ -136,7 +139,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         loggedInUser.id,
         loggedInUser.email,
         loggedInUser.displayName,
-        loggedInUser.avatarUrl ?? "/event-cover-themes/avatar.jpg",
+        resolveAvatarUrl(loggedInUser.avatarUrl),
         !!loggedInUser.isPro,
         proContact.websiteUrl,
         proContact.socialUrl,
@@ -191,22 +194,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       if (isChatApiConfigured()) {
+        const normalizedLogin = email.trim().toLowerCase();
         const { user, token } = await loginWithApi(email, password);
         const loggedInUser = toAppUser(user, {
-          age: email === "demo@nel.com" ? "28" : "",
-          bio: email === "demo@nel.com" ? "Bienvenue sur Nel!" : "",
-          isPro: false,
+          age: normalizedLogin === "demo@nel.com" ? "28" : "",
+          bio: normalizedLogin === "demo@nel.com" ? "Bienvenue sur Nel!" : "",
+          isPro: normalizedLogin === "rim",
           emailVerified: user.emailVerified !== false,
         });
         setAuthToken(token);
         localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
+        if (loggedInUser.isAdmin) {
+          useMessagingStore.getState().setNelDemoIsAdmin(true);
+        }
         if (loggedInUser.emailVerified) {
           const proContact = readViewerProContact();
           syncEmailVerifiedToSheets(
             loggedInUser.id,
             loggedInUser.email,
             loggedInUser.displayName,
-            loggedInUser.avatarUrl ?? "/event-cover-themes/avatar.jpg",
+            resolveAvatarUrl(loggedInUser.avatarUrl),
             !!loggedInUser.isPro,
             proContact.websiteUrl,
             proContact.socialUrl,
@@ -236,10 +243,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         avatarUrl:
           normalizedEmail === "demo@nel.com"
             ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800"
-            : "/event-cover-themes/avatar.jpg",
+            : resolveAvatarUrl(),
       };
 
       localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
+      if (loggedInUser.isAdmin) {
+        useMessagingStore.getState().setNelDemoIsAdmin(true);
+      }
       set({ user: loggedInUser, isLoading: false });
     } catch (err) {
       set({
@@ -261,6 +271,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       if (isChatApiConfigured()) {
+        if (!isValidSignupAge(age)) {
+          set({
+            isLoading: false,
+            error: "L'âge est obligatoire et doit être supérieur à 16 ans.",
+          });
+          return;
+        }
         sessionStorage.setItem(
           "nel_signup_extras",
           JSON.stringify({ age: age ?? "", bio: bio ?? "", isPro: !!isPro }),
@@ -284,6 +301,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (!email || !password || !displayName) {
         set({ isLoading: false, error: "Tous les champs sont requis" });
+        return;
+      }
+
+      if (!isValidSignupAge(age)) {
+        set({
+          isLoading: false,
+          error: "L'âge est obligatoire et doit être supérieur à 16 ans.",
+        });
         return;
       }
 
@@ -313,7 +338,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         age: age || "",
         bio: bio || "",
         isPro: !!isPro,
-        avatarUrl: "/event-cover-themes/avatar.jpg",
+        avatarUrl: resolveAvatarUrl(),
       };
 
       localStorage.setItem(LS_USER, JSON.stringify(newUser));

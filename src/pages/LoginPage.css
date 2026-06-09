@@ -156,6 +156,13 @@
   color: #333;
 }
 
+.login-field-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #8e8e93;
+}
+
 @media (max-height: 600px) {
   .login-label {
     font-size: 12px;
