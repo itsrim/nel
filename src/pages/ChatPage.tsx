@@ -179,12 +179,31 @@ function FavoriteStripItem({ conversation }: { conversation: Conversation }) {
 }
 
 function NewGroupStripItem() {
+  const { t } = useTranslation();
+  const { openDetail } = useNavigationStore();
+  const { createEmptyGroup, toggleConversationFavorite } = useMessagingStore();
+
+  const handleCreateGroup = () => {
+    const title = window
+      .prompt(t("createGroupNamePrompt"), t("newGroup"))
+      ?.trim();
+    if (!title) return;
+    const id = createEmptyGroup(title);
+    toggleConversationFavorite(id);
+    openDetail("chat", id);
+  };
+
   return (
-    <button className="story-cell" aria-label="Nouveau groupe">
+    <button
+      type="button"
+      className="story-cell"
+      aria-label={t("newGroup")}
+      onClick={handleCreateGroup}
+    >
       <div className="story-new-ring">
         <Plus size={26} color="rgba(255,255,255,0.92)" />
       </div>
-      <span className="story-label-new">+ Groupe</span>
+      <span className="story-label-new">{t("addGroup")}</span>
     </button>
   );
 }

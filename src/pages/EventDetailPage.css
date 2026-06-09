@@ -693,6 +693,29 @@ button.ed-participant-placeholder--invite:focus-visible {
   cursor: pointer;
 }
 
+.ed-join-btn--with-karma {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 48px;
+  height: auto;
+  padding: 8px 12px;
+}
+
+.ed-join-btn-label {
+  line-height: 1.2;
+}
+
+.ed-join-btn-karma {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.72);
+  letter-spacing: 0.01em;
+}
+
 .ed-join-btn:active {
   background-color: #2C2C2E;
 }

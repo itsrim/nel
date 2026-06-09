@@ -12,6 +12,7 @@ import {
   Heart,
   Users,
   Clock,
+  Sparkles,
 } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
 import { useNavigationStore } from '../store/useNavigationStore';
@@ -22,6 +23,7 @@ import { ProfileKarmaBadge } from '../components/ProfileKarmaBadge';
 import { KARMA_DEFAULT } from '../lib/karma';
 import { hasViewerPremiumAccess } from '../lib/viewerEntitlements';
 import { ProfileBadgesSection } from '../components/ProfileBadgesSection';
+import { useTranslation } from '../i18n/useTranslation';
 import { isEventDateBeforeToday } from '../lib/eventDateKey';
 import { formatBadgeCount } from '../data/mockData';
 import type { Event } from '../data/mockData';
@@ -36,6 +38,7 @@ interface OtherProfilePageProps {
 type OtherProfileTab = 'favorites' | 'friends' | 'history';
 
 export function OtherProfilePage({ id }: OtherProfilePageProps) {
+  const { t } = useTranslation();
   const { closeDetail, openDetail } = useNavigationStore();
   const {
     suggestions,
@@ -76,10 +79,7 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
   const p = profile as unknown as Record<string, unknown>;
   const displayName = (p.pseudo as string | undefined) || (p.name as string);
   const messageConversationId = friendRecord?.mainChatConversationId;
-  const reliability =
-    typeof p.stats === 'object' && p.stats != null && 'reliability' in p.stats
-      ? Number((p.stats as { reliability: number }).reliability).toFixed(1)
-      : '5.0';
+  const profileKarma = friendRecord?.karma ?? KARMA_DEFAULT;
 
   const friendsBadgeCount = useMemo(() => {
     const n = (p.stats as { friends?: number } | undefined)?.friends;
@@ -169,10 +169,7 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
                 <span>Professionnel</span>
               </div>
             )}
-            <ProfileKarmaBadge
-              karma={friendRecord?.karma ?? KARMA_DEFAULT}
-              className="op-karma-badge"
-            />
+            <ProfileKarmaBadge karma={profileKarma} className="op-karma-badge" />
           </div>
         </div>
       </div>
@@ -204,8 +201,11 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
 
         <div className="op-stats-row">
           <div className="op-stat-cell">
-            <span className="op-stat-value">{reliability}</span>
-            <span className="op-stat-label">Fiabilité</span>
+            <span className="op-stat-value op-stat-value--karma">{profileKarma}</span>
+            <span className="op-stat-label op-stat-label--with-icon">
+              <Sparkles size={12} color="#A78BFA" aria-hidden />
+              {t("karmaShort")}
+            </span>
           </div>
           <div className="op-stat-cell">
             <span className="op-stat-value">{(profile as { stats?: { events?: number } }).stats?.events ?? '0'}</span>

@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { MessageCircle, Calendar, User, Briefcase } from "lucide-react";
 import { useNavigationStore, type TabId } from "../store/useNavigationStore";
 import { useTranslation } from "../i18n/useTranslation";
@@ -20,8 +21,8 @@ export function BottomNavigation() {
     { id: "profile", labelKey: "profile", icon: User },
   ];
 
-  return (
-    <nav className="floating-tab-bar">
+  const nav = (
+    <nav className="floating-tab-bar" aria-label="Navigation principale">
       <div className="floating-tab-bar-inner">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -33,6 +34,7 @@ export function BottomNavigation() {
               className={`ftb-item ${isActive ? "ftb-item--active" : ""}`}
               onClick={() => setActiveTab(item.id)}
               aria-label={t(item.labelKey as any)}
+              aria-current={isActive ? "page" : undefined}
             >
               <Icon size={20} className="ftb-icon" />
               <span className="ftb-label">{t(item.labelKey as any)}</span>
@@ -42,4 +44,7 @@ export function BottomNavigation() {
       </div>
     </nav>
   );
+
+  if (typeof document === "undefined") return nav;
+  return createPortal(nav, document.body);
 }

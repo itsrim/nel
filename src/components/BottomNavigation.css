@@ -1,17 +1,23 @@
 /* ── Floating Tab Bar (meetabit style) ─────────────────────── */
 .floating-tab-bar {
   position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 999;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  padding: 0 12px calc(20px + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+  transform: none;
 }
 
 .floating-tab-bar-inner {
+  pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 4px;
+  max-width: min(360px, calc(100vw - 24px));
   background: rgba(44, 44, 48, 0.94);
   border: 2px solid #fbbf24;
   border-radius: 28px;

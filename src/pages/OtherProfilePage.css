@@ -154,11 +154,21 @@
   font-weight: 800;
 }
 
+.op-stat-value--karma {
+  color: #a78bfa;
+}
+
 .op-stat-label {
   color: #fff;
   font-size: 12px;
   font-weight: 600;
   margin-top: 6px;
+}
+
+.op-stat-label--with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .op-section-title {

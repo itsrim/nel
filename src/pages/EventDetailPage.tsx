@@ -22,7 +22,11 @@ import { useMessagingStore } from "../store/useMessagingStore";
 import { isEventDateBeforeToday } from "../lib/eventDateKey";
 import { eventHostedByViewer, resolveEventHostIsPro } from "../lib/eventHost";
 import { resolveEventPublicUrl } from "../lib/eventPublicUrl";
-import { VIEWER_KARMA_PARTICIPANT_ID } from "../lib/karma";
+import {
+  KARMA_ATTENDANCE_REWARD,
+  KARMA_JOIN_COST,
+  VIEWER_KARMA_PARTICIPANT_ID,
+} from "../lib/karma";
 import { hasViewerProAccess } from "../lib/viewerEntitlements";
 import type { Friend } from "../data/mockData";
 import { ReportModal } from "../components/ReportModal";
@@ -188,6 +192,8 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     !isHostOrganizer &&
     viewerValidatedPresent &&
     isInscribed;
+  const showJoinKarmaHint =
+    !isHostOrganizer && event.status !== "inscrit" && !isFull && !isPastEvent;
 
   const markParticipantPresent = (participantProfilId: string) => {
     validateEventParticipantPresent(event.id, participantProfilId);
@@ -568,21 +574,47 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
               </button>
               <button
                 type="button"
-                className={`ed-join-btn ${isInscribed || isHostOrganizer ? "joined" : ""} ${!isInscribed && !isHostOrganizer && isFull ? "full" : ""}`}
+                className={`ed-join-btn${showJoinKarmaHint ? " ed-join-btn--with-karma" : ""} ${isInscribed || isHostOrganizer ? "joined" : ""} ${!isInscribed && !isHostOrganizer && isFull ? "full" : ""}`}
                 onClick={
                   isHostOrganizer
                     ? () => openDetail("event_create", event.id)
                     : handleJoinToggle
                 }
                 disabled={!isHostOrganizer && !isInscribed && isFull}
+                aria-label={
+                  showJoinKarmaHint
+                    ? viewerProAccess
+                      ? `${t("joinEventButton")}, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
+                      : `${t("joinEventButton")}, −${KARMA_JOIN_COST} karma, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
+                    : undefined
+                }
               >
-                {isHostOrganizer
-                  ? t("editEventButton")
-                  : event.status === "inscrit"
-                    ? t("unregisterButton")
-                    : isFull
-                      ? t("completeEventButton")
-                      : t("joinEventButton")}
+                {isHostOrganizer ? (
+                  t("editEventButton")
+                ) : event.status === "inscrit" ? (
+                  t("unregisterButton")
+                ) : isFull ? (
+                  t("completeEventButton")
+                ) : (
+                  <>
+                    <span className="ed-join-btn-label">{t("joinEventButton")}</span>
+                    {showJoinKarmaHint ? (
+                      <span className="ed-join-btn-karma" aria-hidden>
+                        {viewerProAccess
+                          ? t("createEventKarmaFree")
+                          : t("joinEventKarmaCost").replace(
+                              "{cost}",
+                              String(KARMA_JOIN_COST),
+                            )}
+                        {" · "}
+                        {t("joinEventKarmaReward").replace(
+                          "{reward}",
+                          String(KARMA_ATTENDANCE_REWARD),
+                        )}
+                      </span>
+                    ) : null}
+                  </>
+                )}
               </button>
             </>
           )}

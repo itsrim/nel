@@ -197,6 +197,7 @@ export const translations = {
     // ChatPage
     newGroup: "Nouveau groupe",
     addGroup: "+ Groupe",
+    createGroupNamePrompt: "Nom du groupe :",
     noChatRooms: "Aucune conversation pour le moment.",
     favoriteChatConversations: "Conversations favoris",
 
@@ -457,6 +458,8 @@ export const translations = {
     editEventButton: "Modifier la sortie",
     unregisterButton: "Se désinscrire",
     joinEventButton: "Participer",
+    joinEventKarmaCost: "−{cost} karma",
+    joinEventKarmaReward: "+{reward} karma si présence validée",
     completeEventButton: "Complet",
     pastEventLabel: "Sortie passée",
     mustJoinToViewMessages:
@@ -747,6 +750,7 @@ export const translations = {
     // ChatPage
     newGroup: "New Group",
     addGroup: "+ Group",
+    createGroupNamePrompt: "Group name:",
     noChatRooms: "No conversations yet.",
     favoriteChatConversations: "Favorite Conversations",
 
@@ -1004,6 +1008,8 @@ export const translations = {
     editEventButton: "Edit event",
     unregisterButton: "Unregister",
     joinEventButton: "Join",
+    joinEventKarmaCost: "−{cost} karma",
+    joinEventKarmaReward: "+{reward} karma if attendance validated",
     completeEventButton: "Full",
     pastEventLabel: "Past event",
     mustJoinToViewMessages: "You must join this event to view messages.",
