@@ -37,6 +37,16 @@ export const translations = {
     cardCvcInvalid: "Code CVC invalide.",
     adminMode: "Mode Admin",
     adminModeSub: "Accès aux outils de modération",
+    adminEditProfile: "Modifier le profil (admin)",
+    adminDeleteProfile: "Supprimer l'utilisateur",
+    adminDeleteProfileConfirm:
+      "Supprimer définitivement cet utilisateur ? Il disparaîtra des suggestions, visites et discussions privées.",
+    adminDeleteEvent: "Supprimer la sortie",
+    adminDeleteEventConfirm:
+      "Supprimer définitivement cette sortie ? Elle et son groupe de discussion seront effacés.",
+    adminDeleteConversation: "Supprimer la discussion",
+    adminDeleteConversationConfirm:
+      "Supprimer définitivement cette discussion et tous ses messages ?",
     professional: "Compte professionnel",
     professionalSub: "Organisateur d'activités et d'événements pro",
     calendarTab: "Calendrier",
@@ -66,6 +76,13 @@ export const translations = {
     badgeAddPlaceholder: "Nouveau badge…",
     badgeAddAria: "Ajouter un badge",
     badgeRemoveAria: "Retirer le badge",
+    badgeAdminHint: "Mode admin : cliquez sur × pour retirer, + pour ajouter un badge.",
+    badgeCatalogTitle: "Catalogue de badges",
+    badgeQuickAddTitle: "Ajout rapide",
+    badgeCatalogAdd: "Nouveau badge",
+    badgeCatalogAddPlaceholder: "Nom du badge…",
+    badgeEditAria: "Modifier le badge",
+    badgeRemoveCatalogAria: "Retirer du catalogue",
     reliability: "Fiabilité",
     upcoming: "À venir",
     upcomingOutings: "Sorties à venir",
@@ -285,6 +302,11 @@ export const translations = {
     optionsSectionTitle: "OPTIONS",
     createEventParticipantsRangeAlert:
       "Le nombre de participants doit être entre {min} et {max}.",
+    createEventErrorTitle: "Indiquez un titre pour votre événement.",
+    createEventErrorLocation: "Indiquez un lieu ou un point de rendez-vous.",
+    createEventErrorNotFound: "Cette sortie est introuvable.",
+    createEventErrorGeneric:
+      "Impossible de créer la sortie. Vérifiez les champs et réessayez.",
     createEventKarmaEnrollmentHint:
       "Bonus seulement si au moins la moitié des places sont inscrites",
     deleteEvent: "Annuler la sortie",
@@ -465,6 +487,17 @@ export const translations = {
     mustJoinToViewMessages:
       "Pour voir les messages de cette sortie, vous devez en faire partie.",
     inviteSheetTitle: "Inviter des amis",
+    adminInviteSheetTitle: "Inviter des personnes",
+    adminInviteSection: "Inviter des personnes",
+    adminInviteHint:
+      "Choisissez qui inviter — une notification sera envoyée pour rejoindre la sortie.",
+    adminInviteSearchPlaceholder: "Rechercher un nom…",
+    adminInviteAll: "Inviter tout le monde ({{n}})",
+    adminInviteAllConfirm:
+      "Envoyer une invitation à {{n}} personnes ? Chacune recevra une notification.",
+    adminInviteEmpty: "Tout le monde est déjà invité ou dans le groupe.",
+    adminInviteSearchNoResults: "Aucune personne ne correspond à votre recherche.",
+    inviteAction: "Inviter",
     inviteHint:
       "Vos amis recevront une notification pour rejoindre cette sortie.",
     noMoreSlotsHint: "Plus de places disponibles",
@@ -489,6 +522,7 @@ export const translations = {
     rejectedRequest: "Refusée",
     sentRequest: "Envoyée",
     addFriendButton: "Ajouter",
+    friendRequestDailyLimit: "Une demande d'ami par jour",
 
     // ChatRoomPage - Missing strings
     membersCount: "membres",
@@ -591,6 +625,16 @@ export const translations = {
     cardCvcInvalid: "Invalid CVC code.",
     adminMode: "Admin Mode",
     adminModeSub: "Access to moderation tools",
+    adminEditProfile: "Edit profile (admin)",
+    adminDeleteProfile: "Delete user",
+    adminDeleteProfileConfirm:
+      "Permanently delete this user? They will be removed from suggestions, visits, and private chats.",
+    adminDeleteEvent: "Delete event",
+    adminDeleteEventConfirm:
+      "Permanently delete this event? It and its group chat will be removed.",
+    adminDeleteConversation: "Delete conversation",
+    adminDeleteConversationConfirm:
+      "Permanently delete this conversation and all its messages?",
     professional: "Professional account",
     professionalSub: "Organizer of activities and events PRO",
     calendarTab: "Calendar",
@@ -620,6 +664,13 @@ export const translations = {
     badgeAddPlaceholder: "Nouveau badge…",
     badgeAddAria: "Ajouter un badge",
     badgeRemoveAria: "Retirer le badge",
+    badgeAdminHint: "Admin mode: tap × to remove, + to add a badge.",
+    badgeCatalogTitle: "Badge catalog",
+    badgeQuickAddTitle: "Quick add",
+    badgeCatalogAdd: "New badge",
+    badgeCatalogAddPlaceholder: "Badge name…",
+    badgeEditAria: "Edit badge",
+    badgeRemoveCatalogAria: "Remove from catalog",
     reliability: "Reliability",
     upcoming: "Upcoming",
     upcomingOutings: "Upcoming outings",
@@ -838,6 +889,11 @@ export const translations = {
     optionsSectionTitle: "OPTIONS",
     createEventParticipantsRangeAlert:
       "The number of participants must be between {min} and {max}.",
+    createEventErrorTitle: "Enter a title for your event.",
+    createEventErrorLocation: "Enter a location or meeting point.",
+    createEventErrorNotFound: "This event could not be found.",
+    createEventErrorGeneric:
+      "Could not create the event. Check the fields and try again.",
     createEventKarmaEnrollmentHint:
       "Bonus only if at least half the spots are filled",
     deleteEvent: "Cancel the event",
@@ -1014,6 +1070,17 @@ export const translations = {
     pastEventLabel: "Past event",
     mustJoinToViewMessages: "You must join this event to view messages.",
     inviteSheetTitle: "Invite friends",
+    adminInviteSheetTitle: "Invite people",
+    adminInviteSection: "Invite people",
+    adminInviteHint:
+      "Choose who to invite — they will receive a notification to join the event.",
+    adminInviteSearchPlaceholder: "Search by name…",
+    adminInviteAll: "Invite everyone ({{n}})",
+    adminInviteAllConfirm:
+      "Send an invitation to {{n}} people? Each will receive a notification.",
+    adminInviteEmpty: "Everyone is already invited or in the group.",
+    adminInviteSearchNoResults: "No one matches your search.",
+    inviteAction: "Invite",
     inviteHint: "Your friends will receive a notification to join this event.",
     noMoreSlotsHint: "No more spots available",
 
@@ -1037,6 +1104,7 @@ export const translations = {
     rejectedRequest: "Rejected",
     sentRequest: "Sent",
     addFriendButton: "Add",
+    friendRequestDailyLimit: "One friend request per day",
 
     // ChatRoomPage - Missing strings
     membersCount: "members",

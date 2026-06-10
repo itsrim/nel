@@ -1,5 +1,5 @@
-/** Badges suggérés (admin — ajout rapide). */
-export const PROFILE_BADGE_SUGGESTIONS = [
+/** Catalogue par défaut des badges suggérés (admin — ajout rapide). */
+export const DEFAULT_PROFILE_BADGE_SUGGESTIONS = [
   "Ponctuel",
   "Organisateur",
   "Amical",
@@ -11,6 +11,9 @@ export const PROFILE_BADGE_SUGGESTIONS = [
   "Sociable",
   "Convivial",
 ] as const;
+
+/** @deprecated Utiliser `DEFAULT_PROFILE_BADGE_SUGGESTIONS`. */
+export const PROFILE_BADGE_SUGGESTIONS = DEFAULT_PROFILE_BADGE_SUGGESTIONS;
 
 export const DEFAULT_VIEWER_BADGES = [
   "Ponctuel",

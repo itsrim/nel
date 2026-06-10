@@ -14,6 +14,13 @@ export function todayDateKey(): string {
   return toDateKey(new Date());
 }
 
+/** Vrai si une demande d'ami a déjà été envoyée aujourd'hui (limite : 1 / jour). */
+export function hasReachedDailyFriendRequestLimit(
+  lastSentDateKey: string | null | undefined,
+): boolean {
+  return lastSentDateKey === todayDateKey();
+}
+
 /** Vrai si le jour de l’événement (calendrier local) est strictement avant aujourd’hui. */
 export function isEventDateBeforeToday(dateKey: string): boolean {
   const d = parseDateKeyLocal(dateKey);

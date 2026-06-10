@@ -1,0 +1,156 @@
+.profile-badges-section .badges-grid,
+.profile-badges-section .op-badges-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.profile-badges-section .badge-chip,
+.profile-badges-section .op-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-badges-section .badge-chip--add,
+.profile-badges-section .op-badge-pill.badge-chip--add {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.profile-badges-section .badge-chip--input,
+.profile-badges-section .op-badge-pill.badge-chip--input {
+  padding: 4px 8px;
+  min-width: 120px;
+}
+
+.profile-badges-section .badge-chip-input {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  width: 100%;
+  min-width: 100px;
+  outline: none;
+}
+
+.profile-badges-section .badge-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+  padding: 0;
+  border: none;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.profile-badges-section .badge-chip-remove:hover {
+  background: rgba(255, 69, 58, 0.35);
+}
+
+.profile-badges-section .badge-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 16px;
+}
+
+.profile-badges-section .badge-suggestion-btn {
+  background: rgba(255, 214, 10, 0.12);
+  border: 1px solid rgba(255, 214, 10, 0.25);
+  color: #ffd60a;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.profile-badges-section .badge-suggestion-btn:hover {
+  background: rgba(255, 214, 10, 0.22);
+}
+
+.profile-badges-section .badge-suggestion-btn--on-profile,
+.profile-badges-section .badge-suggestion-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.profile-badges-section .badge-suggestion-btn--add-catalog {
+  border-style: dashed;
+}
+
+.profile-badges-section .badge-catalog-block {
+  margin-top: 4px;
+}
+
+.profile-badges-section .badge-catalog-title {
+  margin: 0 0 8px;
+  color: #8e8e93;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.profile-badges-section .badge-catalog-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.profile-badges-section .badge-catalog-item--edit {
+  min-width: 120px;
+}
+
+.profile-badges-section .badge-catalog-edit-input {
+  background: #1c1c1e;
+  border: 1px solid rgba(255, 214, 10, 0.35);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  min-width: 100px;
+  outline: none;
+}
+
+.profile-badges-section .badge-catalog-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+}
+
+.profile-badges-section .badge-catalog-action--danger:hover {
+  background: rgba(255, 69, 58, 0.35);
+}
+
+.profile-badges-section .badge-admin-hint {
+  margin: 0 0 10px;
+  color: #8e8e93;
+  font-size: 12px;
+  font-weight: 600;
+}

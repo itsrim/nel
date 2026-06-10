@@ -6,19 +6,31 @@
   max-width: 100%;
   height: 100%;
   height: 100dvh;
-  background-color: #000;
+  background-color: #fff;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   overflow: hidden;
+}
+
+.splash-screen-title {
+  margin: 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 24px) 16px 16px;
+  color: #000;
+  font-size: 1.75rem;
+  font-weight: 700;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .splash-screen-img {
   display: block;
   width: 100%;
   max-width: 100vw;
+  flex: 1;
+  min-height: 0;
   height: auto;
-  max-height: 100dvh;
   object-fit: contain;
   object-position: center;
 }

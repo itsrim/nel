@@ -118,6 +118,40 @@
   margin: 0;
 }
 
+.op-admin-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.op-admin-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.op-admin-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.op-admin-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #ff453a;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .op-divider {
   height: 1px;
   background-color: #333;

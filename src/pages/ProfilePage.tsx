@@ -51,7 +51,7 @@ import { ProfileKarmaBadge } from "../components/ProfileKarmaBadge";
 import { ProfileBadgesSection } from "../components/ProfileBadgesSection";
 import { SubscriptionCheckoutModal } from "../components/SubscriptionCheckoutModal";
 import { SubscriptionSettingActions } from "../components/SubscriptionSettingActions";
-import { isAdminAccount } from "../lib/accountRoles";
+import { canManageProfileBadges, isAdminAccount } from "../lib/accountRoles";
 import { DEFAULT_AVATAR_URL, resolveAvatarUrl } from "../lib/avatarUrl";
 import type { SubscriptionPlan } from "../lib/subscriptionPayment";
 import "../components/ProContactLinks.css";
@@ -126,8 +126,8 @@ export function ProfilePage() {
     friends,
     appNotifications,
     toggleEventFavorite,
-    nelDemoIsAdmin,
-    setNelDemoIsAdmin,
+    isAdmin,
+    setIsAdmin,
     nelDemoIsPremium,
     viewerPremiumExpiresAt,
     viewerProExpiresAt,
@@ -156,6 +156,8 @@ export function ProfilePage() {
     setViewerProLocation,
     viewerProfileBadges,
     setViewerProfileBadges,
+    profileBadgeSuggestions,
+    setProfileBadgeSuggestions,
     viewerKarma,
     showToast,
     eventReminders,
@@ -217,6 +219,7 @@ export function ProfilePage() {
   const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlan | null>(null);
   useLockBodyScroll(settingsOpen);
   const userIsAdmin = isAdminAccount(user);
+  const canEditBadges = canManageProfileBadges(user, isAdmin);
 
   // Mock user state (nom + photo partagés avec EventDetail / création de sortie)
   const [age, setAge] = useState("28");
@@ -651,8 +654,11 @@ export function ProfilePage() {
         <div className="section-title">{t("badges")}</div>
         <ProfileBadgesSection
           badges={viewerProfileBadges}
-          editable={nelDemoIsAdmin}
+          suggestions={profileBadgeSuggestions}
+          editable={canEditBadges}
+          manageSuggestions={canEditBadges}
           onChange={setViewerProfileBadges}
+          onSuggestionsChange={setProfileBadgeSuggestions}
         />
 
         {/* Stats */}
@@ -737,7 +743,7 @@ export function ProfilePage() {
               </span>
             </div>
           </button>
-          {nelDemoIsAdmin && (
+          {isAdmin && (
             <button
               type="button"
               className={`p-tab ${activeTab === "reports" ? "p-tab--active" : ""}`}
@@ -1199,8 +1205,8 @@ export function ProfilePage() {
                   </div>
                   <input
                     type="checkbox"
-                    checked={nelDemoIsAdmin}
-                    onChange={(e) => setNelDemoIsAdmin(e.target.checked)}
+                    checked={isAdmin}
+                    onChange={(e) => setIsAdmin(e.target.checked)}
                     className="switch"
                   />
                 </div>

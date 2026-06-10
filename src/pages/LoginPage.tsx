@@ -310,12 +310,6 @@ export function LoginPage() {
           </button>
         </div>
 
-        <div className="login-demo-hint">
-          <p>{t("loginDemoHint")}</p>
-          <p>
-            <strong>{t("loginDemoLabel")}</strong> demo@nel.com / password
-          </p>
-        </div>
       </div>
     </div>
   );

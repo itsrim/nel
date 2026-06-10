@@ -23,6 +23,7 @@ import {
   uploadLocalImageToImageKitEventCover,
 } from "../lib/imagekitUpload";
 import { withUrlUploadVersion } from "../lib/versionRemoteAssetUrl";
+import { listAllAppProfiles } from "../lib/eventInvites";
 import { hasViewerProAccess } from "../lib/viewerEntitlements";
 import {
   KARMA_ORGANIZE_COST,
@@ -119,8 +120,9 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     cancelEvent,
     createEmptyGroup,
     postEventGroupWelcome,
-    inviteFriendToEvent,
-    nelDemoIsAdmin,
+    inviteProfilToEvent,
+    isAdmin,
+    suggestions,
     nelDemoIsPremium,
     viewerPremiumExpiresAt,
     viewerProfileIsPro,
@@ -131,14 +133,14 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const viewerProAccess = useMessagingStore(hasViewerProAccess);
   const entitlementState = useMemo(
     () => ({
-      nelDemoIsAdmin,
+      isAdmin,
       nelDemoIsPremium,
       viewerPremiumExpiresAt,
       viewerProfileIsPro,
       viewerProExpiresAt,
     }),
     [
-      nelDemoIsAdmin,
+      isAdmin,
       nelDemoIsPremium,
       viewerPremiumExpiresAt,
       viewerProfileIsPro,
@@ -170,10 +172,13 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     [],
   );
 
-  const inviteableFriends = useMemo(
-    () => friends.filter((f) => f.mutualFriend !== false),
-    [friends],
-  );
+  const inviteableProfiles = useMemo(() => {
+    const all = listAllAppProfiles(friends, suggestions);
+    if (isAdmin) return all;
+    return all.filter((p) =>
+      friends.some((f) => f.profilId === p.profilId && f.mutualFriend !== false),
+    );
+  }, [friends, suggestions, isAdmin]);
 
   const toggleInviteFriend = useCallback((profilId: string) => {
     setSelectedInviteProfilIds((prev) =>
@@ -184,8 +189,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   }, []);
 
   const selectAllInviteFriends = useCallback(() => {
-    setSelectedInviteProfilIds(inviteableFriends.map((f) => f.profilId));
-  }, [inviteableFriends]);
+    setSelectedInviteProfilIds(inviteableProfiles.map((p) => p.profilId));
+  }, [inviteableProfiles]);
 
   const clearInviteFriends = useCallback(() => {
     setSelectedInviteProfilIds([]);
@@ -195,6 +200,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const [manualApproval, setManualApproval] = useState(false);
   const [markAsBeta, setMarkAsBeta] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   /** En édition : ne pas descendre sous le nombre de participants déjà inscrits. */
   const [participantFloor, setParticipantFloor] = useState(
     EVENT_PARTICIPANT_MIN_MAX,
@@ -208,7 +214,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
       return;
     }
     const ev = getEventById(formEventId);
-    if (!ev || !eventIsEditableByViewer(ev)) {
+    if (!ev || (!eventIsEditableByViewer(ev) && !isAdmin)) {
       window.alert("Impossible d'ouvrir cette sortie en édition.");
       closeDetail();
       return;
@@ -226,7 +232,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     setParticipantFloor(
       Math.max(EVENT_PARTICIPANT_MIN_MAX, ev.participantCount),
     );
-  }, [isEditMode, formEventId, getEventById, closeDetail]);
+  }, [isEditMode, formEventId, getEventById, closeDetail, isAdmin]);
 
   useEffect(() => {
     setMaxParticipants((prev) => {
@@ -336,9 +342,16 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     [],
   );
 
+  const reportSubmitError = useCallback((message: string) => {
+    const text = message.trim();
+    if (!text) return;
+    setSubmitError(text);
+  }, []);
+
   const submit = useCallback(() => {
-    const t = title.trim().slice(0, MAX_TITLE_LEN);
-    const l = location.trim().slice(0, MAX_LOCATION_LEN);
+    setSubmitError(null);
+    const titleTrim = title.trim().slice(0, MAX_TITLE_LEN);
+    const locationTrim = location.trim().slice(0, MAX_LOCATION_LEN);
     const parsed = eventDate;
     const timeShortStr = eventDate.toLocaleTimeString("fr-FR", {
       hour: "2-digit",
@@ -346,12 +359,12 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     });
     const maxParsed = parseInt(maxParticipants.trim(), 10);
 
-    if (!t) {
-      window.alert("Indiquez un titre pour votre événement.");
+    if (!titleTrim) {
+      reportSubmitError(t("createEventErrorTitle"));
       return;
     }
-    if (!l) {
-      window.alert("Indiquez un lieu ou un point de rendez-vous.");
+    if (!locationTrim) {
+      reportSubmitError(t("createEventErrorLocation"));
       return;
     }
     if (
@@ -360,7 +373,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
       maxParsed > participantMaxCap ||
       maxParsed < EVENT_PARTICIPANT_MIN_MAX
     ) {
-      window.alert(
+      reportSubmitError(
         t("createEventParticipantsRangeAlert")
           .replace("{min}", String(Math.max(participantFloor, EVENT_PARTICIPANT_MIN_MAX)))
           .replace("{max}", String(participantMaxCap)),
@@ -379,13 +392,18 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
         ? notesTrim.slice(0, MAX_DESCRIPTION_LEN)
         : undefined;
       const timeShortVal = timeShortStr || "19:00";
-      const beta = nelDemoIsAdmin && markAsBeta;
+      const beta = isAdmin && markAsBeta;
 
       if (isEditMode) {
+        const existing = getEventById(formEventId);
+        if (!existing) {
+          reportSubmitError(t("createEventErrorNotFound"));
+          return;
+        }
         updateEvent(formEventId, {
-          title: t,
+          title: titleTrim,
           dateLabel,
-          location: l,
+          location: locationTrim,
           notes: notesVal,
           timeShort: timeShortVal,
           imageUri: imageUri ?? undefined,
@@ -398,13 +416,13 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           isBeta: beta,
         });
       } else {
-        const groupTitle = `${t} — ${dateLabel.split(" ")[0]}`;
+        const groupTitle = `${titleTrim} — ${dateLabel.split(" ")[0]}`;
         const conversationId = createEmptyGroup(groupTitle);
         const eventId = addEvent({
           conversationId,
-          title: t,
+          title: titleTrim,
           dateLabel,
-          location: l,
+          location: locationTrim,
           notes: notesVal,
           timeShort: timeShortVal,
           priceLabel: "Gratuit",
@@ -417,16 +435,22 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           manualApproval,
           isBeta: beta,
         });
-        if (!eventId) return;
-        postEventGroupWelcome(conversationId, t);
-        if (viewerProAccess && selectedInviteProfilIds.length > 0) {
+        if (!eventId) {
+          reportSubmitError(t("createEventErrorGeneric"));
+          return;
+        }
+        postEventGroupWelcome(conversationId, titleTrim);
+        if ((viewerProAccess || isAdmin) && selectedInviteProfilIds.length > 0) {
           for (const profilId of selectedInviteProfilIds) {
-            const friend = friends.find((f) => f.profilId === profilId);
-            if (friend) inviteFriendToEvent(eventId, friend);
+            inviteProfilToEvent(eventId, profilId);
           }
         }
       }
       closeDetail();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : t("createEventErrorGeneric");
+      reportSubmitError(message);
     } finally {
       setSubmitting(false);
     }
@@ -441,7 +465,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     isPrivate,
     manualApproval,
     markAsBeta,
-    nelDemoIsAdmin,
+    isAdmin,
     isEditMode,
     formEventId,
     addEvent,
@@ -455,7 +479,9 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     viewerProAccess,
     selectedInviteProfilIds,
     friends,
-    inviteFriendToEvent,
+    inviteProfilToEvent,
+    reportSubmitError,
+    getEventById,
   ]);
 
   const handleCancelSortie = useCallback(() => {
@@ -675,14 +701,16 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
         <div className="ce-card-section">
           <h2 className="ce-section-title">{t("optionsSectionTitle")}</h2>
           <div className="ce-card" style={{ marginBottom: 0 }}>
-            {viewerProAccess && !isEditMode && (
+            {(viewerProAccess || isAdmin) && !isEditMode && (
               <div className="ce-invite-block ce-option-row--border">
                 <div className="ce-invite-head">
                   <div className="ce-option-bg ce-option-bg--teal">
                     <Users size={18} color="#fff" aria-hidden />
                   </div>
                   <div className="ce-option-text">
-                    <span className="ce-option-label">{t("inviteFriendsSection")}</span>
+                    <span className="ce-option-label">
+                      {isAdmin ? t("adminInviteSection") : t("inviteFriendsSection")}
+                    </span>
                     <span className="ce-option-sublabel">
                       {selectedInviteProfilIds.length > 0
                         ? selectedInviteProfilIds.length === 1
@@ -691,7 +719,9 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
                               "{{n}}",
                               String(selectedInviteProfilIds.length),
                             )
-                        : t("inviteHint")}
+                        : isAdmin
+                          ? t("adminInviteHint")
+                          : t("inviteHint")}
                     </span>
                   </div>
                   <div className="ce-invite-actions">
@@ -699,9 +729,14 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
                       type="button"
                       className="ce-invite-action-btn"
                       onClick={selectAllInviteFriends}
-                      disabled={inviteableFriends.length === 0}
+                      disabled={inviteableProfiles.length === 0}
                     >
-                      {t("createEventInviteAll")}
+                      {isAdmin
+                        ? t("adminInviteAll").replace(
+                            "{{n}}",
+                            String(inviteableProfiles.length),
+                          )
+                        : t("createEventInviteAll")}
                     </button>
                     <button
                       type="button"
@@ -713,22 +748,22 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
                     </button>
                   </div>
                 </div>
-                {inviteableFriends.length > 0 ? (
+                {inviteableProfiles.length > 0 ? (
                   <div className="ce-invite-friends">
-                    {inviteableFriends.map((f) => {
-                      const selected = selectedInviteProfilIds.includes(f.profilId);
+                    {inviteableProfiles.map((p) => {
+                      const selected = selectedInviteProfilIds.includes(p.profilId);
                       const firstName =
-                        f.name.trim().split(/\s+/)[0] || f.name.trim() || f.name;
+                        p.name.trim().split(/\s+/)[0] || p.name.trim() || p.name;
                       return (
                         <button
-                          key={f.profilId}
+                          key={p.profilId}
                           type="button"
                           className={`ce-invite-chip${selected ? " ce-invite-chip--selected" : ""}`}
                           aria-pressed={selected}
-                          onClick={() => toggleInviteFriend(f.profilId)}
+                          onClick={() => toggleInviteFriend(p.profilId)}
                         >
                           <img
-                            src={f.imageUrl}
+                            src={p.imageUrl}
                             alt=""
                             className="ce-invite-chip-av"
                           />
@@ -782,7 +817,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
               </label>
             </div>
             <div
-              className={`ce-option-row ${nelDemoIsAdmin ? "ce-option-row--border" : ""}`}
+              className={`ce-option-row ${isAdmin ? "ce-option-row--border" : ""}`}
             >
               <div className="ce-option-bg ce-option-bg--amber">
                 <ShieldCheck size={18} color="#fff" aria-hidden />
@@ -800,7 +835,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
                 <span className="ce-switch-slider ce-switch-slider--amber" />
               </label>
             </div>
-            {nelDemoIsAdmin ? (
+            {isAdmin ? (
               <div className="ce-option-row">
                 <div className="ce-option-bg ce-option-bg--pink">
                   <FlaskConical size={18} color="#fff" aria-hidden />
@@ -839,6 +874,12 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
               supprimés.
             </p>
           </div>
+        ) : null}
+
+        {submitError ? (
+          <p className="ce-submit-error" role="alert">
+            {submitError}
+          </p>
         ) : null}
 
         <div className="ce-bottom-actions">

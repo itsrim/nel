@@ -85,8 +85,8 @@ const localUsers: Record<
     isPro?: boolean;
   }
 > = {
-  "demo@nel.com": {
-    email: "demo@nel.com",
+  "admin@rim.com": {
+    email: "admin@rim.com",
     password: "password",
     displayName: "Utilisateur Demo",
     id: "user_demo_001",
@@ -197,15 +197,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const normalizedLogin = email.trim().toLowerCase();
         const { user, token } = await loginWithApi(email, password);
         const loggedInUser = toAppUser(user, {
-          age: normalizedLogin === "demo@nel.com" ? "28" : "",
-          bio: normalizedLogin === "demo@nel.com" ? "Bienvenue sur Nel!" : "",
+          age: normalizedLogin === "admin@rim.com" ? "28" : "",
+          bio: normalizedLogin === "admin@rim.com" ? "Bienvenue sur Nel!" : "",
           isPro: normalizedLogin === "rim",
           emailVerified: user.emailVerified !== false,
         });
         setAuthToken(token);
         localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
         if (loggedInUser.isAdmin) {
-          useMessagingStore.getState().setNelDemoIsAdmin(true);
+          useMessagingStore.getState().setIsAdmin(true);
         }
         if (loggedInUser.emailVerified) {
           const proContact = readViewerProContact();
@@ -241,14 +241,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isPro: !!user.isPro,
         isAdmin: isAdminAccount({ email: user.email, id: user.id }),
         avatarUrl:
-          normalizedEmail === "demo@nel.com"
+          normalizedEmail === "admin@rim.com"
             ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800"
             : resolveAvatarUrl(),
       };
 
       localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
       if (loggedInUser.isAdmin) {
-        useMessagingStore.getState().setNelDemoIsAdmin(true);
+        useMessagingStore.getState().setIsAdmin(true);
       }
       set({ user: loggedInUser, isLoading: false });
     } catch (err) {

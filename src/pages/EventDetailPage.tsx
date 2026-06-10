@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   ThumbsUp,
   ThumbsDown,
+  Trash2,
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useTranslation } from "../i18n/useTranslation";
@@ -28,7 +29,11 @@ import {
   VIEWER_KARMA_PARTICIPANT_ID,
 } from "../lib/karma";
 import { hasViewerProAccess } from "../lib/viewerEntitlements";
-import type { Friend } from "../data/mockData";
+import {
+  filterInviteProfiles,
+  listAllAppProfiles,
+  listInvitableProfiles,
+} from "../lib/eventInvites";
 import { ReportModal } from "../components/ReportModal";
 import "./EventDetailPage.css";
 
@@ -62,17 +67,22 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     toggleEventFavorite,
     joinEvent,
     leaveEvent,
-    inviteFriendToEvent,
+    inviteProfilToEvent,
+    inviteProfilsToEvent,
+    suggestions,
     viewerProfileAvatarUrl,
     viewerProfileDisplayName,
     showToast,
     validateEventParticipantPresent,
     submitOrganizerRating,
     finalizeEventOrganizerKarma,
+    isAdmin,
+    adminDeleteEvent,
   } = useMessagingStore();
   const viewerProAccess = useMessagingStore(hasViewerProAccess);
 
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteSearch, setInviteSearch] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
 
   const event = events.find((e) => e.id === id);
@@ -136,19 +146,28 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     return slots;
   }, [event, conversations, friends]);
 
-  const invitableFriends = useMemo(() => {
+  const allAppProfiles = useMemo(
+    () => listAllAppProfiles(friends, suggestions),
+    [friends, suggestions],
+  );
+
+  const invitableProfiles = useMemo(() => {
     if (!event) return [];
-    const conv = conversations.find((c) => c.id === event.conversationId);
-    const memberIds = new Set(
-      (conv?.members ?? [])
-        .map((m) => m.profilId)
-        .filter((pid): pid is string => Boolean(pid)),
-    );
-    const invited = new Set(event.invitedProfilIds ?? []);
-    return friends.filter(
-      (f) => !memberIds.has(f.profilId) && !invited.has(f.profilId),
-    );
-  }, [event, friends, conversations]);
+    const pool = isAdmin
+      ? allAppProfiles
+      : allAppProfiles.filter((p) =>
+          friends.some(
+            (f) =>
+              f.profilId === p.profilId && f.mutualFriend !== false,
+          ),
+        );
+    return listInvitableProfiles(event, conversations, pool);
+  }, [event, friends, suggestions, conversations, isAdmin, allAppProfiles]);
+
+  const filteredInvitableProfiles = useMemo(
+    () => filterInviteProfiles(invitableProfiles, inviteSearch),
+    [invitableProfiles, inviteSearch],
+  );
 
   useEffect(() => {
     if (!event) return;
@@ -180,6 +199,8 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const isFull = event.participantCount >= event.participantMax;
   const isHostOrganizer = viewerHosts && event.status === "organisateur";
   const isPastEvent = isEventDateBeforeToday(event.dateKey);
+  const canEditEvent = isHostOrganizer || isAdmin;
+  const canInvite = (isHostOrganizer || isAdmin) && !isPastEvent;
   const validatedPresent = new Set(event.validatedPresentProfilIds ?? []);
   const viewerValidatedPresent = validatedPresent.has(
     VIEWER_KARMA_PARTICIPANT_ID,
@@ -199,8 +220,34 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     validateEventParticipantPresent(event.id, participantProfilId);
   };
 
-  const handleInviteFriend = (f: Friend) => {
-    inviteFriendToEvent(event.id, f);
+  const handleInviteProfile = (profilId: string) => {
+    inviteProfilToEvent(event.id, profilId);
+  };
+
+  const handleInviteAll = () => {
+    if (invitableProfiles.length === 0) return;
+    if (
+      !window.confirm(
+        t("adminInviteAllConfirm").replace(
+          "{{n}}",
+          String(invitableProfiles.length),
+        ),
+      )
+    ) {
+      return;
+    }
+    inviteProfilsToEvent(
+      event.id,
+      invitableProfiles.map((p) => p.profilId),
+    );
+    setInviteOpen(false);
+    setInviteSearch("");
+  };
+
+  const handleAdminDeleteEvent = () => {
+    if (!window.confirm(t("adminDeleteEventConfirm"))) return;
+    adminDeleteEvent(event.id);
+    closeDetail();
   };
 
   const handleJoinToggle = () => {
@@ -292,6 +339,16 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             >
               <AlertTriangle size={24} color="#FFCC00" />
             </button>
+            {isAdmin ? (
+              <button
+                type="button"
+                className="ed-icon-btn ed-icon-btn--danger"
+                onClick={handleAdminDeleteEvent}
+                aria-label={t("adminDeleteEvent")}
+              >
+                <Trash2 size={22} color="#FF453A" />
+              </button>
+            ) : null}
           </div>
         </header>
 
@@ -447,7 +504,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             })}
             {event.participantCount < event.participantMax &&
               !isPastEvent &&
-              (isHostOrganizer ? (
+              (canInvite ? (
                 <button
                   type="button"
                   className="ed-participant-placeholder ed-participant-placeholder--invite"
@@ -572,65 +629,80 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
               >
                 <MessageCircle size={24} />
               </button>
-              <button
-                type="button"
-                className={`ed-join-btn${showJoinKarmaHint ? " ed-join-btn--with-karma" : ""} ${isInscribed || isHostOrganizer ? "joined" : ""} ${!isInscribed && !isHostOrganizer && isFull ? "full" : ""}`}
-                onClick={
-                  isHostOrganizer
-                    ? () => openDetail("event_create", event.id)
-                    : handleJoinToggle
-                }
-                disabled={!isHostOrganizer && !isInscribed && isFull}
-                aria-label={
-                  showJoinKarmaHint
-                    ? viewerProAccess
-                      ? `${t("joinEventButton")}, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
-                      : `${t("joinEventButton")}, −${KARMA_JOIN_COST} karma, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
-                    : undefined
-                }
-              >
-                {isHostOrganizer ? (
-                  t("editEventButton")
-                ) : event.status === "inscrit" ? (
-                  t("unregisterButton")
-                ) : isFull ? (
-                  t("completeEventButton")
-                ) : (
-                  <>
-                    <span className="ed-join-btn-label">{t("joinEventButton")}</span>
-                    {showJoinKarmaHint ? (
-                      <span className="ed-join-btn-karma" aria-hidden>
-                        {viewerProAccess
-                          ? t("createEventKarmaFree")
-                          : t("joinEventKarmaCost").replace(
-                              "{cost}",
-                              String(KARMA_JOIN_COST),
-                            )}
-                        {" · "}
-                        {t("joinEventKarmaReward").replace(
-                          "{reward}",
-                          String(KARMA_ATTENDANCE_REWARD),
-                        )}
-                      </span>
-                    ) : null}
-                  </>
-                )}
-              </button>
+              {canEditEvent ? (
+                <button
+                  type="button"
+                  className="ed-join-btn joined"
+                  onClick={() => openDetail("event_create", event.id)}
+                >
+                  {t("editEventButton")}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={`ed-join-btn${showJoinKarmaHint ? " ed-join-btn--with-karma" : ""} ${isInscribed ? "joined" : ""} ${!isInscribed && isFull ? "full" : ""}`}
+                  onClick={handleJoinToggle}
+                  disabled={!isInscribed && isFull}
+                  aria-label={
+                    showJoinKarmaHint
+                      ? viewerProAccess
+                        ? `${t("joinEventButton")}, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
+                        : `${t("joinEventButton")}, −${KARMA_JOIN_COST} karma, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
+                      : undefined
+                  }
+                >
+                  {event.status === "inscrit" ? (
+                    t("unregisterButton")
+                  ) : isFull ? (
+                    t("completeEventButton")
+                  ) : (
+                    <>
+                      <span className="ed-join-btn-label">{t("joinEventButton")}</span>
+                      {showJoinKarmaHint ? (
+                        <span className="ed-join-btn-karma" aria-hidden>
+                          {viewerProAccess
+                            ? t("createEventKarmaFree")
+                            : t("joinEventKarmaCost").replace(
+                                "{cost}",
+                                String(KARMA_JOIN_COST),
+                              )}
+                          {" · "}
+                          {t("joinEventKarmaReward").replace(
+                            "{reward}",
+                            String(KARMA_ATTENDANCE_REWARD),
+                          )}
+                        </span>
+                      ) : null}
+                    </>
+                  )}
+                </button>
+              )}
             </>
           )}
-          {isPastEvent && (
+          {isPastEvent && canEditEvent ? (
+            <button
+              type="button"
+              className="ed-join-btn joined"
+              onClick={() => openDetail("event_create", event.id)}
+            >
+              {t("editEventButton")}
+            </button>
+          ) : isPastEvent ? (
             <span className="ed-past-hint">{t("pastEventLabel")}</span>
-          )}
+          ) : null}
         </div>
       </footer>
 
-      {inviteOpen && isHostOrganizer && (
+      {inviteOpen && canInvite && (
         <>
           <button
             type="button"
             className="ed-invite-backdrop"
             aria-label={t("close")}
-            onClick={() => setInviteOpen(false)}
+            onClick={() => {
+              setInviteOpen(false);
+              setInviteSearch("");
+            }}
           />
           <div
             className="ed-invite-sheet"
@@ -640,36 +712,65 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           >
             <div className="ed-invite-sheet-head">
               <h2 id="ed-invite-title" className="ed-invite-sheet-title">
-                {t("inviteSheetTitle")}
+                {isAdmin ? t("adminInviteSheetTitle") : t("inviteSheetTitle")}
               </h2>
               <button
                 type="button"
                 className="ed-invite-close"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setInviteOpen(false)}
+                onClick={() => {
+                  setInviteOpen(false);
+                  setInviteSearch("");
+                }}
                 aria-label={t("close")}
               >
                 <X size={22} color="#8E8E93" />
               </button>
             </div>
-            <p className="ed-invite-hint">{t("inviteHint")}</p>
+            <p className="ed-invite-hint">
+              {isAdmin ? t("adminInviteHint") : t("inviteHint")}
+            </p>
+            {isAdmin ? (
+              <div className="ed-invite-toolbar">
+                <input
+                  type="search"
+                  className="ed-invite-search"
+                  value={inviteSearch}
+                  onChange={(e) => setInviteSearch(e.target.value)}
+                  placeholder={t("adminInviteSearchPlaceholder")}
+                />
+                <button
+                  type="button"
+                  className="ed-invite-all-btn"
+                  onClick={handleInviteAll}
+                  disabled={invitableProfiles.length === 0}
+                >
+                  {t("adminInviteAll").replace(
+                    "{{n}}",
+                    String(invitableProfiles.length),
+                  )}
+                </button>
+              </div>
+            ) : null}
             <div className="ed-invite-list">
-              {invitableFriends.length === 0 ? (
+              {filteredInvitableProfiles.length === 0 ? (
                 <p className="ed-invite-empty">
-                  Tous vos amis sont déjà dans le groupe ou invités.
+                  {inviteSearch.trim()
+                    ? t("adminInviteSearchNoResults")
+                    : t("adminInviteEmpty")}
                 </p>
               ) : (
-                invitableFriends.map((f) => (
+                filteredInvitableProfiles.map((p) => (
                   <button
-                    key={f.profilId}
+                    key={p.profilId}
                     type="button"
                     className="ed-invite-row"
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => handleInviteFriend(f)}
+                    onClick={() => handleInviteProfile(p.profilId)}
                   >
-                    <img src={f.imageUrl} alt="" className="ed-invite-av" />
-                    <span className="ed-invite-name">{f.name}</span>
-                    <span className="ed-invite-action">Inviter</span>
+                    <img src={p.imageUrl} alt="" className="ed-invite-av" />
+                    <span className="ed-invite-name">{p.name}</span>
+                    <span className="ed-invite-action">{t("inviteAction")}</span>
                   </button>
                 ))
               )}

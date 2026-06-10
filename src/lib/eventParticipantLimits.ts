@@ -14,7 +14,7 @@ export const EVENT_PARTICIPANT_CAP_PRO = 50;
 export const EVENT_PARTICIPANT_CAP_ADMIN = 150;
 
 export function getEventParticipantMaxCap(state: ViewerEntitlementState): number {
-  if (state.nelDemoIsAdmin) return EVENT_PARTICIPANT_CAP_ADMIN;
+  if (state.isAdmin) return EVENT_PARTICIPANT_CAP_ADMIN;
   if (hasViewerProAccess(state)) return EVENT_PARTICIPANT_CAP_PRO;
   if (hasViewerPremiumAccess(state)) return EVENT_PARTICIPANT_CAP_PREMIUM;
   return EVENT_PARTICIPANT_CAP_NORMAL;

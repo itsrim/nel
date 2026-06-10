@@ -153,7 +153,7 @@ export function EventsPage() {
   const {
     events,
     toggleEventFavorite,
-    nelDemoIsAdmin,
+    isAdmin,
     moderationHiddenEventIds,
     viewerProfileDisplayName,
   } = useMessagingStore();
@@ -204,7 +204,7 @@ export function EventsPage() {
           isDateKeyInWeek(e.dateKey, weekStartMonday) &&
           eventIsVisibleInDiscovery(
             e,
-            nelDemoIsAdmin,
+            isAdmin,
             moderationHiddenEventIds,
             viewerProfileDisplayName,
           ),
@@ -212,7 +212,7 @@ export function EventsPage() {
     [
       events,
       weekStartMonday,
-      nelDemoIsAdmin,
+      isAdmin,
       moderationHiddenEventIds,
       viewerProfileDisplayName,
     ],
@@ -321,10 +321,10 @@ export function EventsPage() {
   }, [headerMode]);
 
   useEffect(() => {
-    if (nelDemoIsAdmin) return;
+    if (isAdmin) return;
     const t = todayDateKey();
     setFilterDate((fd) => (fd && fd < t ? t : fd));
-  }, [nelDemoIsAdmin]);
+  }, [isAdmin]);
 
   return (
     <div
@@ -431,10 +431,10 @@ export function EventsPage() {
                     type="date"
                     className="events-filter-field events-filter-field--date"
                     value={filterDate}
-                    min={nelDemoIsAdmin ? undefined : todayDateKey()}
+                    min={isAdmin ? undefined : todayDateKey()}
                     onChange={(e) => {
                       const v = e.target.value;
-                      if (v && !nelDemoIsAdmin && v < todayDateKey()) {
+                      if (v && !isAdmin && v < todayDateKey()) {
                         setFilterDate(todayDateKey());
                         return;
                       }

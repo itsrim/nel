@@ -12,7 +12,7 @@ export function HomePage() {
   const { openDetail } = useNavigationStore();
   const {
     events,
-    nelDemoIsAdmin,
+    isAdmin,
     moderationHiddenEventIds,
     viewerProfileDisplayName,
   } = useMessagingStore();
@@ -34,7 +34,7 @@ export function HomePage() {
       if (
         !eventIsVisibleInDiscovery(
           e,
-          nelDemoIsAdmin,
+          isAdmin,
           moderationHiddenEventIds,
           viewerProfileDisplayName,
         )
@@ -51,7 +51,7 @@ export function HomePage() {
     events,
     committedSearch,
     selectedTagId,
-    nelDemoIsAdmin,
+    isAdmin,
     moderationHiddenEventIds,
     viewerProfileDisplayName,
   ]);

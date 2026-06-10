@@ -158,6 +158,9 @@ function App() {
       if (patch.viewerProfileBadges != null) {
         msg.setViewerProfileBadges(patch.viewerProfileBadges);
       }
+      if (patch.profileBadgeSuggestions != null) {
+        msg.setProfileBadgeSuggestions(patch.profileBadgeSuggestions);
+      }
       if (patch.nelDemoIsPremium != null) {
         msg.setNelDemoIsPremium(patch.nelDemoIsPremium);
       }

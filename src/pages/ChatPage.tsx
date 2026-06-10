@@ -21,6 +21,7 @@ import {
   type SuggestionProfile,
 } from "../data/mockData";
 import { buildConversationMiniSlots } from "../lib/conversationMiniSlots";
+import { hasReachedDailyFriendRequestLimit } from "../lib/eventDateKey";
 import { hasViewerPremiumAccess } from "../lib/viewerEntitlements";
 import "./ChatPage.css";
 
@@ -345,6 +346,7 @@ export function ChatPage() {
     friends,
     friendRequestSentProfilIds,
     friendRequestRejectedProfilIds,
+    friendRequestDailySentDateKey,
     sendFriendRequest,
     moderationHiddenProfilIds,
     showToast,
@@ -378,25 +380,35 @@ export function ChatPage() {
     [friendRequestRejectedProfilIds],
   );
 
-  const handleFriendRequest = useCallback(
-    (e: React.MouseEvent, profilId: string) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (
-        isMutualFriend(profilId) ||
-        hasSentFriendRequest(profilId) ||
-        hasRejectedFriendRequest(profilId)
-      ) {
-        return;
-      }
-      sendFriendRequest(profilId);
-    },
+  const dailyFriendRequestLimitReached = useMemo(
+    () => hasReachedDailyFriendRequestLimit(friendRequestDailySentDateKey),
+    [friendRequestDailySentDateKey],
+  );
+
+  const isFriendRequestBlocked = useCallback(
+    (profilId: string) =>
+      isMutualFriend(profilId) ||
+      hasSentFriendRequest(profilId) ||
+      hasRejectedFriendRequest(profilId) ||
+      (dailyFriendRequestLimitReached && !hasSentFriendRequest(profilId)),
     [
       isMutualFriend,
       hasSentFriendRequest,
       hasRejectedFriendRequest,
-      sendFriendRequest,
+      dailyFriendRequestLimitReached,
     ],
+  );
+
+  const handleFriendRequest = useCallback(
+    (e: React.MouseEvent, profilId: string) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isFriendRequestBlocked(profilId)) {
+        return;
+      }
+      sendFriendRequest(profilId);
+    },
+    [isFriendRequestBlocked, sendFriendRequest],
   );
 
   const sorted = useMemo(
@@ -693,12 +705,8 @@ export function ChatPage() {
                 </div>
                 <button
                   type="button"
-                  className={`visit-like-btn${hasSentFriendRequest(v.id) ? " visit-like-btn--sent" : ""}${isMutualFriend(v.id) ? " visit-like-btn--friend" : ""}${hasRejectedFriendRequest(v.id) ? " visit-like-btn--rejected" : ""}`}
-                  disabled={
-                    isMutualFriend(v.id) ||
-                    hasSentFriendRequest(v.id) ||
-                    hasRejectedFriendRequest(v.id)
-                  }
+                  className={`visit-like-btn${hasSentFriendRequest(v.id) ? " visit-like-btn--sent" : ""}${isMutualFriend(v.id) ? " visit-like-btn--friend" : ""}${hasRejectedFriendRequest(v.id) ? " visit-like-btn--rejected" : ""}${dailyFriendRequestLimitReached && !hasSentFriendRequest(v.id) ? " visit-like-btn--daily-limit" : ""}`}
+                  disabled={isFriendRequestBlocked(v.id)}
                   onClick={(e) => handleFriendRequest(e, v.id)}
                   aria-label={
                     isMutualFriend(v.id)
@@ -707,7 +715,9 @@ export function ChatPage() {
                         ? t("requestRejected")
                         : hasSentFriendRequest(v.id)
                           ? t("requestSent")
-                          : t("sendFriendRequest")
+                          : dailyFriendRequestLimitReached
+                            ? t("friendRequestDailyLimit")
+                            : t("sendFriendRequest")
                   }
                 >
                   {isMutualFriend(v.id) ? (
@@ -765,8 +775,8 @@ export function ChatPage() {
                       </div>
                       <button
                         type="button"
-                        className={`suggestion-add-friend-btn${sent ? " suggestion-add-friend-btn--sent" : ""}${mutual ? " suggestion-add-friend-btn--friend" : ""}${rejected ? " suggestion-add-friend-btn--rejected" : ""}`}
-                        disabled={mutual || sent || rejected}
+                        className={`suggestion-add-friend-btn${sent ? " suggestion-add-friend-btn--sent" : ""}${mutual ? " suggestion-add-friend-btn--friend" : ""}${rejected ? " suggestion-add-friend-btn--rejected" : ""}${dailyFriendRequestLimitReached && !sent ? " suggestion-add-friend-btn--daily-limit" : ""}`}
+                        disabled={isFriendRequestBlocked(item.id)}
                         onClick={(e) => handleFriendRequest(e, item.id)}
                         aria-label={
                           mutual
@@ -775,7 +785,9 @@ export function ChatPage() {
                               ? t("requestRejected")
                               : sent
                                 ? t("requestSent")
-                                : t("sendFriendRequest")
+                                : dailyFriendRequestLimitReached
+                                  ? t("friendRequestDailyLimit")
+                                  : t("sendFriendRequest")
                         }
                       >
                         {mutual ? (

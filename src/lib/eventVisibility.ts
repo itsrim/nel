@@ -6,13 +6,13 @@ import type { Event } from "../data/mockData";
  */
 export function eventIsVisibleInDiscovery(
   e: Event,
-  nelDemoIsAdmin: boolean,
+  isAdmin: boolean,
   moderationHiddenEventIds?: readonly string[],
   currentUserName?: string,
 ): boolean {
   if (moderationHiddenEventIds?.includes(e.id)) return false;
   if (e.isPrivate !== true) return true;
-  if (nelDemoIsAdmin) return true;
+  if (isAdmin) return true;
   if (e.hostedByViewer === true) return true;
   // Check if current user is the creator
   if (currentUserName && e.creatorId === currentUserName) return true;

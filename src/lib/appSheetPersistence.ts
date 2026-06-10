@@ -461,10 +461,12 @@ export interface ViewerSettingsRow {
   phone?: string;
   friendRequestSentJson: string;
   friendRequestRejectedJson: string;
+  friendRequestDailySentDateKey?: string;
   favoriteConversationIdsJson: string;
   moderationHiddenEventIdsJson: string;
   moderationHiddenProfilIdsJson: string;
   badgesJson?: string;
+  profileBadgeSuggestionsJson?: string;
 }
 
 function subscriptionPaymentFromRow(
@@ -526,10 +528,12 @@ export function viewerSettingsToRow(
     karma?: number;
     friendRequestSentProfilIds: string[];
     friendRequestRejectedProfilIds: string[];
+    friendRequestDailySentDateKey?: string | null;
     favoriteConversationIds: string[];
     moderationHiddenEventIds: string[];
     moderationHiddenProfilIds: string[];
     viewerProfileBadges?: string[];
+    profileBadgeSuggestions?: string[];
   },
 ): Record<string, string> {
   return {
@@ -556,10 +560,12 @@ export function viewerSettingsToRow(
     karma: data.karma != null ? String(data.karma) : "",
     friendRequestSentJson: jsonToSheet(data.friendRequestSentProfilIds),
     friendRequestRejectedJson: jsonToSheet(data.friendRequestRejectedProfilIds),
+    friendRequestDailySentDateKey: str(data.friendRequestDailySentDateKey),
     favoriteConversationIdsJson: jsonToSheet(data.favoriteConversationIds),
     moderationHiddenEventIdsJson: jsonToSheet(data.moderationHiddenEventIds),
     moderationHiddenProfilIdsJson: jsonToSheet(data.moderationHiddenProfilIds),
     badgesJson: jsonToSheet(data.viewerProfileBadges ?? []),
+    profileBadgeSuggestionsJson: jsonToSheet(data.profileBadgeSuggestions ?? []),
     deleted: "false",
   };
 }
@@ -656,10 +662,12 @@ export interface LoadedAppSheetState {
     karma?: number;
     friendRequestSentProfilIds: string[];
     friendRequestRejectedProfilIds: string[];
+    friendRequestDailySentDateKey?: string | null;
     favoriteConversationIds: string[];
     moderationHiddenEventIds: string[];
     moderationHiddenProfilIds: string[];
     viewerProfileBadges?: string[];
+    profileBadgeSuggestions?: string[];
   };
   hasRemoteData: boolean;
 }
@@ -794,10 +802,16 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
               : undefined,
           friendRequestSentProfilIds: jsonFromSheet(viewerRow.friendRequestSentJson, []),
           friendRequestRejectedProfilIds: jsonFromSheet(viewerRow.friendRequestRejectedJson, []),
+          friendRequestDailySentDateKey:
+            str(viewerRow.friendRequestDailySentDateKey) || null,
           favoriteConversationIds: jsonFromSheet(viewerRow.favoriteConversationIdsJson, []),
           moderationHiddenEventIds: jsonFromSheet(viewerRow.moderationHiddenEventIdsJson, []),
           moderationHiddenProfilIds: jsonFromSheet(viewerRow.moderationHiddenProfilIdsJson, []),
           viewerProfileBadges: jsonFromSheet(viewerRow.badgesJson, []),
+          profileBadgeSuggestions: jsonFromSheet(
+            viewerRow.profileBadgeSuggestionsJson,
+            [],
+          ),
         }
       : undefined,
     hasRemoteData,
@@ -816,6 +830,7 @@ export function mergeLoadedAppState(
     favoriteConversationIds: string[];
     friendRequestSentProfilIds: string[];
     friendRequestRejectedProfilIds: string[];
+    friendRequestDailySentDateKey: string | null;
     moderationHiddenEventIds: string[];
     moderationHiddenProfilIds: string[];
   },
@@ -830,6 +845,7 @@ export function mergeLoadedAppState(
   premiumSubscriptionPayment?: SubscriptionPaymentRecord;
   proSubscriptionPayment?: SubscriptionPaymentRecord;
   viewerProfileBadges?: string[];
+  profileBadgeSuggestions?: string[];
   viewerProfileCity?: string;
   viewerProWebsiteUrl?: string;
   viewerProSocialUrl?: string;
@@ -895,6 +911,9 @@ export function mergeLoadedAppState(
     if (vs.viewerProfileBadges?.length) {
       patch.viewerProfileBadges = vs.viewerProfileBadges;
     }
+    if (vs.profileBadgeSuggestions?.length) {
+      patch.profileBadgeSuggestions = vs.profileBadgeSuggestions;
+    }
     if (vs.city != null) patch.viewerProfileCity = vs.city;
     if (vs.websiteUrl != null) patch.viewerProWebsiteUrl = vs.websiteUrl;
     if (vs.socialUrl != null) patch.viewerProSocialUrl = vs.socialUrl;
@@ -908,6 +927,9 @@ export function mergeLoadedAppState(
     }
     if (vs.friendRequestRejectedProfilIds.length > 0) {
       patch.friendRequestRejectedProfilIds = vs.friendRequestRejectedProfilIds;
+    }
+    if (vs.friendRequestDailySentDateKey) {
+      patch.friendRequestDailySentDateKey = vs.friendRequestDailySentDateKey;
     }
     if (vs.favoriteConversationIds.length > 0) {
       patch.favoriteConversationIds = vs.favoriteConversationIds;
@@ -972,6 +994,12 @@ export function syncFriendToSheets(friend: Friend): void {
   );
 }
 
+export function syncProfileDeleteToSheets(profilId: string): void {
+  const userId = currentUserId();
+  if (!userId) return;
+  syncLater(() => softDeleteSheetRow("profiles", userId, profilId, "id"));
+}
+
 export function syncViewerSettingsToSheets(data: {
   email?: string;
   emailVerified?: boolean;
@@ -991,8 +1019,10 @@ export function syncViewerSettingsToSheets(data: {
   proLat?: number | null;
   proLng?: number | null;
   viewerProfileBadges?: string[];
+  profileBadgeSuggestions?: string[];
   friendRequestSentProfilIds: string[];
   friendRequestRejectedProfilIds: string[];
+  friendRequestDailySentDateKey?: string | null;
   favoriteConversationIds: string[];
   moderationHiddenEventIds: string[];
   moderationHiddenProfilIds: string[];
@@ -1034,6 +1064,7 @@ export function syncAllViewerStateFromStore(state: {
   premiumSubscriptionPayment?: SubscriptionPaymentRecord;
   proSubscriptionPayment?: SubscriptionPaymentRecord;
   viewerProfileBadges: string[];
+  profileBadgeSuggestions: string[];
   viewerProfileCity?: string;
   viewerProWebsiteUrl?: string;
   viewerProSocialUrl?: string;
@@ -1044,6 +1075,7 @@ export function syncAllViewerStateFromStore(state: {
   viewerKarma?: number;
   friendRequestSentProfilIds: string[];
   friendRequestRejectedProfilIds: string[];
+  friendRequestDailySentDateKey?: string | null;
   favoriteConversationIds: string[];
   moderationHiddenEventIds: string[];
   moderationHiddenProfilIds: string[];
@@ -1060,6 +1092,7 @@ export function syncAllViewerStateFromStore(state: {
     premiumSubscriptionPayment: state.premiumSubscriptionPayment,
     proSubscriptionPayment: state.proSubscriptionPayment,
     viewerProfileBadges: state.viewerProfileBadges,
+    profileBadgeSuggestions: state.profileBadgeSuggestions,
     city: state.viewerProfileCity,
     websiteUrl: state.viewerProWebsiteUrl,
     socialUrl: state.viewerProSocialUrl,
@@ -1070,6 +1103,7 @@ export function syncAllViewerStateFromStore(state: {
     karma: state.viewerKarma,
     friendRequestSentProfilIds: state.friendRequestSentProfilIds,
     friendRequestRejectedProfilIds: state.friendRequestRejectedProfilIds,
+    friendRequestDailySentDateKey: state.friendRequestDailySentDateKey,
     favoriteConversationIds: state.favoriteConversationIds,
     moderationHiddenEventIds: state.moderationHiddenEventIds,
     moderationHiddenProfilIds: state.moderationHiddenProfilIds,

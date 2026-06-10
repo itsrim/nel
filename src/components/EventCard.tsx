@@ -45,13 +45,15 @@ export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardP
           className="ecard-img"
           loading="lazy"
         />
+        <span className="ecard-price ecard-price--corner">
+          {item.priceLabel?.trim() || item.price?.trim() || 'Gratuit'}
+        </span>
         {item.status === 'inscrit' ? (
           <span className="ecard-status-badge ecard-status-badge--registered ecard-status-badge--on-img">
             <Check size={10} aria-hidden />
             {t('registered')}
           </span>
         ) : null}
-        {/* Top overlay: status + price */}
         <div
           className={`ecard-img-top${item.status === 'inscrit' ? ' ecard-img-top--with-status-badge' : ''}`}
         >
@@ -69,7 +71,6 @@ export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardP
               <span className="ecard-tag ecard-tag--pending">{t('pending')}</span>
             )}
           </div>
-          <span className="ecard-price">{item.priceLabel}</span>
         </div>
         {/* Bottom overlay: avatars + count */}
         <div className="ecard-img-bottom">

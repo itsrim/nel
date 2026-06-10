@@ -545,6 +545,46 @@ button.ed-participant-placeholder--invite:focus-visible {
   font-weight: 500;
 }
 
+.ed-invite-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ed-invite-search {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1c1c1e;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+}
+
+.ed-invite-search::placeholder {
+  color: #8e8e93;
+}
+
+.ed-invite-all-btn {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 214, 10, 0.35);
+  background: rgba(255, 214, 10, 0.12);
+  color: #ffd60a;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ed-invite-all-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .ed-invite-list {
   overflow-y: auto;
   flex: 1;

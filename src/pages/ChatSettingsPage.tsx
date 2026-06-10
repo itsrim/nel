@@ -10,6 +10,7 @@ import {
   ChevronUp,
   UserMinus,
   LogOut,
+  Trash2,
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
@@ -23,7 +24,8 @@ interface ChatSettingsPageProps {
 }
 
 export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
-  const { closeDetail, openDetail, setActiveTab } = useNavigationStore();
+  const { closeDetail, openDetail, setActiveTab, popDetails } =
+    useNavigationStore();
   const { t } = useTranslation();
   const {
     conversations,
@@ -34,6 +36,8 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
     updateConversationSettings,
     viewerProfileAvatarUrl,
     viewerProfileDisplayName,
+    isAdmin,
+    adminDeleteConversation,
   } = useMessagingStore();
 
   const conversation = conversations.find((c) => c.id === id);
@@ -57,6 +61,12 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
       closeDetail(); // Close settings
       // ChatRoom will automatically close because conversation is now undefined
     }
+  };
+
+  const handleAdminDeleteConversation = () => {
+    if (!window.confirm(t("adminDeleteConversationConfirm"))) return;
+    adminDeleteConversation(id);
+    popDetails(2);
   };
 
   // ... (Previous logic for members remains same) ...
@@ -273,6 +283,17 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
               {isGroup ? t("leaveGroupLabel") : t("leaveConversationLabel")}
             </span>
           </button>
+
+          {isAdmin ? (
+            <button
+              type="button"
+              className="cs-leave-btn cs-leave-btn--admin"
+              onClick={handleAdminDeleteConversation}
+            >
+              <Trash2 size={22} color="#FF453A" />
+              <span>{t("adminDeleteConversation")}</span>
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

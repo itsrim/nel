@@ -28,10 +28,14 @@ import {
   syncEventToSheets,
   syncFriendToSheets,
   syncNotificationToSheets,
+  syncProfileDeleteToSheets,
   syncReportDeleteToSheets,
   syncReportToSheets,
 } from "../lib/appSheetPersistence";
-import { DEFAULT_VIEWER_BADGES } from "../constants/profileBadges";
+import {
+  DEFAULT_PROFILE_BADGE_SUGGESTIONS,
+  DEFAULT_VIEWER_BADGES,
+} from "../constants/profileBadges";
 import {
   isSubscriptionStillValid,
   subscriptionEndAfterMonths,
@@ -47,7 +51,15 @@ import {
 } from "../lib/subscriptionPersistence";
 import { hasViewerProAccess } from "../lib/viewerEntitlements";
 import { buildEventPublicUrl } from "../lib/eventPublicUrl";
-import { isEventDateBeforeToday } from "../lib/eventDateKey";
+import {
+  inviteProfileToFriend,
+  resolveInviteProfile,
+} from "../lib/eventInvites";
+import {
+  hasReachedDailyFriendRequestLimit,
+  isEventDateBeforeToday,
+  todayDateKey,
+} from "../lib/eventDateKey";
 import { eventHostedByViewer } from "../lib/eventHost";
 import {
   KARMA_ATTENDANCE_REWARD,
@@ -88,6 +100,7 @@ const LS_VIEWER_PRO_ADDRESS = "nel_viewer_pro_address";
 const LS_VIEWER_PRO_LAT = "nel_viewer_pro_lat";
 const LS_VIEWER_PRO_LNG = "nel_viewer_pro_lng";
 const LS_VIEWER_BADGES = "nel_viewer_profile_badges";
+const LS_PROFILE_BADGE_SUGGESTIONS = "nel_profile_badge_suggestions";
 const LS_VIEWER_PREMIUM = "nel_viewer_premium";
 const LS_VIEWER_PREMIUM_EXPIRES = "nel_viewer_premium_expires_at";
 const LS_VIEWER_PRO_EXPIRES = "nel_viewer_pro_expires_at";
@@ -186,6 +199,19 @@ function readViewerBadges(): string[] {
   }
 }
 
+function readProfileBadgeSuggestions(): string[] {
+  if (typeof window === "undefined") return [...DEFAULT_PROFILE_BADGE_SUGGESTIONS];
+  try {
+    const raw = localStorage.getItem(LS_PROFILE_BADGE_SUGGESTIONS);
+    if (!raw) return [...DEFAULT_PROFILE_BADGE_SUGGESTIONS];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [...DEFAULT_PROFILE_BADGE_SUGGESTIONS];
+    return parsed.filter((b): b is string => typeof b === "string" && b.trim() !== "");
+  } catch {
+    return [...DEFAULT_PROFILE_BADGE_SUGGESTIONS];
+  }
+}
+
 export type NewEventInput = {
   conversationId: string;
   title: string;
@@ -219,6 +245,24 @@ export type UpdateEventInput = {
   isPrivate?: boolean;
   manualApproval?: boolean;
   isBeta?: boolean;
+};
+
+export type AdminProfilePatch = {
+  name?: string;
+  pseudo?: string;
+  age?: number | null;
+  city?: string;
+  bio?: string;
+  memberSince?: string;
+  verified?: boolean;
+  isPro?: boolean;
+  karma?: number;
+  imageUrl?: string;
+  websiteUrl?: string;
+  socialUrl?: string;
+  phone?: string;
+  proAddress?: string;
+  stats?: { reliability?: number; events?: number; friends?: number };
 };
 
 function pushMessageRemote(message: PersistedMessage) {
@@ -255,6 +299,7 @@ function syncViewerSettingsFromState(state: MessagingState) {
     premiumSubscriptionPayment: state.premiumSubscriptionPayment,
     proSubscriptionPayment: state.proSubscriptionPayment,
     viewerProfileBadges: state.viewerProfileBadges,
+    profileBadgeSuggestions: state.profileBadgeSuggestions,
     viewerProfileCity: state.viewerProfileCity,
     viewerProWebsiteUrl: state.viewerProWebsiteUrl,
     viewerProSocialUrl: state.viewerProSocialUrl,
@@ -265,16 +310,18 @@ function syncViewerSettingsFromState(state: MessagingState) {
     viewerKarma: state.viewerKarma,
     friendRequestSentProfilIds: state.friendRequestSentProfilIds,
     friendRequestRejectedProfilIds: state.friendRequestRejectedProfilIds,
+    friendRequestDailySentDateKey: state.friendRequestDailySentDateKey,
     favoriteConversationIds: state.favoriteConversationIds,
     moderationHiddenEventIds: state.moderationHiddenEventIds,
     moderationHiddenProfilIds: state.moderationHiddenProfilIds,
+    profileBadgeSuggestions: state.profileBadgeSuggestions,
   });
 }
 
 interface MessagingState {
-  /** Synchronisé avec l’interrupteur « Mode admin » du profil (aperçu nel). */
-  nelDemoIsAdmin: boolean;
-  setNelDemoIsAdmin: (value: boolean) => void;
+  /** Synchronisé avec l’interrupteur « Mode admin » du profil. */
+  isAdmin: boolean;
+  setIsAdmin: (value: boolean) => void;
   /** Synchronisé avec l’interrupteur « Premium » du profil (aperçu nel). */
   nelDemoIsPremium: boolean;
   setNelDemoIsPremium: (value: boolean) => void;
@@ -299,8 +346,19 @@ interface MessagingState {
   setViewerProfileIsPro: (value: boolean) => void;
   viewerProfileBadges: string[];
   setViewerProfileBadges: (badges: string[]) => void;
+  /** Catalogue global des badges suggérés (admin). */
+  profileBadgeSuggestions: string[];
+  setProfileBadgeSuggestions: (badges: string[]) => void;
   /** Admin : badges d’un profil (onglet profiles / Sheets). */
   updateProfileBadges: (profilId: string, badges: string[]) => void;
+  /** Admin : met à jour les informations d’un profil (fiche, suggestions, visites). */
+  updateProfile: (profilId: string, patch: AdminProfilePatch) => void;
+  /** Admin : supprime définitivement une discussion et ses messages. */
+  adminDeleteConversation: (conversationId: string) => void;
+  /** Admin : supprime définitivement une sortie et son groupe de discussion. */
+  adminDeleteEvent: (eventId: string) => void;
+  /** Admin : supprime un utilisateur (profil, suggestions, visites, fils DM). */
+  adminDeleteProfile: (profilId: string) => void;
   viewerProfileCity: string;
   setViewerProfileCity: (city: string) => void;
   viewerProWebsiteUrl: string;
@@ -333,6 +391,8 @@ interface MessagingState {
   friendRequestSentProfilIds: string[];
   /** Demande refusée par l’autre (démo — ne pas renvoyer). */
   friendRequestRejectedProfilIds: string[];
+  /** Jour calendaire (`YYYY-MM-DD`) de la dernière demande d’ami envoyée (limite : 1 / jour). */
+  friendRequestDailySentDateKey: string | null;
   /** Envoie une demande d’ami si pas déjà ami, pas refusée et pas déjà envoyée. */
   sendFriendRequest: (profilId: string) => void;
   /** Démo : plus d’ami mutuel — masque Message / retire l’accès DM privé côté UI. */
@@ -391,6 +451,10 @@ interface MessagingState {
   leaveEvent: (eventId: string) => void;
   /** Organisateur : invite un ami (notif in-app + message système dans le chat de la sortie). */
   inviteFriendToEvent: (eventId: string, friend: Friend) => void;
+  /** Invite un profil (ami, suggestion ou annuaire) par `profilId`. */
+  inviteProfilToEvent: (eventId: string, profilId: string) => void;
+  /** Invite plusieurs profils d’un coup (admin / organisateur). */
+  inviteProfilsToEvent: (eventId: string, profilIds: string[]) => void;
   /** Toast global (invitation, etc.). */
   toast: { id: number; message: string } | null;
   showToast: (message: string) => void;
@@ -499,8 +563,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
   };
 
   return {
-  nelDemoIsAdmin: false,
-  setNelDemoIsAdmin: (value) => set({ nelDemoIsAdmin: value }),
+  isAdmin: false,
+  setIsAdmin: (value) => set({ isAdmin: value }),
   nelDemoIsPremium: premiumInit.active,
   viewerPremiumExpiresAt: premiumInit.expiresAt,
   viewerProExpiresAt: proInit.expiresAt,
@@ -661,6 +725,22 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     syncViewerSettingsFromState(get());
   },
 
+  profileBadgeSuggestions: readProfileBadgeSuggestions(),
+  setProfileBadgeSuggestions: (badges) => {
+    const next = badges.map((b) => b.trim()).filter(Boolean);
+    const unique = next.filter(
+      (label, index, arr) =>
+        arr.findIndex((x) => x.toLowerCase() === label.toLowerCase()) === index,
+    );
+    try {
+      localStorage.setItem(LS_PROFILE_BADGE_SUGGESTIONS, JSON.stringify(unique));
+    } catch {
+      /* ignore */
+    }
+    set({ profileBadgeSuggestions: unique });
+    syncViewerSettingsFromState(get());
+  },
+
   updateProfileBadges: (profilId, badges) => {
     const id = profilId.trim();
     if (!id) return;
@@ -694,6 +774,210 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     const updated = get().friends.find((f) => f.profilId === id);
     if (updated) syncFriendToSheets(updated);
     get().showToast("Badges mis à jour.");
+  },
+
+  updateProfile: (profilId, patch) => {
+    const id = profilId.trim();
+    if (!id) return;
+    set((state) => {
+      const applyPatch = (f: Friend): Friend => {
+        const next: Friend = { ...f };
+        if (patch.name !== undefined) next.name = patch.name.trim();
+        if (patch.pseudo !== undefined) next.pseudo = patch.pseudo.trim();
+        if (patch.age !== undefined) next.age = patch.age;
+        if (patch.city !== undefined) next.city = patch.city.trim();
+        if (patch.bio !== undefined) next.bio = patch.bio.trim() || undefined;
+        if (patch.memberSince !== undefined) {
+          next.memberSince = patch.memberSince.trim() || undefined;
+        }
+        if (patch.verified !== undefined) next.verified = patch.verified;
+        if (patch.isPro !== undefined) next.isPro = patch.isPro;
+        if (patch.karma !== undefined) next.karma = patch.karma;
+        if (patch.imageUrl !== undefined) next.imageUrl = patch.imageUrl.trim();
+        if (patch.websiteUrl !== undefined) {
+          next.websiteUrl = patch.websiteUrl.trim() || undefined;
+        }
+        if (patch.socialUrl !== undefined) {
+          next.socialUrl = patch.socialUrl.trim() || undefined;
+        }
+        if (patch.phone !== undefined) next.phone = patch.phone.trim() || undefined;
+        if (patch.proAddress !== undefined) {
+          next.proAddress = patch.proAddress.trim() || undefined;
+        }
+        if (patch.stats !== undefined) {
+          next.stats = {
+            reliability:
+              patch.stats.reliability ?? next.stats?.reliability ?? 0,
+            events: patch.stats.events ?? next.stats?.events ?? 0,
+            friends: patch.stats.friends ?? next.stats?.friends ?? 0,
+          };
+        }
+        return next;
+      };
+
+      let friends = state.friends.map((f) =>
+        f.profilId === id ? applyPatch(f) : f,
+      );
+      if (!friends.some((f) => f.profilId === id)) {
+        const sug = state.suggestions.find((s) => s.id === id);
+        const visit = state.profileVisits.find((v) => v.id === id);
+        const label =
+          patch.name?.trim() ||
+          patch.pseudo?.trim() ||
+          sug?.pseudo ||
+          visit?.name ||
+          id;
+        const bootstrap: Friend = applyPatch({
+          profilId: id,
+          name: label,
+          pseudo: patch.pseudo?.trim() || sug?.pseudo || label,
+          age: patch.age ?? sug?.age ?? visit?.age ?? null,
+          city: patch.city?.trim() ?? "",
+          imageUrl:
+            patch.imageUrl?.trim() || sug?.imageUrl || visit?.avatarUrl || "",
+          eventsInCommon: 0,
+          mainChatConversationId: "",
+          badges: [],
+          mutualFriend: false,
+          karma: patch.karma ?? 5,
+        });
+        friends = [...friends, bootstrap];
+      }
+
+      const displayName =
+        patch.pseudo?.trim() ||
+        patch.name?.trim() ||
+        friends.find((f) => f.profilId === id)?.pseudo ||
+        friends.find((f) => f.profilId === id)?.name;
+
+      const suggestions = state.suggestions.map((s) => {
+        if (s.id !== id) return s;
+        return {
+          ...s,
+          pseudo: displayName ?? s.pseudo,
+          age: patch.age ?? s.age,
+          imageUrl: patch.imageUrl?.trim() || s.imageUrl,
+        };
+      });
+
+      const profileVisits = state.profileVisits.map((v) => {
+        if (v.id !== id) return v;
+        return {
+          ...v,
+          name: displayName ?? v.name,
+          age: patch.age ?? v.age,
+          avatarUrl: patch.imageUrl?.trim() || v.avatarUrl,
+        };
+      });
+
+      return { friends, suggestions, profileVisits };
+    });
+    const updated = get().friends.find((f) => f.profilId === id);
+    if (updated) syncFriendToSheets(updated);
+    get().showToast("Profil mis à jour.");
+  },
+
+  adminDeleteConversation: (conversationId) => {
+    if (!get().isAdmin) return;
+    const cid = conversationId.trim();
+    if (!cid) return;
+    syncConversationDeleteToSheets(cid);
+    set((state) => {
+      const { [cid]: _drop, ...restMsgs } = state.messagesByConversation;
+      return {
+        conversations: state.conversations.filter((c) => c.id !== cid),
+        messagesByConversation: restMsgs,
+        favoriteConversationIds: state.favoriteConversationIds.filter(
+          (id) => id !== cid,
+        ),
+      };
+    });
+    syncViewerSettingsFromState(get());
+    get().showToast("Discussion supprimée.");
+  },
+
+  adminDeleteEvent: (eventId) => {
+    if (!get().isAdmin) return;
+    const id = eventId.trim();
+    if (!id) return;
+    set((state) => {
+      const event = state.events.find((e) => e.id === id);
+      if (!event) return state;
+      const cid = event.conversationId;
+      syncEventDeleteToSheets(id);
+      syncConversationDeleteToSheets(cid);
+      const { [cid]: _drop, ...restMsgs } = state.messagesByConversation;
+      return {
+        events: state.events.filter((e) => e.id !== id),
+        conversations: state.conversations.filter((c) => c.id !== cid),
+        messagesByConversation: restMsgs,
+        favoriteConversationIds: state.favoriteConversationIds.filter(
+          (x) => x !== cid,
+        ),
+        moderationHiddenEventIds: state.moderationHiddenEventIds.filter(
+          (x) => x !== id,
+        ),
+      };
+    });
+    syncViewerSettingsFromState(get());
+    get().showToast("Sortie supprimée.");
+  },
+
+  adminDeleteProfile: (profilId) => {
+    if (!get().isAdmin) return;
+    const id = profilId.trim();
+    if (!id) return;
+    const state = get();
+    const dmConvIds = new Set<string>();
+    for (const c of state.conversations) {
+      if (c.type === "dm" && c.members?.some((m) => m.profilId === id)) {
+        dmConvIds.add(c.id);
+      }
+    }
+    const friend = state.friends.find((f) => f.profilId === id);
+    if (friend?.mainChatConversationId) {
+      dmConvIds.add(friend.mainChatConversationId);
+    }
+    dmConvIds.forEach((cid) => syncConversationDeleteToSheets(cid));
+    syncProfileDeleteToSheets(id);
+    set((s) => {
+      const nextMessages = { ...s.messagesByConversation };
+      dmConvIds.forEach((cid) => {
+        delete nextMessages[cid];
+      });
+      const conversations = s.conversations
+        .filter((c) => !dmConvIds.has(c.id))
+        .map((c) => {
+          if (!c.members?.some((m) => m.profilId === id)) return c;
+          const members = c.members.filter((m) => m.profilId !== id);
+          return {
+            ...c,
+            members,
+            memberCount: members.length,
+          };
+        });
+      return {
+        friends: s.friends.filter((f) => f.profilId !== id),
+        suggestions: s.suggestions.filter((sug) => sug.id !== id),
+        profileVisits: s.profileVisits.filter((v) => v.id !== id),
+        conversations,
+        messagesByConversation: nextMessages,
+        favoriteConversationIds: s.favoriteConversationIds.filter(
+          (fid) => !dmConvIds.has(fid),
+        ),
+        friendRequestSentProfilIds: s.friendRequestSentProfilIds.filter(
+          (pid) => pid !== id,
+        ),
+        friendRequestRejectedProfilIds: s.friendRequestRejectedProfilIds.filter(
+          (pid) => pid !== id,
+        ),
+        moderationHiddenProfilIds: s.moderationHiddenProfilIds.includes(id)
+          ? s.moderationHiddenProfilIds
+          : [...s.moderationHiddenProfilIds, id],
+      };
+    });
+    syncViewerSettingsFromState(get());
+    get().showToast("Utilisateur supprimé.");
   },
 
   viewerProfileCity: readViewerStorage(LS_VIEWER_CITY, ""),
@@ -837,6 +1121,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
   friendRequestSentProfilIds: [],
   /** Quelques refus simulés pour l’aperçu (cœur brisé dans Suggestions). */
   friendRequestRejectedProfilIds: ["u050", "u051", "u052"],
+  friendRequestDailySentDateKey: null,
   sendFriendRequest: (profilId) => {
     const id = profilId.trim();
     if (!id) return;
@@ -844,13 +1129,21 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       friends,
       friendRequestSentProfilIds,
       friendRequestRejectedProfilIds,
+      friendRequestDailySentDateKey,
     } = get();
     if (friends.find((f) => f.profilId === id)?.mutualFriend === true) return;
     if (friendRequestRejectedProfilIds.includes(id)) return;
     if (friendRequestSentProfilIds.includes(id)) {
       return;
     }
-    set({ friendRequestSentProfilIds: [...friendRequestSentProfilIds, id] });
+    if (hasReachedDailyFriendRequestLimit(friendRequestDailySentDateKey)) {
+      get().showToast("Vous ne pouvez envoyer qu’une demande d’ami par jour.");
+      return;
+    }
+    set({
+      friendRequestSentProfilIds: [...friendRequestSentProfilIds, id],
+      friendRequestDailySentDateKey: todayDateKey(),
+    });
     syncViewerSettingsFromState(get());
     get().showToast("Demande d’ami envoyée.");
   },
@@ -1144,6 +1437,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
   cancelEvent: (eventId) => {
     const before = get();
+    if (before.isAdmin) {
+      get().adminDeleteEvent(eventId);
+      return;
+    }
     const ev = before.events.find((e) => e.id === eventId);
     if (
       ev?.karmaOrganizePaid &&
@@ -1568,6 +1865,33 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     get().showToast(`Invitation envoyée à ${inviteeFirst}`);
   },
 
+  inviteProfilToEvent: (eventId, profilId) => {
+    const state = get();
+    const profile = resolveInviteProfile(
+      profilId,
+      state.friends,
+      state.suggestions,
+    );
+    if (!profile) return;
+    get().inviteFriendToEvent(eventId, inviteProfileToFriend(profile));
+  },
+
+  inviteProfilsToEvent: (eventId, profilIds) => {
+    const unique = [...new Set(profilIds.map((id) => id.trim()).filter(Boolean))];
+    let sent = 0;
+    for (const profilId of unique) {
+      const before = get().events.find((e) => e.id === eventId)?.invitedProfilIds
+        ?.length;
+      get().inviteProfilToEvent(eventId, profilId);
+      const after = get().events.find((e) => e.id === eventId)?.invitedProfilIds
+        ?.length;
+      if (after != null && before != null && after > before) sent += 1;
+    }
+    if (sent > 1) {
+      get().showToast(`${sent} invitations envoyées.`);
+    }
+  },
+
   loadDemoData: () => {
     set({
       events: MOCK_EVENTS,
@@ -1589,6 +1913,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       favoriteConversationIds: [],
       friendRequestSentProfilIds: [],
       friendRequestRejectedProfilIds: [],
+      friendRequestDailySentDateKey: null,
       appNotifications: [],
       adminReports: [],
       moderationHiddenEventIds: [],

@@ -13,6 +13,8 @@ import {
   Users,
   Clock,
   Sparkles,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
 import { useNavigationStore } from '../store/useNavigationStore';
@@ -21,6 +23,9 @@ import { ReportModal } from '../components/ReportModal';
 import { ProProfileDetails } from '../components/ProProfileDetails';
 import { ProfileKarmaBadge } from '../components/ProfileKarmaBadge';
 import { KARMA_DEFAULT } from '../lib/karma';
+import { canManageProfileBadges } from '../lib/accountRoles';
+import { useAuthStore } from '../store/useAuthStore';
+import { hasReachedDailyFriendRequestLimit } from '../lib/eventDateKey';
 import { hasViewerPremiumAccess } from '../lib/viewerEntitlements';
 import { ProfileBadgesSection } from '../components/ProfileBadgesSection';
 import { useTranslation } from '../i18n/useTranslation';
@@ -37,8 +42,26 @@ interface OtherProfilePageProps {
 
 type OtherProfileTab = 'favorites' | 'friends' | 'history';
 
+type AdminProfileDraft = {
+  name: string;
+  age: string;
+  bio: string;
+  city: string;
+  memberSince: string;
+  karma: string;
+  verified: boolean;
+  isPro: boolean;
+  websiteUrl: string;
+  socialUrl: string;
+  phone: string;
+  proAddress: string;
+  statsEvents: string;
+  statsFriends: string;
+};
+
 export function OtherProfilePage({ id }: OtherProfilePageProps) {
   const { t } = useTranslation();
+  const { user } = useAuthStore();
   const { closeDetail, openDetail } = useNavigationStore();
   const {
     suggestions,
@@ -48,17 +71,40 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
     removeMutualFriend,
     friendRequestSentProfilIds,
     friendRequestRejectedProfilIds,
-    nelDemoIsAdmin,
+    friendRequestDailySentDateKey,
+    isAdmin,
     events,
     conversations,
     toggleEventFavorite,
     updateProfileBadges,
+    updateProfile,
+    adminDeleteProfile,
+    profileBadgeSuggestions,
+    setProfileBadgeSuggestions,
   } = useMessagingStore();
 
   const [reportOpen, setReportOpen] = useState(false);
   const [activeOpTab, setActiveOpTab] = useState<OtherProfileTab>('favorites');
+  const [adminEditing, setAdminEditing] = useState(false);
+  const [adminDraft, setAdminDraft] = useState<AdminProfileDraft>({
+    name: '',
+    age: '',
+    bio: '',
+    city: '',
+    memberSince: '',
+    karma: '',
+    verified: false,
+    isPro: false,
+    websiteUrl: '',
+    socialUrl: '',
+    phone: '',
+    proAddress: '',
+    statsEvents: '0',
+    statsFriends: '0',
+  });
 
   const showInsightTabs = useMessagingStore(hasViewerPremiumAccess);
+  const canEditBadges = canManageProfileBadges(user, isAdmin);
 
   // Find profile in suggestions, visites de profil ou amis
   const profile =
@@ -75,6 +121,9 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
   const isMutualFriend = friendRecord?.mutualFriend === true;
   const requestSent = friendRequestSentProfilIds.includes(id);
   const requestRejected = friendRequestRejectedProfilIds.includes(id);
+  const dailyFriendRequestLimitReached = hasReachedDailyFriendRequestLimit(
+    friendRequestDailySentDateKey,
+  );
 
   const p = profile as unknown as Record<string, unknown>;
   const displayName = (p.pseudo as string | undefined) || (p.name as string);
@@ -128,6 +177,71 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
     setActiveOpTab((cur) => (cur === next ? cur : next));
   }, []);
 
+  const buildAdminDraft = useCallback((): AdminProfileDraft => {
+    const stats = (p.stats as { events?: number; friends?: number } | undefined);
+    return {
+      name: displayName,
+      age: String((p.age as number | null | undefined) ?? friendRecord?.age ?? ''),
+      bio: (p.bio as string | undefined) || friendRecord?.bio || '',
+      city: friendRecord?.city || (p.city as string | undefined) || '',
+      memberSince:
+        friendRecord?.memberSince ||
+        (profile as { memberSince?: string }).memberSince ||
+        '2024',
+      karma: String(profileKarma),
+      verified:
+        friendRecord?.verified ??
+        (profile as { verified?: boolean }).verified ??
+        false,
+      isPro: friendRecord?.isPro ?? (profile as { isPro?: boolean }).isPro ?? false,
+      websiteUrl: friendRecord?.websiteUrl || '',
+      socialUrl: friendRecord?.socialUrl || '',
+      phone: friendRecord?.phone || '',
+      proAddress: friendRecord?.proAddress || '',
+      statsEvents: String(stats?.events ?? '0'),
+      statsFriends: String(stats?.friends ?? '0'),
+    };
+  }, [p, displayName, friendRecord, profile, profileKarma]);
+
+  const startAdminEdit = useCallback(() => {
+    setAdminDraft(buildAdminDraft());
+    setAdminEditing(true);
+  }, [buildAdminDraft]);
+
+  const handleAdminDeleteProfile = useCallback(() => {
+    if (!window.confirm(t('adminDeleteProfileConfirm'))) return;
+    adminDeleteProfile(id);
+    closeDetail();
+  }, [adminDeleteProfile, closeDetail, id, t]);
+
+  const handleAdminSave = useCallback(() => {
+    const ageNum = adminDraft.age.trim() ? parseInt(adminDraft.age, 10) : null;
+    const karmaNum = parseInt(adminDraft.karma, 10);
+    const eventsNum = parseInt(adminDraft.statsEvents, 10);
+    const friendsNum = parseInt(adminDraft.statsFriends, 10);
+    const name = adminDraft.name.trim();
+    updateProfile(id, {
+      name,
+      pseudo: name.split(/\s+/)[0] || name,
+      age: Number.isFinite(ageNum) ? ageNum : null,
+      bio: adminDraft.bio,
+      city: adminDraft.city,
+      memberSince: adminDraft.memberSince,
+      verified: adminDraft.verified,
+      isPro: adminDraft.isPro,
+      karma: Number.isFinite(karmaNum) ? karmaNum : 5,
+      websiteUrl: adminDraft.websiteUrl,
+      socialUrl: adminDraft.socialUrl,
+      phone: adminDraft.phone,
+      proAddress: adminDraft.proAddress,
+      stats: {
+        events: Number.isFinite(eventsNum) ? eventsNum : 0,
+        friends: Number.isFinite(friendsNum) ? friendsNum : 0,
+      },
+    });
+    setAdminEditing(false);
+  }, [adminDraft, id, updateProfile]);
+
   return (
     <div className="other-profile-page">
       <div className="op-hero">
@@ -176,27 +290,198 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
 
       <div className="op-content">
         <div className="op-bio-card">
-          <p className="op-bio-text">{(profile as { bio?: string }).bio || 'Pas de bio pour le moment.'}</p>
-          <div className="op-divider" />
-          {friendRecord?.isPro ? (
-            <ProProfileDetails
-              city={friendRecord.city}
-              address={friendRecord.proAddress}
-              websiteUrl={friendRecord.websiteUrl}
-              socialUrl={friendRecord.socialUrl}
-              phone={friendRecord.phone}
-              className="pro-contact-links--profile"
-            />
-          ) : (profile as { city?: string }).city ? (
-            <div className="op-info-row">
-              <MapPin size={18} color="#8E8E93" />
-              <span>{(profile as { city?: string }).city}</span>
+          {isAdmin && adminEditing ? (
+            <div className="op-admin-edit">
+              <input
+                value={adminDraft.name}
+                onChange={(e) =>
+                  setAdminDraft((d) => ({ ...d, name: e.target.value }))
+                }
+                placeholder={t('name')}
+                className="hero-input"
+              />
+              <div className="hero-edit-row">
+                <input
+                  value={adminDraft.age}
+                  onChange={(e) =>
+                    setAdminDraft((d) => ({ ...d, age: e.target.value }))
+                  }
+                  placeholder={t('age')}
+                  className="hero-input hero-input--age"
+                />
+                <input
+                  value={adminDraft.city}
+                  onChange={(e) =>
+                    setAdminDraft((d) => ({ ...d, city: e.target.value }))
+                  }
+                  placeholder={t('cityPlaceholder')}
+                  className="hero-input hero-input--city"
+                />
+              </div>
+              <textarea
+                value={adminDraft.bio}
+                onChange={(e) =>
+                  setAdminDraft((d) => ({ ...d, bio: e.target.value }))
+                }
+                placeholder={t('bio')}
+                className="bio-textarea"
+              />
+              <input
+                value={adminDraft.memberSince}
+                onChange={(e) =>
+                  setAdminDraft((d) => ({ ...d, memberSince: e.target.value }))
+                }
+                placeholder={t('memberSince')}
+                className="hero-input"
+              />
+              <input
+                value={adminDraft.karma}
+                onChange={(e) =>
+                  setAdminDraft((d) => ({ ...d, karma: e.target.value }))
+                }
+                placeholder={t('karmaShort')}
+                className="hero-input"
+                inputMode="numeric"
+              />
+              <div className="hero-edit-row">
+                <input
+                  value={adminDraft.statsEvents}
+                  onChange={(e) =>
+                    setAdminDraft((d) => ({ ...d, statsEvents: e.target.value }))
+                  }
+                  placeholder={t('events')}
+                  className="hero-input hero-input--age"
+                  inputMode="numeric"
+                />
+                <input
+                  value={adminDraft.statsFriends}
+                  onChange={(e) =>
+                    setAdminDraft((d) => ({ ...d, statsFriends: e.target.value }))
+                  }
+                  placeholder={t('friends')}
+                  className="hero-input hero-input--city"
+                  inputMode="numeric"
+                />
+              </div>
+              <label className="op-admin-check">
+                <input
+                  type="checkbox"
+                  checked={adminDraft.verified}
+                  onChange={(e) =>
+                    setAdminDraft((d) => ({ ...d, verified: e.target.checked }))
+                  }
+                />
+                <span>{t('verified')}</span>
+              </label>
+              <label className="op-admin-check">
+                <input
+                  type="checkbox"
+                  checked={adminDraft.isPro}
+                  onChange={(e) =>
+                    setAdminDraft((d) => ({ ...d, isPro: e.target.checked }))
+                  }
+                />
+                <span>{t('professional')}</span>
+              </label>
+              {adminDraft.isPro ? (
+                <>
+                  <input
+                    value={adminDraft.proAddress}
+                    onChange={(e) =>
+                      setAdminDraft((d) => ({ ...d, proAddress: e.target.value }))
+                    }
+                    placeholder={t('proAddressPlaceholder')}
+                    className="hero-input"
+                  />
+                  <input
+                    value={adminDraft.websiteUrl}
+                    onChange={(e) =>
+                      setAdminDraft((d) => ({ ...d, websiteUrl: e.target.value }))
+                    }
+                    placeholder={t('proWebsitePlaceholder')}
+                    className="hero-input"
+                  />
+                  <input
+                    value={adminDraft.socialUrl}
+                    onChange={(e) =>
+                      setAdminDraft((d) => ({ ...d, socialUrl: e.target.value }))
+                    }
+                    placeholder={t('proSocialPlaceholder')}
+                    className="hero-input"
+                  />
+                  <input
+                    value={adminDraft.phone}
+                    onChange={(e) =>
+                      setAdminDraft((d) => ({ ...d, phone: e.target.value }))
+                    }
+                    placeholder={t('proPhonePlaceholder')}
+                    className="hero-input"
+                  />
+                </>
+              ) : null}
+              <div className="edit-save-cancel">
+                <button
+                  type="button"
+                  className="cancel-btn"
+                  onClick={() => setAdminEditing(false)}
+                >
+                  {t('cancel')}
+                </button>
+                <button type="button" className="save-btn" onClick={handleAdminSave}>
+                  {t('save')}
+                </button>
+              </div>
             </div>
-          ) : null}
-          <div className="op-info-row">
-            <Calendar size={18} color="#8E8E93" />
-            <span>Membre depuis {(profile as { memberSince?: string }).memberSince || '2024'}</span>
-          </div>
+          ) : (
+            <>
+              <p className="op-bio-text">
+                {(profile as { bio?: string }).bio ||
+                  friendRecord?.bio ||
+                  'Pas de bio pour le moment.'}
+              </p>
+              <div className="op-divider" />
+              {friendRecord?.isPro ? (
+                <ProProfileDetails
+                  city={friendRecord.city}
+                  address={friendRecord.proAddress}
+                  websiteUrl={friendRecord.websiteUrl}
+                  socialUrl={friendRecord.socialUrl}
+                  phone={friendRecord.phone}
+                  className="pro-contact-links--profile"
+                />
+              ) : (profile as { city?: string }).city || friendRecord?.city ? (
+                <div className="op-info-row">
+                  <MapPin size={18} color="#8E8E93" />
+                  <span>{friendRecord?.city || (profile as { city?: string }).city}</span>
+                </div>
+              ) : null}
+              <div className="op-info-row">
+                <Calendar size={18} color="#8E8E93" />
+                <span>
+                  Membre depuis{' '}
+                  {(profile as { memberSince?: string }).memberSince ||
+                    friendRecord?.memberSince ||
+                    '2024'}
+                </span>
+              </div>
+              {isAdmin ? (
+                <div className="op-admin-actions">
+                  <button type="button" className="edit-btn" onClick={startAdminEdit}>
+                    <Pencil size={16} color="#FBBF24" />
+                    <span>{t('adminEditProfile')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="op-admin-delete-btn"
+                    onClick={handleAdminDeleteProfile}
+                  >
+                    <Trash2 size={16} color="#FF453A" />
+                    <span>{t('adminDeleteProfile')}</span>
+                  </button>
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
 
         <div className="op-stats-row">
@@ -220,8 +505,11 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
         <h2 className="op-section-title">Badges</h2>
         <ProfileBadgesSection
           badges={profileBadges}
-          editable={nelDemoIsAdmin}
+          suggestions={profileBadgeSuggestions}
+          editable={canEditBadges}
+          manageSuggestions={canEditBadges}
           onChange={(next) => updateProfileBadges(id, next)}
+          onSuggestionsChange={setProfileBadgeSuggestions}
           className="op-badges-wrap"
           chipClassName="op-badge-pill"
         />
@@ -419,6 +707,15 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
             <button type="button" className="op-btn-friend-state op-btn-friend-state--sent" disabled>
               <UserPlus size={20} color="#8E8E93" />
               <span>Demande envoyée</span>
+            </button>
+          ) : dailyFriendRequestLimitReached ? (
+            <button
+              type="button"
+              className="op-btn-friend-state op-btn-friend-state--daily-limit"
+              disabled
+            >
+              <UserPlus size={20} color="#8E8E93" />
+              <span>{t('friendRequestDailyLimit')}</span>
             </button>
           ) : (
             <button type="button" className="op-btn-friend-request" onClick={() => sendFriendRequest(id)}>

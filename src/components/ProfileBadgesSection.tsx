@@ -1,31 +1,53 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, X } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 import { useTranslation } from "../i18n/useTranslation";
-import { PROFILE_BADGE_SUGGESTIONS } from "../constants/profileBadges";
+import "./ProfileBadgesSection.css";
 
 interface ProfileBadgesSectionProps {
   badges: string[];
+  suggestions: string[];
   editable?: boolean;
+  manageSuggestions?: boolean;
   onChange?: (badges: string[]) => void;
+  onSuggestionsChange?: (suggestions: string[]) => void;
   className?: string;
   chipClassName?: string;
 }
 
 export function ProfileBadgesSection({
   badges,
+  suggestions,
   editable = false,
+  manageSuggestions = false,
   onChange,
+  onSuggestionsChange,
   className = "badges-grid",
   chipClassName = "badge-chip",
 }: ProfileBadgesSectionProps) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
+  const [addingCatalog, setAddingCatalog] = useState(false);
+  const [catalogDraft, setCatalogDraft] = useState("");
+  const [editingCatalogLabel, setEditingCatalogLabel] = useState<string | null>(
+    null,
+  );
+  const [editingCatalogDraft, setEditingCatalogDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const catalogInputRef = useRef<HTMLInputElement>(null);
+  const catalogEditRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (adding) inputRef.current?.focus();
   }, [adding]);
+
+  useEffect(() => {
+    if (addingCatalog) catalogInputRef.current?.focus();
+  }, [addingCatalog]);
+
+  useEffect(() => {
+    if (editingCatalogLabel) catalogEditRef.current?.focus();
+  }, [editingCatalogLabel]);
 
   const commitAdd = () => {
     const label = draft.trim();
@@ -41,12 +63,64 @@ export function ProfileBadgesSection({
     onChange(badges.filter((b) => b !== label));
   };
 
-  const suggestions = PROFILE_BADGE_SUGGESTIONS.filter(
+  const addSuggestionToProfile = (label: string) => {
+    if (!onChange) return;
+    if (badges.some((b) => b.toLowerCase() === label.toLowerCase())) return;
+    onChange([...badges, label]);
+  };
+
+  const commitCatalogAdd = () => {
+    const label = catalogDraft.trim();
+    setCatalogDraft("");
+    setAddingCatalog(false);
+    if (!label || !onSuggestionsChange) return;
+    if (suggestions.some((s) => s.toLowerCase() === label.toLowerCase())) return;
+    onSuggestionsChange([...suggestions, label]);
+  };
+
+  const removeCatalogSuggestion = (label: string) => {
+    if (!onSuggestionsChange) return;
+    onSuggestionsChange(suggestions.filter((s) => s !== label));
+  };
+
+  const startCatalogEdit = (label: string) => {
+    setEditingCatalogLabel(label);
+    setEditingCatalogDraft(label);
+  };
+
+  const commitCatalogEdit = () => {
+    if (!editingCatalogLabel || !onSuggestionsChange) return;
+    const next = editingCatalogDraft.trim();
+    setEditingCatalogLabel(null);
+    setEditingCatalogDraft("");
+    if (!next || next === editingCatalogLabel) return;
+    if (
+      suggestions.some(
+        (s) =>
+          s !== editingCatalogLabel && s.toLowerCase() === next.toLowerCase(),
+      )
+    ) {
+      return;
+    }
+    onSuggestionsChange(
+      suggestions.map((s) => (s === editingCatalogLabel ? next : s)),
+    );
+    if (onChange && badges.includes(editingCatalogLabel)) {
+      onChange(
+        badges.map((b) => (b === editingCatalogLabel ? next : b)),
+      );
+    }
+  };
+
+  const availableSuggestions = suggestions.filter(
     (s) => !badges.some((b) => b.toLowerCase() === s.toLowerCase()),
   );
 
   return (
-    <div>
+    <div className="profile-badges-section">
+      {editable ? (
+        <p className="badge-admin-hint">{t("badgeAdminHint")}</p>
+      ) : null}
       <div className={className}>
         {badges.map((label) => (
           <div key={label} className={chipClassName}>
@@ -102,18 +176,113 @@ export function ProfileBadgesSection({
           )
         ) : null}
       </div>
-      {editable && suggestions.length > 0 ? (
-        <div className="badge-suggestions">
-          {suggestions.slice(0, 6).map((s) => (
-            <button
-              key={s}
-              type="button"
-              className="badge-suggestion-btn"
-              onClick={() => onChange?.([...badges, s])}
-            >
-              + {s}
-            </button>
-          ))}
+
+      {editable && (manageSuggestions || availableSuggestions.length > 0) ? (
+        <div className="badge-catalog-block">
+          <p className="badge-catalog-title">
+            {manageSuggestions ? t("badgeCatalogTitle") : t("badgeQuickAddTitle")}
+          </p>
+          <div className="badge-suggestions">
+            {(manageSuggestions ? suggestions : availableSuggestions).map((s) => {
+              const onProfile = badges.some(
+                (b) => b.toLowerCase() === s.toLowerCase(),
+              );
+              if (editingCatalogLabel === s) {
+                return (
+                  <div key={s} className="badge-catalog-item badge-catalog-item--edit">
+                    <input
+                      ref={catalogEditRef}
+                      type="text"
+                      className="badge-catalog-edit-input"
+                      value={editingCatalogDraft}
+                      maxLength={32}
+                      onChange={(e) => setEditingCatalogDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          commitCatalogEdit();
+                        }
+                        if (e.key === "Escape") {
+                          setEditingCatalogLabel(null);
+                          setEditingCatalogDraft("");
+                        }
+                      }}
+                      onBlur={commitCatalogEdit}
+                    />
+                  </div>
+                );
+              }
+              return (
+                <div key={s} className="badge-catalog-item">
+                  <button
+                    type="button"
+                    className={`badge-suggestion-btn${onProfile ? " badge-suggestion-btn--on-profile" : ""}`}
+                    onClick={() => addSuggestionToProfile(s)}
+                    disabled={onProfile}
+                  >
+                    + {s}
+                  </button>
+                  {manageSuggestions ? (
+                    <>
+                      <button
+                        type="button"
+                        className="badge-catalog-action"
+                        onClick={() => startCatalogEdit(s)}
+                        aria-label={`${t("badgeEditAria")} ${s}`}
+                      >
+                        <Pencil size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        className="badge-catalog-action badge-catalog-action--danger"
+                        onClick={() => removeCatalogSuggestion(s)}
+                        aria-label={`${t("badgeRemoveCatalogAria")} ${s}`}
+                      >
+                        <X size={12} />
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+              );
+            })}
+            {manageSuggestions ? (
+              addingCatalog ? (
+                <div className="badge-catalog-item badge-catalog-item--edit">
+                  <input
+                    ref={catalogInputRef}
+                    type="text"
+                    className="badge-catalog-edit-input"
+                    value={catalogDraft}
+                    placeholder={t("badgeCatalogAddPlaceholder")}
+                    maxLength={32}
+                    onChange={(e) => setCatalogDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        commitCatalogAdd();
+                      }
+                      if (e.key === "Escape") {
+                        setCatalogDraft("");
+                        setAddingCatalog(false);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (catalogDraft.trim()) commitCatalogAdd();
+                      else setAddingCatalog(false);
+                    }}
+                  />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="badge-suggestion-btn badge-suggestion-btn--add-catalog"
+                  onClick={() => setAddingCatalog(true)}
+                >
+                  + {t("badgeCatalogAdd")}
+                </button>
+              )
+            ) : null}
+          </div>
         </div>
       ) : null}
     </div>
