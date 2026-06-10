@@ -10,7 +10,7 @@ Un fichier par **onglet** du classeur. Chaque fichier ne contient que la **ligne
    - **Fichier → Importer** → onglet **Charger** → choisir le `.csv` correspondant.
    - Type de séparateur : **virgule**.
    - Cocher **Remplacer la feuille actuelle** (ou coller la ligne 1 manuellement).
-3. Supprimer les onglets par défaut inutilisés (`Feuille 1`, etc.) une fois les 10 onglets créés.
+3. Supprimer les onglets par défaut inutilisés (`Feuille 1`, etc.) une fois les 11 onglets créés.
 
 ## Correspondance onglet ↔ fichier
 
@@ -26,8 +26,10 @@ Un fichier par **onglet** du classeur. Chaque fichier ne contient que la **ligne
 | `notifications` | `notifications.csv` |
 | `admin_reports` | `admin_reports.csv` |
 | `professionals` | `professionals.csv` |
+| `app_config` | `app_config.csv` |
 
-> `professionals` est **global** (pas de colonne `userId`).
+> `professionals` et `app_config` sont **globaux** (pas de colonne `userId`).  
+> `app_config` : une seule ligne `id=global` (splash, modale d'info admin).
 
 ## Ensuite
 

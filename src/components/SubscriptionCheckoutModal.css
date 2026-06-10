@@ -1,7 +1,8 @@
 .sub-checkout-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  /* Au-dessus de .modal-overlay des paramètres profil (z-index: 10050) */
+  z-index: 10100;
   background: rgba(0, 0, 0, 0.72);
   display: flex;
   align-items: center;

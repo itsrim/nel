@@ -35,8 +35,17 @@ import {
   numFromSheet,
   str,
 } from "./sheetRowCodec";
+import {
+  APP_CONFIG_GLOBAL_ID,
+  mergeAdminAppInfo,
+  normalizeAdminAppInfo,
+  readAdminAppInfo,
+  writeAdminAppInfo,
+  type AdminAppInfo,
+} from "./adminAppInfo";
 
 const LS_CACHE_PREFIX = "nel_sheet_cache_";
+const GLOBAL_CACHE_USER = "__global__";
 const syncedRowKeys = new Set<string>();
 
 function cacheKey(table: SheetTableName, userId: string): string {
@@ -630,6 +639,72 @@ export function rowToReport(row: Record<string, string>): AdminReportEntry {
   };
 }
 
+// ── App config (global — splash, annonces admin) ───────────────────────────
+
+export function adminAppInfoToRow(info: AdminAppInfo): Record<string, string> {
+  return {
+    id: APP_CONFIG_GLOBAL_ID,
+    splashScreenEnabled: boolToSheet(info.splashScreenEnabled),
+    announcementModalEnabled: boolToSheet(info.announcementModalEnabled),
+    announcementModalDismissible: boolToSheet(info.announcementModalDismissible),
+    announcementMessage: info.announcementMessage,
+    announcementRevision: String(info.announcementRevision),
+    forceAppReloadOnPublish: boolToSheet(info.forceAppReloadOnPublish),
+    forceReloadRevision: String(info.forceReloadRevision),
+    updatedAt: String(Date.now()),
+    deleted: "false",
+  };
+}
+
+export function rowToAdminAppInfo(row: Record<string, string>): AdminAppInfo {
+  return normalizeAdminAppInfo({
+    splashScreenEnabled: boolFromSheet(row.splashScreenEnabled),
+    announcementModalEnabled: boolFromSheet(row.announcementModalEnabled),
+    announcementModalDismissible: boolFromSheet(row.announcementModalDismissible),
+    announcementMessage: row.announcementMessage ?? "",
+    announcementRevision: numFromSheet(row.announcementRevision, 0),
+    forceAppReloadOnPublish: boolFromSheet(row.forceAppReloadOnPublish),
+    forceReloadRevision: numFromSheet(row.forceReloadRevision, 0),
+  });
+}
+
+function cacheGlobalAppConfigRow(row: Record<string, string>): void {
+  const cached = loadLocalCache("app_config", GLOBAL_CACHE_USER);
+  const idx = cached.findIndex((r) => r.id === APP_CONFIG_GLOBAL_ID);
+  const next =
+    idx >= 0 ? cached.map((r, i) => (i === idx ? row : r)) : [...cached, row];
+  saveLocalCache("app_config", GLOBAL_CACHE_USER, next);
+  markSynced("app_config", APP_CONFIG_GLOBAL_ID);
+}
+
+export async function loadAdminAppInfoFromSheets(): Promise<AdminAppInfo | null> {
+  const rows = await readGlobalTable("app_config");
+  const row = rows.find((r) => r.id === APP_CONFIG_GLOBAL_ID);
+  if (!row) return null;
+  return rowToAdminAppInfo(row);
+}
+
+export async function hydrateAdminAppInfoFromSheets(): Promise<AdminAppInfo> {
+  const local = readAdminAppInfo();
+  try {
+    const remote = await loadAdminAppInfoFromSheets();
+    if (!remote) return local;
+    const merged = mergeAdminAppInfo(local, remote);
+    writeAdminAppInfo(merged);
+    return merged;
+  } catch (err) {
+    console.error("hydrateAdminAppInfoFromSheets failed:", err);
+    return local;
+  }
+}
+
+export function syncAppConfigToSheets(info: AdminAppInfo): void {
+  const row = adminAppInfoToRow(info);
+  cacheGlobalAppConfigRow(row);
+  if (!isGoogleSheetsWriteConfigured()) return;
+  syncLater(() => upsertSheetRow("app_config", APP_CONFIG_GLOBAL_ID, row));
+}
+
 // ── Load / sync API ────────────────────────────────────────────────────────
 
 export interface LoadedAppSheetState {
@@ -641,6 +716,7 @@ export interface LoadedAppSheetState {
   appNotifications: AppNotification[];
   adminReports: AdminReportEntry[];
   professionals: MockProfessional[];
+  adminAppInfo?: AdminAppInfo;
   viewerSettings?: {
     email: string;
     emailVerified: boolean;
@@ -686,29 +762,45 @@ function mergeFriends(base: Friend[], remote: Friend[]): Friend[] {
   return [...map.values()];
 }
 
-const GLOBAL_CACHE_USER = "__global__";
-
 async function readGlobalTable(table: SheetTableName): Promise<Record<string, string>[]> {
+  const markActiveRows = (rows: Record<string, string>[]) => {
+    rows.forEach((r) => {
+      const id = r.id;
+      if (id) markSynced(table, id);
+    });
+  };
+
   if (isGoogleSheetsReadConfigured()) {
     try {
       const rows = await sheetGet<Record<string, string>>(table);
       const active = rows.filter((r) => r.deleted !== "true");
       saveLocalCache(table, GLOBAL_CACHE_USER, active);
-      active.forEach((r) => {
-        const id = r.id;
-        if (id) markSynced(table, id);
-      });
+      markActiveRows(active);
       return active;
     } catch (err) {
       console.error(`Sheets read [${table}] failed, fallback cache:`, err);
     }
   }
+
   const cached = loadLocalCache(table, GLOBAL_CACHE_USER);
-  cached.forEach((r) => {
-    const id = r.id;
-    if (id) markSynced(table, id);
-  });
-  return cached;
+  if (cached.length > 0) {
+    markActiveRows(cached);
+    return cached;
+  }
+
+  try {
+    const rows = await sheetGet<Record<string, string>>(table);
+    const active = rows.filter((r) => r.deleted !== "true");
+    if (active.length > 0) {
+      saveLocalCache(table, GLOBAL_CACHE_USER, active);
+      markActiveRows(active);
+      return active;
+    }
+  } catch (err) {
+    console.error(`Global table [${table}] local fallback failed:`, err);
+  }
+
+  return [];
 }
 
 function mergeProfessionals(
@@ -735,6 +827,7 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     notifRows,
     reportRows,
     professionalRows,
+    appConfigRows,
   ] = await Promise.all([
     readTable("events", userId),
     readTable("conversations", userId),
@@ -745,6 +838,7 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     readTable("notifications", userId),
     readTable("admin_reports", userId),
     readGlobalTable("professionals"),
+    readGlobalTable("app_config"),
   ]);
 
   const viewerRow = viewerRows[0];
@@ -757,7 +851,11 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     viewerRow != null ||
     notifRows.length > 0 ||
     reportRows.length > 0 ||
-    professionalRows.length > 0;
+    professionalRows.length > 0 ||
+    appConfigRows.length > 0;
+
+  const appConfigRow = appConfigRows.find((r) => r.id === APP_CONFIG_GLOBAL_ID);
+  const adminAppInfo = appConfigRow ? rowToAdminAppInfo(appConfigRow) : undefined;
 
   const professionals =
     professionalRows.length > 0
@@ -773,6 +871,7 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     appNotifications: notifRows.map(rowToNotification),
     adminReports: reportRows.map(rowToReport),
     professionals,
+    adminAppInfo,
     viewerSettings: viewerRow
       ? {
           email: viewerRow.email ?? "",
@@ -854,8 +953,10 @@ export function mergeLoadedAppState(
   viewerProLat?: number | null;
   viewerProLng?: number | null;
   viewerKarma?: number;
+  adminAppInfo?: AdminAppInfo;
 } {
   const patch: Partial<typeof current> & {
+    adminAppInfo?: AdminAppInfo;
     viewerProfileAvatarUrl?: string;
     viewerProfileDisplayName?: string;
     viewerProfileIsPro?: boolean;
@@ -888,6 +989,13 @@ export function mergeLoadedAppState(
   }
   if (loaded.adminReports.length > 0) {
     patch.adminReports = mergeById(current.adminReports, loaded.adminReports);
+  }
+
+  if (loaded.adminAppInfo) {
+    const localInfo = readAdminAppInfo();
+    const merged = mergeAdminAppInfo(localInfo, loaded.adminAppInfo);
+    writeAdminAppInfo(merged);
+    patch.adminAppInfo = merged;
   }
 
   if (loaded.viewerSettings) {

@@ -1,7 +1,9 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { readAdminAppInfo } from "../lib/adminAppInfo";
+import { hydrateAdminAppInfoFromSheets } from "../lib/appSheetPersistence";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { AnnouncementModal } from "./AnnouncementModal";
+import { AppForceReloadModal } from "./AppForceReloadModal";
 import { SplashScreen } from "./SplashScreen";
 
 const SPLASH_DURATION_MS = 2000;
@@ -15,6 +17,12 @@ export function SplashGate({ children }: SplashGateProps) {
   const initialSplashEnabled = readAdminAppInfo().splashScreenEnabled;
   const [showSplash, setShowSplash] = useState(initialSplashEnabled);
   const [splashDone, setSplashDone] = useState(!initialSplashEnabled);
+
+  useEffect(() => {
+    void hydrateAdminAppInfoFromSheets().then((info) => {
+      useMessagingStore.setState({ adminAppInfo: info });
+    });
+  }, []);
 
   useEffect(() => {
     if (!splashEnabled) {
@@ -36,6 +44,7 @@ export function SplashGate({ children }: SplashGateProps) {
       {children}
       {showSplash && splashEnabled ? <SplashScreen /> : null}
       <AnnouncementModal ready={splashDone} />
+      <AppForceReloadModal />
     </>
   );
 }

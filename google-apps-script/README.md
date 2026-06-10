@@ -4,7 +4,7 @@ Chaque **onglet** du classeur = une **table**. Les **POST** ajoutent une ligne ;
 
 ## 1. Créer le Google Sheet
 
-Créer un classeur avec **10 onglets** et la **ligne 1 = en-têtes** (copier-coller une ligne par onglet).
+Créer un classeur avec **11 onglets** et la **ligne 1 = en-têtes** (copier-coller une ligne par onglet).
 
 ### `messages`
 ```
@@ -33,7 +33,7 @@ userId,id,pseudo,age,imageUrl,aspectRatio,deleted
 
 ### `viewer_settings` (profil connecté — avatar, email vérifié, préférences)
 ```
-userId,id,email,emailVerified,avatarUrl,displayName,isPro,isPremium,premiumExpiresAt,proExpiresAt,premiumPaymentValidated,premiumMonths,premiumLastPaymentAt,premiumLastTransactionId,proPaymentValidated,proMonths,proLastPaymentAt,proLastTransactionId,city,websiteUrl,socialUrl,phone,proAddress,proLat,proLng,karma,badgesJson,friendRequestSentJson,friendRequestRejectedJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
+userId,id,email,emailVerified,avatarUrl,displayName,isPro,isPremium,premiumExpiresAt,proExpiresAt,premiumPaymentValidated,premiumMonths,premiumLastPaymentAt,premiumLastTransactionId,proPaymentValidated,proMonths,proLastPaymentAt,proLastTransactionId,city,websiteUrl,socialUrl,phone,proAddress,proLat,proLng,karma,badgesJson,friendRequestSentJson,friendRequestRejectedJson,friendRequestDailySentDateKey,profileBadgeSuggestionsJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
 ```
 
 ### `profile_visits`
@@ -54,6 +54,11 @@ userId,id,createdAt,kind,subjectId,subjectLabel,explanation,read,deleted
 ### `professionals` (annuaire global — sans `userId`)
 ```
 id,firstName,lastName,category,categoryLabel,city,address,description,imageUrl,mapX,mapY,lat,lng,verified,websiteUrl,socialUrl,phone,deleted
+```
+
+### `app_config` (config globale admin — une ligne `id=global`)
+```
+id,splashScreenEnabled,announcementModalEnabled,announcementModalDismissible,announcementMessage,announcementRevision,forceAppReloadOnPublish,forceReloadRevision,updatedAt,deleted
 ```
 
 Partager le sheet en **« Toute personne disposant du lien → Lecteur »**.

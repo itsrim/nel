@@ -121,6 +121,9 @@ function App() {
       if (loaded.professionals.length > 0) {
         useProsStore.getState().hydrateProfessionals(loaded.professionals);
       }
+      if (loaded.adminAppInfo) {
+        useMessagingStore.setState({ adminAppInfo: loaded.adminAppInfo });
+      }
       if (!loaded.hasRemoteData) return;
       const patch = mergeLoadedAppState(useMessagingStore.getState(), loaded);
       useMessagingStore.setState(patch);

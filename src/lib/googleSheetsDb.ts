@@ -11,7 +11,8 @@ export type SheetTableName =
   | "profile_visits"
   | "notifications"
   | "admin_reports"
-  | "professionals";
+  | "professionals"
+  | "app_config";
 
 export interface SheetTableConfig {
   /** Nom de l’onglet dans le classeur. */
@@ -86,6 +87,12 @@ export const SHEET_TABLES: Record<SheetTableName, SheetTableConfig> = {
     sheetName: "professionals",
     gid: gidEnv("VITE_SHEET_GID_PROFESSIONALS", "0"),
     idColumn: "id",
+  },
+  app_config: {
+    sheetName: "app_config",
+    gid: gidEnv("VITE_SHEET_GID_APP_CONFIG", "0"),
+    idColumn: "id",
+    fallbackCsvPath: "/nel/app_config.csv",
   },
 };
 

@@ -51,7 +51,14 @@ export const translations = {
       "Rédigez le texte puis publiez pour l'envoyer à tous les utilisateurs.",
     adminInfoPublish: "Publier à tous",
     adminInfoPublished: "Message publié",
+    adminInfoForceReloadLabel: "Imposer une mise à jour",
+    adminInfoForceReloadSub:
+      "À la publication, demande à tous de recharger l'application",
     announcementModalTitle: "Information",
+    appForceReloadTitle: "Mise à jour requise",
+    appForceReloadBody:
+      "Une nouvelle version de l'application est disponible. Rechargez pour rester à jour.",
+    appForceReloadAction: "Recharger l'application",
     adminEditProfile: "Modifier le profil (admin)",
     adminDeleteProfile: "Supprimer l'utilisateur",
     adminDeleteProfileConfirm:
@@ -654,7 +661,14 @@ export const translations = {
       "Write your text, then publish to send it to all users.",
     adminInfoPublish: "Publish to everyone",
     adminInfoPublished: "Message published",
+    adminInfoForceReloadLabel: "Force app update",
+    adminInfoForceReloadSub:
+      "On publish, ask everyone to reload the application",
     announcementModalTitle: "Information",
+    appForceReloadTitle: "Update required",
+    appForceReloadBody:
+      "A new version of the app is available. Reload to stay up to date.",
+    appForceReloadAction: "Reload application",
     adminEditProfile: "Edit profile (admin)",
     adminDeleteProfile: "Delete user",
     adminDeleteProfileConfirm:

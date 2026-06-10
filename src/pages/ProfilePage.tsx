@@ -35,6 +35,7 @@ import {
   CheckCheck,
   Sparkles,
   Info,
+  RefreshCw,
 } from "lucide-react";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useNavigationStore } from "../store/useNavigationStore";
@@ -1054,6 +1055,25 @@ export function ProfilePage() {
                   className="switch"
                 />
               </div>
+              <div className="setting-item admin-info-setting">
+                <div className="setting-icon gold">
+                  <RefreshCw size={20} color="#fff" />
+                </div>
+                <div className="setting-text">
+                  <div className="setting-label">{t("adminInfoForceReloadLabel")}</div>
+                  <div className="setting-sub">{t("adminInfoForceReloadSub")}</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={adminAppInfo.forceAppReloadOnPublish}
+                  onChange={(e) =>
+                    updateAdminAppInfo({
+                      forceAppReloadOnPublish: e.target.checked,
+                    })
+                  }
+                  className="switch"
+                />
+              </div>
               <div className="admin-info-message">
                 <label className="admin-info-message-label" htmlFor="admin-info-message">
                   {t("adminInfoMessageLabel")}
@@ -1291,7 +1311,10 @@ export function ProfilePage() {
                     active={nelDemoIsPremium}
                     expiresAt={viewerPremiumExpiresAt}
                     locale={subscriptionLocale}
-                    onSubscribe={() => setCheckoutPlan("premium")}
+                    onSubscribe={() => {
+                      setSettingsOpen(false);
+                      setCheckoutPlan("premium");
+                    }}
                     onCancel={() => handleCancelSubscription("premium")}
                   />
                 </div>
@@ -1308,7 +1331,10 @@ export function ProfilePage() {
                     active={viewerProfileIsPro}
                     expiresAt={viewerProExpiresAt}
                     locale={subscriptionLocale}
-                    onSubscribe={() => setCheckoutPlan("pro")}
+                    onSubscribe={() => {
+                      setSettingsOpen(false);
+                      setCheckoutPlan("pro");
+                    }}
                     onCancel={() => handleCancelSubscription("pro")}
                   />
                 </div>

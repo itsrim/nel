@@ -31,6 +31,7 @@ import {
   syncProfileDeleteToSheets,
   syncReportDeleteToSheets,
   syncReportToSheets,
+  syncAppConfigToSheets,
 } from "../lib/appSheetPersistence";
 import {
   DEFAULT_PROFILE_BADGE_SUGGESTIONS,
@@ -78,6 +79,7 @@ import {
 } from "../lib/karma";
 import { DEFAULT_AVATAR_URL, resolveAvatarUrl } from "../lib/avatarUrl";
 import {
+  markForceReloadAckRevision,
   readAdminAppInfo,
   writeAdminAppInfo,
   type AdminAppInfo,
@@ -754,15 +756,23 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     const next = { ...get().adminAppInfo, ...patch };
     writeAdminAppInfo(next);
     set({ adminAppInfo: next });
+    syncAppConfigToSheets(next);
   },
   publishAnnouncement: () => {
     const prev = get().adminAppInfo;
     const next = {
       ...prev,
       announcementRevision: prev.announcementRevision + 1,
+      forceReloadRevision: prev.forceAppReloadOnPublish
+        ? prev.forceReloadRevision + 1
+        : prev.forceReloadRevision,
     };
     writeAdminAppInfo(next);
     set({ adminAppInfo: next });
+    syncAppConfigToSheets(next);
+    if (next.forceAppReloadOnPublish) {
+      markForceReloadAckRevision(next.forceReloadRevision);
+    }
   },
 
   updateProfileBadges: (profilId, badges) => {
