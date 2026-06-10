@@ -96,7 +96,7 @@ export function registerChatSocket(io: Server) {
           void notifyConversationMembers(conversationId, user.id, {
             title: message.authorName,
             body: message.text.slice(0, 140),
-            url: `/nel/?chat=${conversationId}`,
+            url: `/?chat=${conversationId}`,
           });
         }
       } catch (err) {

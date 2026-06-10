@@ -106,7 +106,7 @@ VITE_SHEET_GID_PROFESSIONALS=...
 VITE_GOOGLE_SHEETS_API_URL=https://script.google.com/macros/s/.../exec
 ```
 
-## 5. CORS (localhost / prod)
+## 5. CORS (localhost / happyletsgo.fr)
 
 Le frontend n’utilise **pas** `POST` vers l’URL `/exec` (bloqué par CORS après redirect Google).
 Les écritures passent par **GET** + paramètres (`?action=post&sheet=…&row=…`), géré par `doGet`.

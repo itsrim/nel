@@ -11,7 +11,7 @@ export function appPublicUrl(): string {
   const raw =
     process.env.APP_PUBLIC_URL?.trim() ||
     process.env.FRONTEND_URL?.trim() ||
-    "http://localhost:5173/nel";
+    "http://localhost:5173";
   return raw.replace(/\/+$/, "");
 }
 

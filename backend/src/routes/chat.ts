@@ -52,7 +52,7 @@ export async function chatRoutes(app: FastifyInstance) {
           void notifyConversationMembers(conversationId, request.authUser.id, {
             title: message.authorName,
             body: message.text.slice(0, 140),
-            url: `/nel/?chat=${conversationId}`,
+            url: `/?chat=${conversationId}`,
           });
         }
 

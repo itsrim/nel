@@ -42,7 +42,7 @@ export const SHEET_TABLES: Record<SheetTableName, SheetTableConfig> = {
     idColumn: "id",
     fallbackCsvPath:
       (import.meta.env.VITE_DEFAULT_CSV_PATH as string | undefined) ??
-      "/nel/csv/messages.csv",
+      "/csv/messages.csv",
   },
   events: {
     sheetName: "events",
@@ -93,7 +93,7 @@ export const SHEET_TABLES: Record<SheetTableName, SheetTableConfig> = {
     sheetName: "app_config",
     gid: gidEnv("VITE_SHEET_GID_APP_CONFIG", "0"),
     idColumn: "id",
-    fallbackCsvPath: "/nel/csv/app_config.csv",
+    fallbackCsvPath: "/csv/app_config.csv",
   },
 };
 

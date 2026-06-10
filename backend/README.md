@@ -106,13 +106,14 @@ Créer un fichier `.env` à la racine de `backend/` (non versionné) ou les déf
 | `VAPID_SUBJECT` | `mailto:hello@nel.app` | Contact VAPID |
 | `RESEND_API_KEY` | — | Clé API [Resend](https://resend.com) pour emails de vérification |
 | `EMAIL_FROM` | `Nel <onboarding@resend.dev>` | Expéditeur (domaine vérifié en prod) |
-| `APP_PUBLIC_URL` | `http://localhost:5173/nel` | URL frontend pour le lien « Vérifier mon email » |
+| `APP_PUBLIC_URL` | `https://happyletsgo.fr` (prod) / `http://localhost:5173` (dev) | URL frontend pour le lien « Vérifier mon email » |
 
 Origines CORS autorisées par défaut :
 
 - `http://localhost:5173`
 - `http://localhost:3000`
-- `https://itsrim.github.io`
+- `https://happyletsgo.fr`
+- `https://www.happyletsgo.fr`
 
 Générer les clés VAPID :
 

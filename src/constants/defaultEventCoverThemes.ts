@@ -9,7 +9,7 @@ export type DefaultEventCoverTheme = {
   imageUrl: string;
 };
 
-/** Préfixe Vite (`base`, ex. `/nel/`) pour les fichiers dans `public/`. */
+/** Préfixe Vite (`import.meta.env.BASE_URL`) pour les fichiers dans `public/`. */
 const coverPath = (file: string) => `${import.meta.env.BASE_URL}event-cover-themes/${file}`;
 
 export const DEFAULT_EVENT_COVER_THEMES: DefaultEventCoverTheme[] = [

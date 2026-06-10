@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <title>Redirection…</title>
-    <meta http-equiv="refresh" content="0; url=/nel/" />
+    <meta http-equiv="refresh" content="0; url=/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
       html,
@@ -32,7 +32,7 @@
     <script>
       // Redirection immédiate JS (au cas où la meta ne s'applique pas)
       (function () {
-        var base = "/nel/";
+        var base = "/";
         if (location.pathname !== base) location.replace(base);
       })();
     </script>
@@ -41,7 +41,7 @@
     <div class="card">
       <h1>Page introuvable</h1>
       <p>Nous vous redirigeons vers l'appli…</p>
-      <p><a href="/nel/">Aller à l'accueil</a></p>
+      <p><a href="/">Aller à l'accueil</a></p>
     </div>
   </body>
 </html>

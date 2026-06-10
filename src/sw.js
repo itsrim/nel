@@ -6,7 +6,7 @@ self.addEventListener('push', (event) => {
   let payload = {
     title: 'Nel',
     body: 'Nouveau message',
-    url: '/nel/',
+    url: '/',
   };
 
   try {
@@ -20,16 +20,16 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.body,
-      icon: '/nel/icons/pwa-192x192.png',
-      badge: '/nel/icons/pwa-192x192.png',
-      data: { url: payload.url ?? '/nel/' },
+      icon: '/icons/pwa-192x192.png',
+      badge: '/icons/pwa-192x192.png',
+      data: { url: payload.url ?? '/' },
     }),
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url ?? '/nel/';
+  const url = event.notification.data?.url ?? '/';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {

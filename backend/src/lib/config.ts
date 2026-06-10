@@ -1,7 +1,8 @@
 const DEFAULT_ORIGINS = [
   "http://localhost:5173",
   "http://localhost:3000",
-  "https://itsrim.github.io",
+  "https://happyletsgo.fr",
+  "https://www.happyletsgo.fr",
 ];
 
 export function allowedOrigins(): string[] {

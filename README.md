@@ -1,7 +1,7 @@
 # Nel — Frontend
 
 Application web **React + TypeScript + Vite** pour Nel : messagerie, sorties, profils, PWA.  
-Déployée sur GitHub Pages : [https://itsrim.github.io/nel](https://itsrim.github.io/nel)
+Production : [https://happyletsgo.fr](https://happyletsgo.fr)
 
 Le serveur chat temps réel est dans le dossier [`backend/`](backend/README.md).
 
@@ -39,7 +39,7 @@ cp env.example .env
 yarn dev
 ```
 
-Ouvre [http://localhost:5173/nel/](http://localhost:5173/nel/) (base Vite : `/nel/`).
+Ouvre [http://localhost:5173/](http://localhost:5173/).
 
 ### Avec le backend chat en local
 
@@ -172,7 +172,7 @@ Copier `env.example` → `.env` (non versionné).
 | `VITE_GOOGLE_SHEETS_URL_ENCODED` | Non | URL Google Sheet encodée (+1 par caractère) |
 | `VITE_GOOGLE_SHEETS_API_URL` | Non | URL Apps Script pour écriture Sheets |
 | `VITE_SHEET_GID_MESSAGES` | Non | GID de l’onglet `messages` (défaut `0`) |
-| `VITE_DEFAULT_CSV_PATH` | Non | CSV local de secours (défaut `/nel/csv/messages.csv`) |
+| `VITE_DEFAULT_CSV_PATH` | Non | CSV local de secours (défaut `/csv/messages.csv`) |
 | `VITE_IMAGEKIT_PRIVATE_KEY` | Non | Signature uploads ImageKit |
 | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Non | OAuth Google (si utilisé) |
 
@@ -223,24 +223,29 @@ Sans variable → mode **offline / démo** (pas de socket, pas de JWT serveur).
 
 ---
 
-## Déploiement (GitHub Pages)
+## Déploiement (happyletsgo.fr)
 
 ```bash
 yarn build
-yarn deploy
+# Déployer le contenu de dist/ sur le serveur (racine du domaine)
 ```
 
-- Base path : `/nel/` (`vite.config.ts`)
-- Page 404 : copie de `index.html` pour le routing SPA (`predeploy`)
+- Base path : `/` (`vite.config.ts`) — site à la racine de `https://happyletsgo.fr`
+- Configurer le serveur pour renvoyer `index.html` sur les routes SPA (fallback)
+- Backend : héberger sur Render, Fly.io, Railway, etc. ; `VITE_CHAT_API_URL` au build + `APP_PUBLIC_URL=https://happyletsgo.fr` côté API
 
-Le backend **ne peut pas** tourner sur GitHub Pages : héberger sur Render, Fly.io, Railway, etc., puis pointer `VITE_CHAT_API_URL` vers cette URL au build.
+```bash
+# Ancien déploiement GitHub Pages (optionnel)
+yarn deploy
+```
 
 ---
 
 ## Build & chemins
 
-- `base: '/nel/'` — tous les assets et routes sont sous `/nel/`
-- En prod : `https://itsrim.github.io/nel/`
+- `base: '/'` — assets et routes à la racine du domaine
+- En prod : `https://happyletsgo.fr`
+- Liens sorties partagées : `https://happyletsgo.fr/event/{id}`
 
 ---
 

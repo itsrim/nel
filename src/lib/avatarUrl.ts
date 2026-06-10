@@ -1,7 +1,7 @@
 /** Avatar par défaut (`public/event-cover-themes/avatar.jpg`) avec préfixe Vite `base`. */
 export const DEFAULT_AVATAR_URL = `${import.meta.env.BASE_URL}event-cover-themes/avatar.jpg`;
 
-/** Corrige les chemins relatifs (`/event-cover-themes/...`) pour le déploiement sous `/nel/`. */
+/** Corrige les chemins relatifs (`/event-cover-themes/...`) avec le préfixe Vite `base`. */
 export function resolveAvatarUrl(url?: string | null): string {
   const raw = url?.trim();
   if (!raw) return DEFAULT_AVATAR_URL;
