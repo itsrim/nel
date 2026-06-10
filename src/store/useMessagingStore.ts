@@ -77,6 +77,11 @@ import {
   shouldFinalizeOrganizerKarma,
 } from "../lib/karma";
 import { DEFAULT_AVATAR_URL, resolveAvatarUrl } from "../lib/avatarUrl";
+import {
+  readAdminAppInfo,
+  writeAdminAppInfo,
+  type AdminAppInfo,
+} from "../lib/adminAppInfo";
 
 export interface EventReminder {
   id: string;
@@ -314,7 +319,6 @@ function syncViewerSettingsFromState(state: MessagingState) {
     favoriteConversationIds: state.favoriteConversationIds,
     moderationHiddenEventIds: state.moderationHiddenEventIds,
     moderationHiddenProfilIds: state.moderationHiddenProfilIds,
-    profileBadgeSuggestions: state.profileBadgeSuggestions,
   });
 }
 
@@ -349,6 +353,10 @@ interface MessagingState {
   /** Catalogue global des badges suggérés (admin). */
   profileBadgeSuggestions: string[];
   setProfileBadgeSuggestions: (badges: string[]) => void;
+  /** Réglages globaux admin (splash, modale d'information). */
+  adminAppInfo: AdminAppInfo;
+  updateAdminAppInfo: (patch: Partial<AdminAppInfo>) => void;
+  publishAnnouncement: () => void;
   /** Admin : badges d’un profil (onglet profiles / Sheets). */
   updateProfileBadges: (profilId: string, badges: string[]) => void;
   /** Admin : met à jour les informations d’un profil (fiche, suggestions, visites). */
@@ -739,6 +747,22 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     }
     set({ profileBadgeSuggestions: unique });
     syncViewerSettingsFromState(get());
+  },
+
+  adminAppInfo: readAdminAppInfo(),
+  updateAdminAppInfo: (patch) => {
+    const next = { ...get().adminAppInfo, ...patch };
+    writeAdminAppInfo(next);
+    set({ adminAppInfo: next });
+  },
+  publishAnnouncement: () => {
+    const prev = get().adminAppInfo;
+    const next = {
+      ...prev,
+      announcementRevision: prev.announcementRevision + 1,
+    };
+    writeAdminAppInfo(next);
+    set({ adminAppInfo: next });
   },
 
   updateProfileBadges: (profilId, badges) => {

@@ -280,7 +280,7 @@ function App() {
         {renderTab()}
         {renderDetailStack()}
       </main>
-      <BottomNavigation />
+      {detailStack.length === 0 ? <BottomNavigation /> : null}
       {toast ? (
         <div className="nel-toast" role="status" aria-live="polite">
           {toast.message}

@@ -34,6 +34,7 @@ import {
   Send,
   CheckCheck,
   Sparkles,
+  Info,
 } from "lucide-react";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useNavigationStore } from "../store/useNavigationStore";
@@ -61,7 +62,14 @@ import { scrollLockSurfaceAttr, useLockBodyScroll } from "../lib/useLockBodyScro
 import { hasViewerProAccess } from "../lib/viewerEntitlements";
 import "./ProfilePage.css";
 
-type TabId = "favorites" | "friends" | "history" | "notifications" | "reports" | "calendar";
+type TabId =
+  | "favorites"
+  | "friends"
+  | "history"
+  | "notifications"
+  | "reports"
+  | "info"
+  | "calendar";
 
 const PROFILE_CAL_WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"] as const;
 
@@ -158,6 +166,9 @@ export function ProfilePage() {
     setViewerProfileBadges,
     profileBadgeSuggestions,
     setProfileBadgeSuggestions,
+    adminAppInfo,
+    updateAdminAppInfo,
+    publishAnnouncement,
     viewerKarma,
     showToast,
     eventReminders,
@@ -766,6 +777,21 @@ export function ProfilePage() {
               </div>
             </button>
           )}
+          {isAdmin && userIsAdmin && (
+            <button
+              type="button"
+              className={`p-tab ${activeTab === "info" ? "p-tab--active" : ""}`}
+              onClick={() => selectProfileTab("info")}
+            >
+              <div className="p-tab-inner">
+                <Info
+                  size={18}
+                  color={activeTab === "info" ? "#34C759" : "#8E8E93"}
+                />
+                <span>{t("adminInfoTab")}</span>
+              </div>
+            </button>
+          )}
           <button
             type="button"
             className={`p-tab ${activeTab === "history" ? "p-tab--active" : ""}`}
@@ -967,6 +993,98 @@ export function ProfilePage() {
               {friends.length === 0 && (
                 <div className="empty-hint">{t("noFriends")}</div>
               )}
+            </div>
+          )}
+
+          {activeTab === "info" && isAdmin && userIsAdmin && (
+            <div className="admin-info-panel">
+              <div className="setting-item admin-info-setting">
+                <div className="setting-icon green">
+                  <Sparkles size={20} color="#fff" />
+                </div>
+                <div className="setting-text">
+                  <div className="setting-label">{t("adminInfoSplashLabel")}</div>
+                  <div className="setting-sub">{t("adminInfoSplashSub")}</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={adminAppInfo.splashScreenEnabled}
+                  onChange={(e) =>
+                    updateAdminAppInfo({ splashScreenEnabled: e.target.checked })
+                  }
+                  className="switch"
+                />
+              </div>
+              <div className="setting-item admin-info-setting">
+                <div className="setting-icon blue">
+                  <Bell size={20} color="#fff" />
+                </div>
+                <div className="setting-text">
+                  <div className="setting-label">{t("adminInfoModalLabel")}</div>
+                  <div className="setting-sub">{t("adminInfoModalSub")}</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={adminAppInfo.announcementModalEnabled}
+                  onChange={(e) =>
+                    updateAdminAppInfo({
+                      announcementModalEnabled: e.target.checked,
+                    })
+                  }
+                  className="switch"
+                />
+              </div>
+              <div className="setting-item admin-info-setting">
+                <div className="setting-icon pink">
+                  <X size={20} color="#fff" />
+                </div>
+                <div className="setting-text">
+                  <div className="setting-label">{t("adminInfoModalDismissLabel")}</div>
+                  <div className="setting-sub">{t("adminInfoModalDismissSub")}</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={adminAppInfo.announcementModalDismissible}
+                  disabled={!adminAppInfo.announcementModalEnabled}
+                  onChange={(e) =>
+                    updateAdminAppInfo({
+                      announcementModalDismissible: e.target.checked,
+                    })
+                  }
+                  className="switch"
+                />
+              </div>
+              <div className="admin-info-message">
+                <label className="admin-info-message-label" htmlFor="admin-info-message">
+                  {t("adminInfoMessageLabel")}
+                </label>
+                <p className="admin-info-message-hint">{t("adminInfoMessageHint")}</p>
+                <textarea
+                  id="admin-info-message"
+                  className="admin-info-message-input"
+                  rows={6}
+                  value={adminAppInfo.announcementMessage}
+                  onChange={(e) =>
+                    updateAdminAppInfo({ announcementMessage: e.target.value })
+                  }
+                  placeholder={t("adminInfoMessagePlaceholder")}
+                />
+                <button
+                  type="button"
+                  className="admin-info-publish-btn"
+                  disabled={
+                    !adminAppInfo.announcementModalEnabled ||
+                    !adminAppInfo.announcementMessage.trim()
+                  }
+                  onClick={() => {
+                    publishAnnouncement();
+                    showToast(t("adminInfoPublished"));
+                  }}
+                >
+                  <Send size={16} />
+                  {t("adminInfoPublish")}
+                </button>
+              </div>
             </div>
           )}
 

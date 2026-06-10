@@ -37,6 +37,21 @@ export const translations = {
     cardCvcInvalid: "Code CVC invalide.",
     adminMode: "Mode Admin",
     adminModeSub: "Accès aux outils de modération",
+    adminInfoTab: "Info",
+    adminInfoSplashLabel: "Splash screen au démarrage",
+    adminInfoSplashSub: "Afficher l'écran « Happy, let's GO » à l'ouverture de l'app",
+    adminInfoModalLabel: "Modale d'information",
+    adminInfoModalSub: "Afficher un message à tous les utilisateurs connectés",
+    adminInfoModalDismissLabel: "Fermeture autorisée",
+    adminInfoModalDismissSub: "Afficher une croix pour fermer la modale",
+    adminInfoMessageLabel: "Message pour tous",
+    adminInfoMessagePlaceholder:
+      "Mises à jour, événements importants, maintenance…",
+    adminInfoMessageHint:
+      "Rédigez le texte puis publiez pour l'envoyer à tous les utilisateurs.",
+    adminInfoPublish: "Publier à tous",
+    adminInfoPublished: "Message publié",
+    announcementModalTitle: "Information",
     adminEditProfile: "Modifier le profil (admin)",
     adminDeleteProfile: "Supprimer l'utilisateur",
     adminDeleteProfileConfirm:
@@ -625,6 +640,21 @@ export const translations = {
     cardCvcInvalid: "Invalid CVC code.",
     adminMode: "Admin Mode",
     adminModeSub: "Access to moderation tools",
+    adminInfoTab: "Info",
+    adminInfoSplashLabel: "Startup splash screen",
+    adminInfoSplashSub: "Show the « Happy, let's GO » screen when the app opens",
+    adminInfoModalLabel: "Information modal",
+    adminInfoModalSub: "Show a message to all signed-in users",
+    adminInfoModalDismissLabel: "Allow dismissal",
+    adminInfoModalDismissSub: "Show a close button on the modal",
+    adminInfoMessageLabel: "Message for everyone",
+    adminInfoMessagePlaceholder:
+      "Updates, important events, maintenance…",
+    adminInfoMessageHint:
+      "Write your text, then publish to send it to all users.",
+    adminInfoPublish: "Publish to everyone",
+    adminInfoPublished: "Message published",
+    announcementModalTitle: "Information",
     adminEditProfile: "Edit profile (admin)",
     adminDeleteProfile: "Delete user",
     adminDeleteProfileConfirm:
