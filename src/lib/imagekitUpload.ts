@@ -2,10 +2,12 @@ import CryptoJS from 'crypto-js';
 
 import {
   IMAGEKIT_EVENT_COVERS_FOLDER,
+  IMAGEKIT_SPLASH_FOLDER,
   IMAGEKIT_PUBLIC_KEY,
   IMAGEKIT_UPLOAD_FOLDER,
   imageKitEventCoverFileName,
   imageKitProfileAvatarFileName,
+  imageKitSplashFileName,
 } from '../constants/imagekit';
 
 const UPLOAD_URL = 'https://upload.imagekit.io/api/v1/files/upload';
@@ -123,6 +125,19 @@ export async function uploadLocalImageToImageKit(options: UploadImageKitOptions)
 /**
  * Couverture d’événement : fichier unique dans `event-covers` (comme meetabit).
  */
+/** Splash screen global (admin) — un fichier écrasé pour toute l'application. */
+export async function uploadSplashImageToImageKit(webFile: File, mimeType?: string | null): Promise<string> {
+  const mime = mimeType?.trim() || webFile.type?.trim() || 'image/jpeg';
+  const fileName = imageKitSplashFileName(mime);
+  return postImageKitUpload({
+    webFile,
+    fileName,
+    folder: IMAGEKIT_SPLASH_FOLDER,
+    useUniqueFileName: false,
+    overwriteFile: true,
+  });
+}
+
 export async function uploadLocalImageToImageKitEventCover(
   options: UploadImageKitOptions,
 ): Promise<string> {

@@ -9,6 +9,9 @@ export const IMAGEKIT_UPLOAD_FOLDER = '/profile-avatars';
 /** Couvertures des sorties (un fichier par upload). */
 export const IMAGEKIT_EVENT_COVERS_FOLDER = '/event-covers';
 
+/** Splash screen global (un fichier écrasé pour toute l'app). */
+export const IMAGEKIT_SPLASH_FOLDER = '/splash-screens';
+
 function avatarExtensionForMime(mime: string): string {
   const m = mime.toLowerCase();
   if (m.includes('png')) return 'png';
@@ -30,6 +33,13 @@ export function imageKitProfileAvatarFileName(userKey: string, mimeType?: string
 }
 
 /** Nom unique par couverture (pas d’overwrite). */
+/** Splash global admin — nom stable pour overwrite. */
+export function imageKitSplashFileName(mimeType?: string | null): string {
+  const mime = (mimeType ?? '').trim() || 'image/jpeg';
+  const ext = avatarExtensionForMime(mime);
+  return `global_splash.${ext}`;
+}
+
 export function imageKitEventCoverFileName(userKey: string, mimeType?: string | null): string {
   const safe = userKey.trim().replace(/[^a-zA-Z0-9_-]/g, '_') || 'user';
   const mime = (mimeType ?? '').trim() || 'image/jpeg';

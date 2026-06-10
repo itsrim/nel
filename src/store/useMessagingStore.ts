@@ -753,7 +753,11 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
   adminAppInfo: readAdminAppInfo(),
   updateAdminAppInfo: (patch) => {
-    const next = { ...get().adminAppInfo, ...patch };
+    const next = {
+      ...get().adminAppInfo,
+      ...patch,
+      configUpdatedAt: Date.now(),
+    };
     writeAdminAppInfo(next);
     set({ adminAppInfo: next });
     syncAppConfigToSheets(next);
@@ -766,6 +770,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       forceReloadRevision: prev.forceAppReloadOnPublish
         ? prev.forceReloadRevision + 1
         : prev.forceReloadRevision,
+      configUpdatedAt: Date.now(),
     };
     writeAdminAppInfo(next);
     set({ adminAppInfo: next });

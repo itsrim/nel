@@ -645,13 +645,14 @@ export function adminAppInfoToRow(info: AdminAppInfo): Record<string, string> {
   return {
     id: APP_CONFIG_GLOBAL_ID,
     splashScreenEnabled: boolToSheet(info.splashScreenEnabled),
+    splashImageUrl: info.splashImageUrl ?? "",
     announcementModalEnabled: boolToSheet(info.announcementModalEnabled),
     announcementModalDismissible: boolToSheet(info.announcementModalDismissible),
     announcementMessage: info.announcementMessage,
     announcementRevision: String(info.announcementRevision),
     forceAppReloadOnPublish: boolToSheet(info.forceAppReloadOnPublish),
     forceReloadRevision: String(info.forceReloadRevision),
-    updatedAt: String(Date.now()),
+    updatedAt: String(info.configUpdatedAt ?? Date.now()),
     deleted: "false",
   };
 }
@@ -659,12 +660,14 @@ export function adminAppInfoToRow(info: AdminAppInfo): Record<string, string> {
 export function rowToAdminAppInfo(row: Record<string, string>): AdminAppInfo {
   return normalizeAdminAppInfo({
     splashScreenEnabled: boolFromSheet(row.splashScreenEnabled),
+    splashImageUrl: row.splashImageUrl ?? "",
     announcementModalEnabled: boolFromSheet(row.announcementModalEnabled),
     announcementModalDismissible: boolFromSheet(row.announcementModalDismissible),
     announcementMessage: row.announcementMessage ?? "",
     announcementRevision: numFromSheet(row.announcementRevision, 0),
     forceAppReloadOnPublish: boolFromSheet(row.forceAppReloadOnPublish),
     forceReloadRevision: numFromSheet(row.forceReloadRevision, 0),
+    configUpdatedAt: numFromSheet(row.updatedAt, 0),
   });
 }
 

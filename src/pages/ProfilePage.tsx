@@ -45,7 +45,9 @@ import { useTranslation } from "../i18n/useTranslation";
 import {
   getNelProfileImageKitUserKey,
   uploadLocalImageToImageKit,
+  uploadSplashImageToImageKit,
 } from "../lib/imagekitUpload";
+import { resolveSplashImageUrl } from "../lib/adminAppInfo";
 import { withUrlUploadVersion } from "../lib/versionRemoteAssetUrl";
 import { formatBadgeCount } from "../data/mockData";
 import { ProProfileDetails } from "../components/ProProfileDetails";
@@ -179,6 +181,7 @@ export function ProfilePage() {
   const viewerProAccess = useMessagingStore(hasViewerProAccess);
   const { openDetail } = useNavigationStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const splashFileInputRef = useRef<HTMLInputElement>(null);
   const profileTabsRef = useRef<HTMLDivElement>(null);
   const profileTabStripViewportTopRef = useRef<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("favorites");
@@ -239,6 +242,7 @@ export function ProfilePage() {
     "Passionné de rando et de sorties culturelles sur Paris ! 🏔️🎭",
   );
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingSplashImage, setUploadingSplashImage] = useState(false);
   const [heroAvatarBroken, setHeroAvatarBroken] = useState(false);
   const heroAvatarSrc = heroAvatarBroken
     ? DEFAULT_AVATAR_URL
@@ -369,6 +373,28 @@ export function ProfilePage() {
 
   const handlePhotoClick = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleSplashImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const input = e.target;
+    if (!file || !file.type.startsWith("image/")) {
+      input.value = "";
+      return;
+    }
+
+    setUploadingSplashImage(true);
+    try {
+      const url = await uploadSplashImageToImageKit(file, file.type || null);
+      updateAdminAppInfo({ splashImageUrl: withUrlUploadVersion(url) });
+      showToast(t("adminInfoSplashImageSaved"));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      window.alert(`${t("photoUploadFailed")}: ${msg}`);
+    } finally {
+      setUploadingSplashImage(false);
+      input.value = "";
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1015,6 +1041,51 @@ export function ProfilePage() {
                   }
                   className="switch"
                 />
+              </div>
+              <div className="admin-info-splash-image">
+                <span className="admin-info-message-label">{t("adminInfoSplashImageLabel")}</span>
+                <p className="admin-info-message-hint">{t("adminInfoSplashImageHint")}</p>
+                <div className="admin-info-splash-preview-wrap">
+                  <img
+                    src={resolveSplashImageUrl(adminAppInfo.splashImageUrl)}
+                    alt=""
+                    className="admin-info-splash-preview"
+                  />
+                </div>
+                <input
+                  ref={splashFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="admin-info-splash-file-input"
+                  onChange={handleSplashImageChange}
+                />
+                <div className="admin-info-splash-actions">
+                  <button
+                    type="button"
+                    className="admin-info-splash-upload-btn"
+                    disabled={uploadingSplashImage}
+                    onClick={() => splashFileInputRef.current?.click()}
+                  >
+                    {uploadingSplashImage ? (
+                      <Loader2 size={16} className="admin-info-splash-spinner" />
+                    ) : (
+                      <Camera size={16} />
+                    )}
+                    {uploadingSplashImage
+                      ? t("adminInfoSplashImageUploading")
+                      : t("adminInfoSplashImageUpload")}
+                  </button>
+                  {adminAppInfo.splashImageUrl.trim() ? (
+                    <button
+                      type="button"
+                      className="admin-info-splash-reset-btn"
+                      disabled={uploadingSplashImage}
+                      onClick={() => updateAdminAppInfo({ splashImageUrl: "" })}
+                    >
+                      {t("adminInfoSplashImageReset")}
+                    </button>
+                  ) : null}
+                </div>
               </div>
               <div className="setting-item admin-info-setting">
                 <div className="setting-icon blue">
