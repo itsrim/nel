@@ -7,3 +7,8 @@ dist
 .env.local
 .env.*.local
 backend/node_modules
+
+secret.json
+
+# Générés depuis google-apps-script/csv-templates/ (npm run sync-csv)
+public/csv/

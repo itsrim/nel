@@ -99,8 +99,8 @@ src/
 ├── data/mockData.ts        # Données démo
 └── i18n/                   # FR / EN
 
-public/
-└── messages.csv            # Fallback CSV si Sheets indisponible
+google-apps-script/csv-templates/  # Schémas CSV (source unique)
+public/csv/                      # Copie auto (npm run sync-csv) — fallback HTTP
 
 google-apps-script/         # Script pour POST/PUT Sheets
 backend/                    # API Node (voir backend/README.md)
@@ -172,7 +172,7 @@ Copier `env.example` → `.env` (non versionné).
 | `VITE_GOOGLE_SHEETS_URL_ENCODED` | Non | URL Google Sheet encodée (+1 par caractère) |
 | `VITE_GOOGLE_SHEETS_API_URL` | Non | URL Apps Script pour écriture Sheets |
 | `VITE_SHEET_GID_MESSAGES` | Non | GID de l’onglet `messages` (défaut `0`) |
-| `VITE_DEFAULT_CSV_PATH` | Non | CSV local de secours (défaut `/nel/messages.csv`) |
+| `VITE_DEFAULT_CSV_PATH` | Non | CSV local de secours (défaut `/nel/csv/messages.csv`) |
 | `VITE_IMAGEKIT_PRIVATE_KEY` | Non | Signature uploads ImageKit |
 | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Non | OAuth Google (si utilisé) |
 

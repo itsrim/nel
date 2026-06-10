@@ -106,7 +106,14 @@ VITE_SHEET_GID_PROFESSIONALS=...
 VITE_GOOGLE_SHEETS_API_URL=https://script.google.com/macros/s/.../exec
 ```
 
-## 5. Comportement Nel
+## 5. CORS (localhost / prod)
+
+Le frontend n’utilise **pas** `POST` vers l’URL `/exec` (bloqué par CORS après redirect Google).
+Les écritures passent par **GET** + paramètres (`?action=post&sheet=…&row=…`), géré par `doGet`.
+
+Ouvre l’URL `/exec` dans le navigateur : tu dois voir `{"ok":true,"service":"nel-sheets-api"}`.
+
+## 6. Comportement Nel
 
 | Action app | Sheets |
 |------------|--------|
@@ -120,7 +127,7 @@ VITE_GOOGLE_SHEETS_API_URL=https://script.google.com/macros/s/.../exec
 
 Sans variables Sheets → mock + `localStorage` uniquement.
 
-## 6. API frontend
+## 7. API frontend
 
 ```ts
 import { sheetGet, sheetPost, sheetPut, sheetBatchPost } from "./lib/googleSheetsDb";

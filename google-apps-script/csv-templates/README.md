@@ -1,6 +1,18 @@
 # Modèles CSV — Google Sheets Nel
 
+**Source unique** de tous les schémas CSV du projet (`google-apps-script/csv-templates/`).
+
 Un fichier par **onglet** du classeur. Chaque fichier ne contient que la **ligne d’en-têtes** (ligne 1).
+
+## Copie vers `public/csv/` (fallback HTTP)
+
+Les fichiers avec secours réseau (`messages`, `app_config`) sont recopiés automatiquement dans `public/csv/` :
+
+```bash
+npm run sync-csv   # ou avant yarn dev / yarn build (hooks predev / prebuild)
+```
+
+Ne pas éditer `public/csv/` à la main — modifier les `.csv` ici.
 
 ## Import dans Google Sheets
 

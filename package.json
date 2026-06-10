@@ -5,6 +5,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "sync-csv": "node scripts/syncCsvTemplatesToPublic.mjs",
+    "predev": "npm run sync-csv",
+    "prebuild": "npm run sync-csv",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",

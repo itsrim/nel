@@ -41,7 +41,8 @@ export const SHEET_TABLES: Record<SheetTableName, SheetTableConfig> = {
     gid: gidEnv("VITE_SHEET_GID_MESSAGES", "0"),
     idColumn: "id",
     fallbackCsvPath:
-      (import.meta.env.VITE_DEFAULT_CSV_PATH as string | undefined) ?? "/nel/messages.csv",
+      (import.meta.env.VITE_DEFAULT_CSV_PATH as string | undefined) ??
+      "/nel/csv/messages.csv",
   },
   events: {
     sheetName: "events",
@@ -92,7 +93,7 @@ export const SHEET_TABLES: Record<SheetTableName, SheetTableConfig> = {
     sheetName: "app_config",
     gid: gidEnv("VITE_SHEET_GID_APP_CONFIG", "0"),
     idColumn: "id",
-    fallbackCsvPath: "/nel/app_config.csv",
+    fallbackCsvPath: "/nel/csv/app_config.csv",
   },
 };
 
@@ -183,8 +184,14 @@ export async function sheetGet<T extends Record<string, string>>(
   }
 }
 
+const MAX_SHEETS_GET_URL_LENGTH = 7500;
+
+/**
+ * Apps Script Web App : les POST cross-origin échouent souvent (CORS après redirect).
+ * On utilise GET + query string, supporté par doGet dans sheets-api.gs.
+ */
 async function sheetMutate(
-  action: "post" | "put" | "batchPost",
+  action: "post" | "put",
   table: SheetTableName,
   payload: Record<string, unknown>,
 ): Promise<{ ok?: boolean; skipped?: boolean; error?: string }> {
@@ -192,27 +199,54 @@ async function sheetMutate(
     throw new Error("VITE_GOOGLE_SHEETS_API_URL non configuré (Apps Script requis pour POST/PUT)");
   }
 
-  const response = await fetch(GOOGLE_SHEETS_API_URL, {
-    method: "POST",
+  const params = new URLSearchParams();
+  params.set("action", action);
+  params.set("sheet", SHEET_TABLES[table].sheetName);
+  params.set("idColumn", SHEET_TABLES[table].idColumn);
+  if (action === "put" && payload.id != null) {
+    params.set("id", String(payload.id));
+  }
+  if (payload.row != null) {
+    params.set("row", JSON.stringify(payload.row));
+  }
+
+  const url = `${GOOGLE_SHEETS_API_URL}?${params.toString()}`;
+  if (url.length > MAX_SHEETS_GET_URL_LENGTH) {
+    throw new Error(
+      `Sheets ${action} : ligne trop volumineuse pour l'API (URL ${url.length} caractères).`,
+    );
+  }
+
+  const response = await fetch(url, {
+    method: "GET",
     mode: "cors",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({
-      action,
-      sheet: SHEET_TABLES[table].sheetName,
-      idColumn: SHEET_TABLES[table].idColumn,
-      ...payload,
-    }),
+    headers: { Accept: "application/json" },
   });
+
+  const bodyText = await response.text();
+
+  if (response.redirected && bodyText.includes("accounts.google.com")) {
+    throw new Error(
+      "Apps Script : accès refusé (redirection vers connexion Google). " +
+        "Redéployez l’application Web avec « Qui a accès : Tout le monde ».",
+    );
+  }
 
   if (!response.ok) {
     throw new Error(`Sheets ${action} failed: ${response.status}`);
   }
 
-  const result = (await response.json()) as {
-    ok?: boolean;
-    skipped?: boolean;
-    error?: string;
-  };
+  let result: { ok?: boolean; skipped?: boolean; error?: string };
+  try {
+    result = JSON.parse(bodyText) as typeof result;
+  } catch {
+    if (bodyText.includes("Sign in") || bodyText.includes("accounts.google.com")) {
+      throw new Error(
+        "Apps Script : accès refusé. Redéployez avec « Qui a accès : Tout le monde ».",
+      );
+    }
+    throw new Error(`Sheets ${action} : réponse non JSON (${bodyText.slice(0, 80)}…)`);
+  }
   if (result.error) throw new Error(result.error);
   if (result.ok === false) throw new Error(`Sheets ${action} rejected`);
   return result;
@@ -236,7 +270,9 @@ export async function sheetBatchPost<T extends Record<string, unknown>>(
   rows: T[],
 ): Promise<void> {
   if (rows.length === 0) return;
-  await sheetMutate("batchPost", table, { rows });
+  for (const row of rows) {
+    await sheetPost(table, row);
+  }
 }
 
 /**

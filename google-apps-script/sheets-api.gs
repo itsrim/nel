@@ -11,14 +11,13 @@
  * 5. Copie l’URL dans VITE_GOOGLE_SHEETS_API_URL
  */
 
-const SPREADSHEET_ID = "REMPLACE_PAR_TON_SPREADSHEET_ID";
+const SPREADSHEET_ID = "1ajGZueEgq-Y3ZsgohiSJXlrEPaYQSMbLDSgXzLWXkmM";
 
-function jsonResponse_(payload, statusCode) {
-  const output = ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(
+function jsonResponse_(payload) {
+  // ContentService ne supporte pas setResponseCode (réservé à HtmlService).
+  return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(
     ContentService.MimeType.JSON,
   );
-  if (statusCode) output.setResponseCode(statusCode);
-  return output;
 }
 
 function getSheet_(sheetName) {
@@ -50,7 +49,7 @@ function findRowIndexById_(sheet, idColumn, id) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return -1;
 
-  const values = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  const values = sheet.getRange(2, 1, lastRow, headers.length).getValues();
   for (var i = 0; i < values.length; i++) {
     if (String(values[i][idIndex]) === String(id)) return i + 2;
   }
@@ -126,9 +125,9 @@ function doGet(e) {
       };
       return jsonResponse_(handleRequest_(body));
     }
-    return jsonResponse_({ ok: true, service: "nel-sheets-api" });
+    return jsonResponse_({ ok: true, service: "hlg-sheets-api" });
   } catch (err) {
-    return jsonResponse_({ ok: false, error: String(err) }, 400);
+    return jsonResponse_({ ok: false, error: String(err) });
   }
 }
 
@@ -137,6 +136,6 @@ function doPost(e) {
     const body = JSON.parse(e.postData.contents);
     return jsonResponse_(handleRequest_(body));
   } catch (err) {
-    return jsonResponse_({ ok: false, error: String(err) }, 400);
+    return jsonResponse_({ ok: false, error: String(err) });
   }
 }
