@@ -12,6 +12,7 @@ import { shutdownGlobalChatSync } from "../lib/chatSync";
 import { useMessagingStore } from "./useMessagingStore";
 import { syncEmailVerifiedToSheets } from "../lib/appSheetPersistence";
 import { isAdminAccount } from "../lib/accountRoles";
+import { enforceLoginIpSecurity } from "../lib/loginIpSecurity";
 import { resolveAvatarUrl } from "../lib/avatarUrl";
 import { isValidSignupAge } from "../lib/signupValidation";
 
@@ -132,6 +133,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         /* ignore */
       }
       const loggedInUser = toAppUser(user, { ...extras, emailVerified: true });
+      const ipCheck = await enforceLoginIpSecurity({
+        userId: loggedInUser.id,
+        email: loggedInUser.email,
+        displayName: loggedInUser.displayName,
+        isAdmin: loggedInUser.isAdmin,
+      });
+      if (!ipCheck.allowed) {
+        set({ isLoading: false, error: ipCheck.message });
+        return;
+      }
       setAuthToken(jwt);
       localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
       const proContact = readViewerProContact();
@@ -144,6 +155,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         proContact.websiteUrl,
         proContact.socialUrl,
         proContact.phone,
+        ipCheck.currentIp || undefined,
       );
       set({
         user: loggedInUser,
@@ -202,6 +214,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isPro: normalizedLogin === "rim",
           emailVerified: user.emailVerified !== false,
         });
+        const ipCheck = await enforceLoginIpSecurity({
+          userId: loggedInUser.id,
+          email: loggedInUser.email,
+          displayName: loggedInUser.displayName,
+          isAdmin: loggedInUser.isAdmin,
+        });
+        if (!ipCheck.allowed) {
+          set({ isLoading: false, error: ipCheck.message });
+          return;
+        }
         setAuthToken(token);
         localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
         if (loggedInUser.isAdmin) {
@@ -218,6 +240,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             proContact.websiteUrl,
             proContact.socialUrl,
             proContact.phone,
+            ipCheck.currentIp || undefined,
           );
         }
         set({ user: loggedInUser, isLoading: false });
@@ -245,6 +268,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800"
             : resolveAvatarUrl(),
       };
+
+      const ipCheck = await enforceLoginIpSecurity({
+        userId: loggedInUser.id,
+        email: loggedInUser.email,
+        displayName: loggedInUser.displayName,
+        isAdmin: loggedInUser.isAdmin,
+      });
+      if (!ipCheck.allowed) {
+        set({ isLoading: false, error: ipCheck.message });
+        return;
+      }
 
       localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
       if (loggedInUser.isAdmin) {
@@ -341,7 +375,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         avatarUrl: resolveAvatarUrl(),
       };
 
+      const ipCheck = await enforceLoginIpSecurity({
+        userId: newUser.id,
+        email: newUser.email,
+        displayName: newUser.displayName,
+        isAdmin: false,
+      });
+      if (!ipCheck.allowed) {
+        delete localUsers[email];
+        set({ isLoading: false, error: ipCheck.message });
+        return;
+      }
+
       localStorage.setItem(LS_USER, JSON.stringify(newUser));
+      syncEmailVerifiedToSheets(
+        newUser.id,
+        newUser.email,
+        newUser.displayName,
+        resolveAvatarUrl(newUser.avatarUrl),
+        !!newUser.isPro,
+        undefined,
+        undefined,
+        undefined,
+        ipCheck.currentIp || undefined,
+      );
       set({ user: newUser, isLoading: false });
     } catch (err) {
       set({

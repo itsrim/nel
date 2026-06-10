@@ -133,6 +133,7 @@ export const translations = {
     noPastActivity: "Aucune activité passée.",
 
     // Reports
+    suspiciousLogin: "Connexion suspecte",
     profile: "Profil",
     chat: "Messages",
     navChat: "Chat",
@@ -750,6 +751,7 @@ export const translations = {
     noPastActivity: "No past activity.",
 
     // Reports
+    suspiciousLogin: "Suspicious login",
     profile: "Profile",
     chat: "Messages",
     navChat: "Chat",

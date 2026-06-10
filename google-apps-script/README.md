@@ -33,7 +33,7 @@ userId,id,pseudo,age,imageUrl,aspectRatio,deleted
 
 ### `viewer_settings` (profil connecté — avatar, email vérifié, préférences)
 ```
-userId,id,email,emailVerified,avatarUrl,displayName,isPro,isPremium,premiumExpiresAt,proExpiresAt,premiumPaymentValidated,premiumMonths,premiumLastPaymentAt,premiumLastTransactionId,proPaymentValidated,proMonths,proLastPaymentAt,proLastTransactionId,city,websiteUrl,socialUrl,phone,proAddress,proLat,proLng,karma,badgesJson,friendRequestSentJson,friendRequestRejectedJson,friendRequestDailySentDateKey,profileBadgeSuggestionsJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,deleted
+userId,id,email,emailVerified,avatarUrl,displayName,isPro,isPremium,premiumExpiresAt,proExpiresAt,premiumPaymentValidated,premiumMonths,premiumLastPaymentAt,premiumLastTransactionId,proPaymentValidated,proMonths,proLastPaymentAt,proLastTransactionId,city,websiteUrl,socialUrl,phone,proAddress,proLat,proLng,karma,badgesJson,friendRequestSentJson,friendRequestRejectedJson,friendRequestDailySentDateKey,profileBadgeSuggestionsJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,signupIp,lastLoginIp,deleted
 ```
 
 ### `profile_visits`

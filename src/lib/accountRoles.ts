@@ -2,14 +2,17 @@ import type { User } from "../store/useAuthStore";
 
 /** Comptes staff / démo avec accès au mode admin. */
 const ADMIN_EMAILS = new Set(["admin@yo.com", "admin@rim.com", "rim"]);
-const ADMIN_USER_IDS = new Set(["user_admin_001"]);
+export const ADMIN_USER_ID = "user_admin_001";
+const ADMIN_USER_IDS = new Set([ADMIN_USER_ID]);
 
 export function isDemoAccount(user: User | null | undefined): boolean {
   const email = user?.email?.trim().toLowerCase();
   return email === "admin@rim.com";
 }
 
-export function isAdminAccount(user: User | null | undefined): boolean {
+export function isAdminAccount(
+  user: Pick<User, "id" | "email"> & { isAdmin?: boolean } | null | undefined,
+): boolean {
   if (!user) return false;
   if (user.isAdmin === true) return true;
   const id = user.id?.trim();

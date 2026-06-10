@@ -82,7 +82,7 @@ export interface AppNotification {
 export interface AdminReportEntry {
   id: string;
   createdAt: number;
-  kind: "profile" | "event";
+  kind: "profile" | "event" | "suspicious_login";
   /** `profilId` ou id de sortie. */
   subjectId: string;
   subjectLabel: string;

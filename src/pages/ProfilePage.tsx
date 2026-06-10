@@ -1186,26 +1186,34 @@ export function ProfilePage() {
                   dateStyle: "short",
                   timeStyle: "short",
                 });
+                const isSuspiciousLogin = r.kind === "suspicious_login";
+                const kindLabel =
+                  r.kind === "profile"
+                    ? t("profile")
+                    : r.kind === "event"
+                      ? t("event")
+                      : t("suspiciousLogin");
                 return (
                   <div key={r.id} className="admin-report-card">
                     <button
                       type="button"
                       className="admin-report-main"
                       onMouseDown={(ev) => ev.preventDefault()}
-                      onClick={() =>
-                        r.kind === "profile"
-                          ? openDetail("profile", r.subjectId)
-                          : openDetail("event", r.subjectId)
-                      }
+                      onClick={() => {
+                        if (isSuspiciousLogin) return;
+                        if (r.kind === "profile") {
+                          openDetail("profile", r.subjectId);
+                        } else {
+                          openDetail("event", r.subjectId);
+                        }
+                      }}
                     >
                       <div className="admin-report-icon" aria-hidden>
                         <AlertTriangle size={22} color="#FFCC00" />
                       </div>
                       <div className="admin-report-texts">
                         <div className="admin-report-title-row">
-                          <span className="admin-report-kind">
-                            {r.kind === "profile" ? t("profile") : t("event")}
-                          </span>
+                          <span className="admin-report-kind">{kindLabel}</span>
                         </div>
                         <div className="admin-report-subject">
                           {r.subjectLabel}
@@ -1222,13 +1230,15 @@ export function ProfilePage() {
                       >
                         {t("dismiss")}
                       </button>
-                      <button
-                        type="button"
-                        className="admin-report-btn admin-report-btn--primary"
-                        onClick={() => moderationHideAndNotifyFromReport(r.id)}
-                      >
-                        {t("hideAndNotify")}
-                      </button>
+                      {!isSuspiciousLogin ? (
+                        <button
+                          type="button"
+                          className="admin-report-btn admin-report-btn--primary"
+                          onClick={() => moderationHideAndNotifyFromReport(r.id)}
+                        >
+                          {t("hideAndNotify")}
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 );

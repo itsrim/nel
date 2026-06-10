@@ -43,6 +43,7 @@ import {
   writeAdminAppInfo,
   type AdminAppInfo,
 } from "./adminAppInfo";
+import { ADMIN_USER_ID } from "./accountRoles";
 
 const LS_CACHE_PREFIX = "nel_sheet_cache_";
 const GLOBAL_CACHE_USER = "__global__";
@@ -476,6 +477,8 @@ export interface ViewerSettingsRow {
   moderationHiddenProfilIdsJson: string;
   badgesJson?: string;
   profileBadgeSuggestionsJson?: string;
+  signupIp?: string;
+  lastLoginIp?: string;
 }
 
 function subscriptionPaymentFromRow(
@@ -543,6 +546,8 @@ export function viewerSettingsToRow(
     moderationHiddenProfilIds: string[];
     viewerProfileBadges?: string[];
     profileBadgeSuggestions?: string[];
+    signupIp?: string;
+    lastLoginIp?: string;
   },
 ): Record<string, string> {
   return {
@@ -575,6 +580,8 @@ export function viewerSettingsToRow(
     moderationHiddenProfilIdsJson: jsonToSheet(data.moderationHiddenProfilIds),
     badgesJson: jsonToSheet(data.viewerProfileBadges ?? []),
     profileBadgeSuggestionsJson: jsonToSheet(data.profileBadgeSuggestions ?? []),
+    ...(data.signupIp != null ? { signupIp: str(data.signupIp) } : {}),
+    ...(data.lastLoginIp != null ? { lastLoginIp: str(data.lastLoginIp) } : {}),
     deleted: "false",
   };
 }
@@ -747,8 +754,17 @@ export interface LoadedAppSheetState {
     moderationHiddenProfilIds: string[];
     viewerProfileBadges?: string[];
     profileBadgeSuggestions?: string[];
+    signupIp?: string;
+    lastLoginIp?: string;
   };
   hasRemoteData: boolean;
+}
+
+export async function loadViewerSettingsRow(
+  userId: string,
+): Promise<Record<string, string> | undefined> {
+  const rows = await readTable("viewer_settings", userId);
+  return rows[0];
 }
 
 function mergeById<T extends { id: string }>(base: T[], remote: T[]): T[] {
@@ -914,6 +930,8 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
             viewerRow.profileBadgeSuggestionsJson,
             [],
           ),
+          signupIp: str(viewerRow.signupIp) || undefined,
+          lastLoginIp: str(viewerRow.lastLoginIp) || undefined,
         }
       : undefined,
     hasRemoteData,
@@ -1157,6 +1175,24 @@ export function syncReportToSheets(r: AdminReportEntry): void {
   syncLater(() => upsertSheetRow("admin_reports", r.id, reportToRow(r, userId)));
 }
 
+/** Alerte sécurité → file admin (sans session utilisateur active). */
+export async function syncAdminSecurityAlertToSheets(r: AdminReportEntry): Promise<void> {
+  await upsertSheetRow("admin_reports", r.id, reportToRow(r, ADMIN_USER_ID));
+}
+
+/** Enregistre l’IP de création / dernière connexion (PUT partiel). */
+export async function syncViewerLoginIpToSheets(
+  userId: string,
+  ips: { signupIp: string; lastLoginIp: string },
+): Promise<void> {
+  await upsertSheetRow("viewer_settings", userId, {
+    userId,
+    id: userId,
+    signupIp: ips.signupIp,
+    lastLoginIp: ips.lastLoginIp,
+  });
+}
+
 export function syncReportDeleteToSheets(reportId: string): void {
   const userId = currentUserId();
   if (!userId) return;
@@ -1231,6 +1267,7 @@ export function syncEmailVerifiedToSheets(
   websiteUrl?: string,
   socialUrl?: string,
   phone?: string,
+  signupIp?: string,
 ): void {
   syncLater(() =>
     upsertSheetRow(
@@ -1245,6 +1282,8 @@ export function syncEmailVerifiedToSheets(
         websiteUrl,
         socialUrl,
         phone,
+        signupIp,
+        lastLoginIp: signupIp,
         friendRequestSentProfilIds: [],
         friendRequestRejectedProfilIds: [],
         favoriteConversationIds: [],
