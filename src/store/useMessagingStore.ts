@@ -1,11 +1,5 @@
 import { create } from "zustand";
 import {
-  MOCK_EVENTS,
-  MOCK_CONVERSATIONS,
-  MOCK_VISITS,
-  MOCK_SUGGESTIONS,
-  MOCK_FRIENDS,
-  MOCK_MESSAGES,
   type Event,
   type Conversation,
   type ProfileVisit,
@@ -1152,14 +1146,13 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     persistEventKarmaUpdate(eventId, applyOrganizerKarmaOutcome(event));
   },
 
-  events: MOCK_EVENTS,
+  events: [],
   conversations: [],
-  profileVisits: MOCK_VISITS,
-  suggestions: MOCK_SUGGESTIONS,
-  friends: MOCK_FRIENDS,
+  profileVisits: [],
+  suggestions: [],
+  friends: [],
   friendRequestSentProfilIds: [],
-  /** Quelques refus simulés pour l’aperçu (cœur brisé dans Suggestions). */
-  friendRequestRejectedProfilIds: ["u050", "u051", "u052"],
+  friendRequestRejectedProfilIds: [],
   friendRequestDailySentDateKey: null,
   sendFriendRequest: (profilId) => {
     const id = profilId.trim();
@@ -1327,10 +1320,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       );
     }
   },
-  favoriteConversationIds: MOCK_CONVERSATIONS.filter((c) => c.isFavorite).map(
-    (c) => c.id,
-  ),
-  messagesByConversation: MOCK_MESSAGES,
+  favoriteConversationIds: [],
+  messagesByConversation: {},
 
   toast: null,
   showToast: (message) => {
@@ -1758,15 +1749,22 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         (c) => c.id === event.conversationId,
       );
       if (!convExists) {
-        const originalConv = MOCK_CONVERSATIONS.find(
-          (c) => c.id === event.conversationId,
-        );
-        if (originalConv) {
-          set((state) => ({
-            conversations: [originalConv, ...state.conversations],
-          }));
-          syncConversationToSheets(originalConv);
-        }
+        const newConv: Conversation = {
+          id: event.conversationId,
+          title: event.title,
+          type: "group",
+          lastMessagePreview: "",
+          avatarGradient: ["#4a5568", "#2d3748"] as const,
+          unreadCount: 0,
+          updatedAt: Date.now(),
+          isFavorite: false,
+          members: [],
+          memberCount: event.participantCount,
+        };
+        set((state) => ({
+          conversations: [newConv, ...state.conversations],
+        }));
+        syncConversationToSheets(newConv);
       }
     }
 
@@ -1932,23 +1930,26 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
   },
 
   loadDemoData: () => {
-    set({
-      events: MOCK_EVENTS,
-      conversations: MOCK_CONVERSATIONS,
-      messagesByConversation: MOCK_MESSAGES,
-      friends: MOCK_FRIENDS,
-      suggestions: MOCK_SUGGESTIONS,
-      friendRequestRejectedProfilIds: ["u050", "u051", "u052"],
+    if (!import.meta.env.DEV) return;
+    void import("../data/mockData").then((m) => {
+      set({
+        events: m.MOCK_EVENTS,
+        conversations: m.MOCK_CONVERSATIONS,
+        messagesByConversation: m.MOCK_MESSAGES,
+        friends: m.MOCK_FRIENDS,
+        suggestions: m.MOCK_SUGGESTIONS,
+        friendRequestRejectedProfilIds: ["u050", "u051", "u052"],
+      });
     });
   },
 
   resetData: () => {
-    // For new users: empty friends, but keep all suggestions (no mutual friends)
     set({
+      events: [],
       conversations: [],
       messagesByConversation: {},
       friends: [],
-      suggestions: MOCK_SUGGESTIONS,
+      suggestions: [],
       favoriteConversationIds: [],
       friendRequestSentProfilIds: [],
       friendRequestRejectedProfilIds: [],

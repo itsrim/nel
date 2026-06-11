@@ -17,7 +17,6 @@ import type { MockProfessional } from "../data/mockProfessionals";
 import type { SubscriptionPaymentRecord } from "./subscriptionPersistence";
 import { resolveAvatarUrl } from "./avatarUrl";
 import { buildEventPublicUrl, resolveEventPublicUrl } from "./eventPublicUrl";
-import { MOCK_PROFESSIONALS } from "../data/mockProfessionals";
 import { proCoordinates } from "./proCoordinates";
 import {
   isGoogleSheetsReadConfigured,
@@ -377,28 +376,26 @@ function professionalToRow(p: MockProfessional): Record<string, string> {
 
 function rowToProfessional(row: Record<string, string>): MockProfessional {
   const id = str(row.id);
-  const fallback = MOCK_PROFESSIONALS.find((p) => p.id === id);
-  const mapX = numFromSheet(row.mapX, fallback?.mapX ?? 50);
-  const mapY = numFromSheet(row.mapY, fallback?.mapY ?? 50);
-  const city = str(row.city) || fallback?.city || "";
+  const mapX = numFromSheet(row.mapX, 50);
+  const mapY = numFromSheet(row.mapY, 50);
   const partial = {
     id,
-    firstName: str(row.firstName) || fallback?.firstName || "",
-    lastName: str(row.lastName) || fallback?.lastName || "",
-    category: (str(row.category) || fallback?.category || "therapeute") as MockProfessional["category"],
-    categoryLabel: str(row.categoryLabel) || fallback?.categoryLabel || "",
-    city,
-    address: str(row.address) || fallback?.address,
-    description: str(row.description) || fallback?.description || "",
-    imageUrl: str(row.imageUrl) || fallback?.imageUrl || "",
+    firstName: str(row.firstName),
+    lastName: str(row.lastName),
+    category: (str(row.category) || "therapeute") as MockProfessional["category"],
+    categoryLabel: str(row.categoryLabel),
+    city: str(row.city),
+    address: str(row.address) || undefined,
+    description: str(row.description),
+    imageUrl: str(row.imageUrl),
     mapX,
     mapY,
-    lat: str(row.lat) ? numFromSheet(row.lat) : fallback?.lat,
-    lng: str(row.lng) ? numFromSheet(row.lng) : fallback?.lng,
-    verified: row.verified != null ? boolFromSheet(row.verified) : fallback?.verified,
-    websiteUrl: str(row.websiteUrl) || fallback?.websiteUrl,
-    socialUrl: str(row.socialUrl) || fallback?.socialUrl,
-    phone: str(row.phone) || fallback?.phone,
+    lat: str(row.lat) ? numFromSheet(row.lat) : undefined,
+    lng: str(row.lng) ? numFromSheet(row.lng) : undefined,
+    verified: row.verified != null ? boolFromSheet(row.verified) : undefined,
+    websiteUrl: str(row.websiteUrl) || undefined,
+    socialUrl: str(row.socialUrl) || undefined,
+    phone: str(row.phone) || undefined,
   };
   const coords = proCoordinates(partial);
   return { ...partial, lat: coords.lat, lng: coords.lng };
@@ -876,10 +873,7 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
   const appConfigRow = appConfigRows.find((r) => r.id === APP_CONFIG_GLOBAL_ID);
   const adminAppInfo = appConfigRow ? rowToAdminAppInfo(appConfigRow) : undefined;
 
-  const professionals =
-    professionalRows.length > 0
-      ? professionalRows.map(rowToProfessional)
-      : MOCK_PROFESSIONALS;
+  const professionals = professionalRows.map(rowToProfessional);
 
   return {
     events: eventRows.map(rowToEvent),

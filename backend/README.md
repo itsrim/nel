@@ -323,9 +323,35 @@ Même auth. Corps optionhlg : `{ "endpoint": "…" }`
 
 ---
 
-## Déploiement
+## Déploiement sur Render (recommandé)
 
-Hébergeurs adaptés : **Render**, **Fly.io**, **Railway**, VPS, etc. (process Node longue durée — pas Vercel serverless).
+Voir **`backend/render.yaml`** et les étapes détaillées ci-dessous.
+
+### Créer le Web Service
+
+1. [render.com](https://render.com) → **New** → **Web Service** → repo Git
+2. **Root Directory** : `backend`
+3. **Build** : `npm install && npm run build`
+4. **Start** : `npm start`
+5. **Health Check** : `/api/health`
+
+### Variables Render (Environment)
+
+`JWT_SECRET`, `APP_PUBLIC_URL=https://happyletsgo.fr`, `ALLOWED_ORIGINS`, `RESEND_API_KEY`, `EMAIL_FROM`
+
+### Frontend
+
+```env
+VITE_CHAT_API_URL=https://hlg-api.onrender.com
+```
+
+`yarn build` → upload `dist/` sur OVH (pas de proxy API dans `.htaccess`).
+
+---
+
+## Déploiement (autres hébergeurs)
+
+Hébergeurs adaptés : **Fly.io**, **Railway**, VPS, etc.
 
 | Étape | Commande / config |
 |-------|-------------------|
@@ -333,22 +359,6 @@ Hébergeurs adaptés : **Render**, **Fly.io**, **Railway**, VPS, etc. (process N
 | Start | `npm start` |
 | Port | Variable `PORT` fournie par l’hébergeur |
 | Secrets | `JWT_SECRET`, `VAPID_*`, `ALLOWED_ORIGINS` |
-
-Exemple Render :
-
-- **Root directory** : `backend`
-- **Build** : `npm install && npm run build`
-- **Start** : `npm start`
-
-Frontend en production :
-
-```env
-VITE_CHAT_API_URL=https://ton-api.onrender.com
-VITE_VAPID_PUBLIC_KEY=<clé publique>
-```
-
-Puis rebuild et deploy du frontend (`yarn build && yarn deploy`).
-
 ---
 
 ## Configuration frontend

@@ -92,19 +92,19 @@ const localUsers: Record<
     displayName: "Utilisateur Demo",
     id: "user_demo_001",
     age: "28",
-    bio: "Bienvenue sur Nel!",
+    bio: "Bienvenue sur hlg!",
     isPro: false,
   },
   "rim": {
     email: "rim",
     password: "1234",
     displayName: "Admin",
-    id: "user_admin_001",
+    id: "user_admin_000",
     age: "",
     bio: "",
     isPro: true,
   },
-};
+}
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,

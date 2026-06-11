@@ -3,11 +3,12 @@
   "private": true,
   "version": "2.1.0",
   "type": "module",
-  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "postinstall": "npm run build",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "vapid": "node --import tsx scripts/generate-vapid.ts"

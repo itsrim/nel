@@ -1,8 +1,5 @@
 import { create } from "zustand";
-import {
-  MOCK_PROFESSIONALS,
-  type MockProfessional,
-} from "../data/mockProfessionals";
+import type { MockProfessional } from "../data/mockProfessionals";
 import { buildViewerProfessional, VIEWER_PRO_ID } from "../lib/proLocation";
 import { useMessagingStore } from "./useMessagingStore";
 
@@ -13,7 +10,7 @@ interface ProsState {
 }
 
 export const useProsStore = create<ProsState>((set, get) => ({
-  professionals: [...MOCK_PROFESSIONALS],
+  professionals: [],
 
   hydrateProfessionals: (remote) => {
     if (remote.length === 0) return;

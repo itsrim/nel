@@ -64,7 +64,7 @@ function App() {
   const conversations = useMessagingStore((s) => s.conversations);
   const { setViewerProfileDisplayName, setViewerProfileAvatarUrl, setViewerProfileIsPro } =
     useMessagingStore();
-  const { loadDemoData, resetData } = useMessagingStore();
+  const { resetData } = useMessagingStore();
   const { user, loadUser } = useAuthStore();
   const mainRef = useRef<HTMLElement>(null);
   const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
@@ -92,29 +92,18 @@ function App() {
     if (user) {
       setViewerProfileDisplayName(user.displayName);
       setViewerProfileIsPro(!!user.isPro);
-      // Check if it's demo user (Unsplash URL) or new user (default avatar)
-      const isDemoUser = user.avatarUrl?.includes("unsplash.com");
-
-      if (isDemoUser) {
-        // Demo account: load demo data
-        setViewerProfileAvatarUrl(user.avatarUrl || "");
-        loadDemoData();
-      } else {
-        // New account: use default avatar and reset data
-        setViewerProfileAvatarUrl(resolveAvatarUrl(user.avatarUrl));
-        resetData();
-      }
+      setViewerProfileAvatarUrl(resolveAvatarUrl(user.avatarUrl));
+      resetData();
     }
   }, [
     user,
     setViewerProfileDisplayName,
     setViewerProfileAvatarUrl,
     setViewerProfileIsPro,
-    loadDemoData,
     resetData,
   ]);
 
-  // Données applicatives depuis Google Sheets (fusion avec mock / état local)
+  // Données applicatives depuis Google Sheets
   useEffect(() => {
     if (!user?.id || !isGoogleSheetsReadConfigured()) return;
     void loadAppStateFromSheets(user.id).then((loaded) => {
