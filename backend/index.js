@@ -11,7 +11,7 @@ const serverPath = join(dirname(fileURLToPath(import.meta.url)), "dist", "server
 
 if (!existsSync(serverPath)) {
   console.error(
-    "[nel-api] dist/server.js introuvable. Exécutez « npm run build » puis redémarrez.",
+    "[hlg-api] dist/server.js introuvable. Exécutez « npm run build » puis redémarrez.",
   );
   process.exit(1);
 }

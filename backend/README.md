@@ -55,7 +55,7 @@ Réponse attendue :
 ```json
 {
   "ok": true,
-  "service": "nel-chat-api",
+  "service": "hlg-chat-api",
   "storage": "memory",
   "realtime": "socket.io",
   "push": false,
@@ -99,11 +99,11 @@ Créer un fichier `.env` à la racine de `backend/` (non versionné) ou les déf
 | Variable | Défaut | Description |
 |----------|--------|-------------|
 | `PORT` | `3000` | Port d’écoute |
-| `JWT_SECRET` | `nel-dev-secret-…` | **À changer en production** |
+| `JWT_SECRET` | `hlg-dev-secret-…` | **À changer en production** |
 | `ALLOWED_ORIGINS` | — | Origines CORS supplémentaires, séparées par des virgules |
 | `VAPID_PUBLIC_KEY` | — | Web Push (public) |
 | `VAPID_PRIVATE_KEY` | — | Web Push (privé) |
-| `VAPID_SUBJECT` | `mailto:hello@nel.app` | Contact VAPID |
+| `VAPID_SUBJECT` | `mailto:hello@hlg.app` | Contact VAPID |
 | `RESEND_API_KEY` | — | Clé API [Resend](https://resend.com) pour emails de vérification |
 | `EMAIL_FROM` | `Nel <onboarding@resend.dev>` | Expéditeur (domaine vérifié en prod) |
 | `APP_PUBLIC_URL` | `https://happyletsgo.fr` (prod) / `http://localhost:5173` (dev) | URL frontend pour le lien « Vérifier mon email » |
@@ -131,7 +131,7 @@ Recopier `VITE_VAPID_PUBLIC_KEY` côté frontend (fichier `.env` à la racine du
 
 | Email | Mot de passe | ID |
 |-------|--------------|-----|
-| `demo@nel.com` | `password` | `user_demo_001` |
+| `demo@hlg.com` | `password` | `user_demo_001` |
 | `rim` | `1234` | `user_admin_001` |
 
 ### REST
@@ -139,14 +139,14 @@ Recopier `VITE_VAPID_PUBLIC_KEY` côté frontend (fichier `.env` à la racine du
 #### `POST /api/auth/login`
 
 ```json
-{ "email": "demo@nel.com", "password": "password" }
+{ "email": "demo@hlg.com", "password": "password" }
 ```
 
 Réponse `200` :
 
 ```json
 {
-  "user": { "id": "user_demo_001", "email": "demo@nel.com", "displayName": "Utilisateur Demo" },
+  "user": { "id": "user_demo_001", "email": "demo@hlg.com", "displayName": "Utilisateur Demo" },
   "token": "<JWT>"
 }
 ```
@@ -257,7 +257,7 @@ Corps :
 ```json
 {
   "text": "Mon message",
-  "id": "optionnel",
+  "id": "optionhlg",
   "sentAt": 1710000000000
 }
 ```
@@ -311,7 +311,7 @@ Corps (format standard Push API) :
 
 ### `DELETE /api/push/unsubscribe`
 
-Même auth. Corps optionnel : `{ "endpoint": "…" }`
+Même auth. Corps optionhlg : `{ "endpoint": "…" }`
 
 À chaque nouveau message, le serveur notifie les **membres** de la conversation (sauf l’auteur) ayant une subscription enregistrée.
 

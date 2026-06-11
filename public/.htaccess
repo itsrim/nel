@@ -1,0 +1,27 @@
+# happyletsgo.fr — proxy API HidenCloud + fallback SPA React
+#
+# Le front est en HTTPS ; l'API HidenCloud est en HTTP → le navigateur bloque (mixed content).
+# Les requêtes /api/* et /socket.io/* sont relayées côté serveur OVH.
+#
+# Si le proxy renvoie 500/503 : ton offre OVH n'autorise peut-être pas mod_proxy.
+# Contacte OVH ou utilise un sous-domaine api. avec certificat SSL.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Socket.IO (WebSocket + polling)
+  RewriteCond %{HTTP:Upgrade} =websocket [NC]
+  RewriteRule ^socket.io/(.*)$ http://veda.hidencloud.com:24578/socket.io/$1 [P,L]
+  RewriteCond %{HTTP:Upgrade} !=websocket [NC]
+  RewriteRule ^socket.io/(.*)$ http://veda.hidencloud.com:24578/socket.io/$1 [P,L]
+
+  # REST API (auth, chat, push…)
+  RewriteRule ^api/(.*)$ http://veda.hidencloud.com:24578/api/$1 [P,L]
+
+  # SPA — routes React
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>

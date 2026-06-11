@@ -14,7 +14,8 @@ export function AppForceReloadModal() {
     (s) => s.adminAppInfo.forceReloadRevision,
   );
   const ackRevision = readForceReloadAckRevision();
-  const needsReload = forceReloadRevision > ackRevision;
+  const needsReload =
+    forceReloadRevision > 0 && forceReloadRevision > ackRevision;
 
   if (!needsReload) return null;
 

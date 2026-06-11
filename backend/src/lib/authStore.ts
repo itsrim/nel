@@ -3,7 +3,7 @@ import { SignJWT, jwtVerify } from "jose";
 import type { AuthUser } from "./types.js";
 
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? "nel-dev-secret-change-in-production",
+  process.env.JWT_SECRET ?? "hlg-dev-secret-change-in-production",
 );
 
 const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -56,7 +56,7 @@ function seedDemoUser(user: StoredUser): void {
 
 seedDemoUser({
   id: "user_demo_001",
-  email: "demo@nel.com",
+  email: "demo@hlg.com",
   displayName: "Utilisateur Demo",
   password: "password",
   emailVerified: true,

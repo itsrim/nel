@@ -20,7 +20,7 @@ await app.register(cors, {
 
 app.get("/api/health", async () => ({
   ok: true,
-  service: "nel-chat-api",
+  service: "hlg-chat-api",
   storage: storageMode(),
   realtime: "socket.io",
   push: isPushConfigured(),
