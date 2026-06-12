@@ -440,7 +440,7 @@ export function LoginPage() {
           {view === "signup" ? (
             <div className="login-field">
               <label htmlFor="captcha" className="login-label">
-                {t("loginCaptchaLabel")} — {captcha.question}
+                {t("loginCaptchaLabel")} : {captcha.question}
               </label>
               <input
                 id="captcha"
