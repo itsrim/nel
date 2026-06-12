@@ -4,7 +4,7 @@ Chaque **onglet** du classeur = une **table**. Les **POST** ajoutent une ligne ;
 
 ## 1. Créer le Google Sheet
 
-Créer un classeur avec **11 onglets** et la **ligne 1 = en-têtes** (copier-coller une ligne par onglet).
+Créer un classeur avec **12 onglets** et la **ligne 1 = en-têtes** (copier-coller une ligne par onglet).
 
 ### `messages`
 ```
@@ -31,10 +31,12 @@ userId,id,profilId,name,age,city,imageUrl,eventsInCommon,mainChatConversationId,
 userId,id,pseudo,age,imageUrl,aspectRatio,deleted
 ```
 
-### `viewer_settings` (profil connecté — avatar, email vérifié, préférences)
+### `viewer_settings` (profil connecté + **auth backend**)
 ```
-userId,id,email,emailVerified,avatarUrl,displayName,isPro,isPremium,premiumExpiresAt,proExpiresAt,premiumPaymentValidated,premiumMonths,premiumLastPaymentAt,premiumLastTransactionId,proPaymentValidated,proMonths,proLastPaymentAt,proLastTransactionId,city,websiteUrl,socialUrl,phone,proAddress,proLat,proLng,karma,badgesJson,friendRequestSentJson,friendRequestRejectedJson,friendRequestDailySentDateKey,profileBadgeSuggestionsJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,signupIp,lastLoginIp,deleted
+userId,id,email,emailVerified,passwordHash,verificationToken,verificationExpiresAt,passwordResetToken,passwordResetExpiresAt,avatarUrl,displayName,isPro,isPremium,premiumExpiresAt,proExpiresAt,premiumPaymentValidated,premiumMonths,premiumLastPaymentAt,premiumLastTransactionId,proPaymentValidated,proMonths,proLastPaymentAt,proLastTransactionId,city,websiteUrl,socialUrl,phone,proAddress,proLat,proLng,karma,badgesJson,friendRequestSentJson,friendRequestRejectedJson,friendRequestDailySentDateKey,profileBadgeSuggestionsJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,signupIp,lastLoginIp,deleted
 ```
+
+> **Backend Render** : comptes, mots de passe (hash), tokens de vérif/reset. Ne pas éditer `passwordHash` à la main.
 
 ### `profile_visits`
 ```
@@ -54,6 +56,11 @@ userId,id,createdAt,kind,subjectId,subjectLabel,explanation,read,deleted
 ### `professionals` (annuaire global — sans `userId`)
 ```
 id,firstName,lastName,category,categoryLabel,city,address,description,imageUrl,mapX,mapY,lat,lng,verified,websiteUrl,socialUrl,phone,deleted
+```
+
+### `push_subscriptions` (Web Push — global)
+```
+userId,id,endpoint,p256dh,auth,expirationTime,deleted
 ```
 
 ### `app_config` (config globale admin — une ligne `id=global`)

@@ -22,7 +22,7 @@ Ne pas éditer `public/csv/` à la main — modifier les `.csv` ici.
    - **Fichier → Importer** → onglet **Charger** → choisir le `.csv` correspondant.
    - Type de séparateur : **virgule**.
    - Cocher **Remplacer la feuille actuelle** (ou coller la ligne 1 manuellement).
-3. Supprimer les onglets par défaut inutilisés (`Feuille 1`, etc.) une fois les 11 onglets créés.
+3. Supprimer les onglets par défaut inutilisés (`Feuille 1`, etc.) une fois les 12 onglets créés.
 
 ## Correspondance onglet ↔ fichier
 
@@ -39,9 +39,10 @@ Ne pas éditer `public/csv/` à la main — modifier les `.csv` ici.
 | `admin_reports` | `admin_reports.csv` |
 | `professionals` | `professionals.csv` |
 | `app_config` | `app_config.csv` |
+| `push_subscriptions` | `push_subscriptions.csv` |
 
-> `professionals` et `app_config` sont **globaux** (pas de colonne `userId`).  
-> `app_config` : une seule ligne `id=global` (splash, modale d'info admin, `skipEmailVerification`).
+> `professionals`, `app_config` et `push_subscriptions` sont **globaux** (pas de colonne `userId` sur app_config).  
+> `viewer_settings` : auth backend (`passwordHash`, tokens) + profil utilisateur.
 
 ## Ensuite
 
