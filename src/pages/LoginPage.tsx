@@ -177,9 +177,11 @@ export function LoginPage() {
           {(verificationMessage || error) ? (
             <div
               className={
-                verificationMessage?.includes("n'a pas pu") ||
-                verificationMessage?.includes("Mailjet") ||
-                error
+                error ||
+                (verificationMessage &&
+                  !verificationMessage.startsWith("Compte créé") &&
+                  !verificationMessage.includes("a été envoyé") &&
+                  !/renvoyé/i.test(verificationMessage))
                   ? "login-error"
                   : "login-success"
               }

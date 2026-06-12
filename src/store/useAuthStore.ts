@@ -1,25 +1,40 @@
 import { create } from "zustand";
 import { isChatApiConfigured } from "../lib/chatConfig";
 import {
-  loginWithApi,
+  isGoogleSheetsReadConfigured,
+  isGoogleSheetsWriteConfigured,
+} from "../lib/googleSheetsDb";
+import {
+  fetchSessionToken,
   setAuthToken,
   signupWithApi,
-  toAppUser,
-  verifyEmailWithApi,
   resendVerificationWithApi,
   forgotPasswordWithApi,
-  resetPasswordWithApi,
 } from "../lib/authApi";
+import {
+  findViewerRowByEmail,
+  findViewerRowByPasswordResetToken,
+  loginFromViewerSettings,
+  verifyEmailFromViewerSettings,
+  validatePasswordResetToken,
+  shouldSkipEmailVerificationFromSheets,
+} from "../lib/sheetAuth";
 import { shutdownGlobalChatSync } from "../lib/chatSync";
 import { useMessagingStore } from "./useMessagingStore";
 import {
   syncEmailVerifiedToSheets,
-  syncPendingSignupToSheets,
+  syncPasswordHashToSheets,
+  syncPasswordResetTokenToSheets,
+  persistPendingSignupToSheets,
+  persistVerificationTokenToSheets,
 } from "../lib/appSheetPersistence";
+import { hashPasswordForSheet } from "../lib/passwordHash";
+import { toAppUser } from "../lib/authApi";
 import { fetchClientIp } from "../lib/clientIp";
 import { isAdminAccount } from "../lib/accountRoles";
 import { enforceLoginIpSecurity } from "../lib/loginIpSecurity";
 import { resolveAvatarUrl } from "../lib/avatarUrl";
+import { buildLocalSignupAuth, generateVerificationToken } from "../lib/signupAuth";
 import { isValidSignupAge } from "../lib/signupValidation";
 
 const LS_VIEWER_PRO_WEBSITE = "nel_viewer_pro_website_url";
@@ -60,6 +75,7 @@ interface AuthState {
   error: string | null;
   /** Inscription backend : en attente de clic sur le lien email. */
   pendingVerificationEmail: string | null;
+  pendingVerificationUserId: string | null;
   verificationMessage: string | null;
   passwordResetMessage: string | null;
   login: (email: string, password: string) => Promise<void>;
@@ -121,11 +137,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: false,
   error: null,
   pendingVerificationEmail: null,
+  pendingVerificationUserId: null,
   verificationMessage: null,
   passwordResetMessage: null,
 
   clearPendingVerification: () =>
-    set({ pendingVerificationEmail: null, verificationMessage: null, error: null }),
+    set({
+      pendingVerificationEmail: null,
+      pendingVerificationUserId: null,
+      verificationMessage: null,
+      error: null,
+    }),
 
   clearPasswordResetMessage: () =>
     set({ passwordResetMessage: null, error: null }),
@@ -133,11 +155,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   verifyEmail: async (token: string) => {
     set({ isLoading: true, error: null });
     try {
-      if (!isChatApiConfigured()) {
-        set({ isLoading: false, error: "Backend non configuré" });
+      if (!isGoogleSheetsReadConfigured()) {
+        set({ isLoading: false, error: "Google Sheets non configuré" });
         return;
       }
-      const { user, token: jwt } = await verifyEmailWithApi(token);
+      const sheetUser = await verifyEmailFromViewerSettings(token);
       let extras: Partial<User> = {};
       try {
         const raw = sessionStorage.getItem("nel_signup_extras");
@@ -146,7 +168,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } catch {
         /* ignore */
       }
-      const loggedInUser = toAppUser(user, { ...extras, emailVerified: true });
+      const loggedInUser = toAppUser(sheetUser, { ...extras, emailVerified: true });
       const ipCheck = await enforceLoginIpSecurity({
         userId: loggedInUser.id,
         email: loggedInUser.email,
@@ -157,8 +179,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: false, error: ipCheck.message });
         return;
       }
-      setAuthToken(jwt);
-      localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
       const proContact = readViewerProContact();
       syncEmailVerifiedToSheets(
         loggedInUser.id,
@@ -171,6 +191,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         proContact.phone,
         ipCheck.currentIp || undefined,
       );
+      if (isChatApiConfigured()) {
+        const { token: jwt } = await fetchSessionToken(loggedInUser);
+        setAuthToken(jwt);
+      }
+      localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
       set({
         user: loggedInUser,
         isLoading: false,
@@ -190,11 +215,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!target) return;
     set({ isLoading: true, error: null, verificationMessage: null });
     try {
-      const result = await resendVerificationWithApi(target);
+      const row = isGoogleSheetsReadConfigured()
+        ? await findViewerRowByEmail(target)
+        : null;
+      const userId =
+        row?.id?.trim() || row?.userId?.trim() || get().pendingVerificationUserId;
+      const verificationToken = generateVerificationToken();
+      const verificationExpiresAt = Date.now() + 24 * 60 * 60 * 1000;
+      if (userId && isGoogleSheetsWriteConfigured()) {
+        await persistVerificationTokenToSheets(
+          userId,
+          verificationToken,
+          verificationExpiresAt,
+        );
+      }
+      const result = await resendVerificationWithApi(
+        target,
+        row?.displayName?.trim() || target,
+        { verificationToken, verificationExpiresAt },
+      );
       const message = result.message ?? "Email renvoyé.";
       set({
         isLoading: false,
         pendingVerificationEmail: target,
+        pendingVerificationUserId: userId ?? get().pendingVerificationUserId,
         verificationMessage: message,
         error: null,
       });
@@ -217,7 +261,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: false, error: "Backend non configuré" });
         return;
       }
-      const result = await forgotPasswordWithApi(target);
+      const row = isGoogleSheetsReadConfigured()
+        ? await findViewerRowByEmail(target)
+        : null;
+      if (isGoogleSheetsReadConfigured() && !row) {
+        set({
+          isLoading: false,
+          passwordResetMessage:
+            "Si un compte existe pour cet email, un lien de réinitialisation a été envoyé.",
+          error: null,
+        });
+        return;
+      }
+      const result = await forgotPasswordWithApi(
+        target,
+        row?.displayName?.trim() || target,
+      );
+      const userId = row?.id?.trim() || row?.userId?.trim();
+      if (userId && result.passwordResetToken) {
+        syncPasswordResetTokenToSheets(
+          userId,
+          result.passwordResetToken,
+          result.passwordResetExpiresAt ?? null,
+        );
+      }
       set({
         isLoading: false,
         passwordResetMessage: result.message ?? "Email envoyé si le compte existe.",
@@ -234,13 +301,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   resetPassword: async (token: string, password: string) => {
     set({ isLoading: true, error: null });
     try {
-      if (!isChatApiConfigured()) {
-        set({ isLoading: false, error: "Backend non configuré" });
+      if (!isGoogleSheetsReadConfigured()) {
+        set({ isLoading: false, error: "Google Sheets non configuré" });
         return;
       }
-      const { user, token: jwt, message } = await resetPasswordWithApi(token, password);
-      const loggedInUser = toAppUser(user, { emailVerified: true });
-      setAuthToken(jwt);
+      if (password.length < 6) {
+        set({
+          isLoading: false,
+          error: "Le mot de passe doit contenir au moins 6 caractères",
+        });
+        return;
+      }
+      const sheetUser = await validatePasswordResetToken(token);
+      const row = await findViewerRowByPasswordResetToken(token);
+      const userId = row?.id?.trim() || row?.userId?.trim() || sheetUser.id;
+      syncPasswordHashToSheets(userId, hashPasswordForSheet(password));
+      const loggedInUser = toAppUser({ ...sheetUser, emailVerified: true });
+      if (isChatApiConfigured()) {
+        const { token: jwt } = await fetchSessionToken(loggedInUser);
+        setAuthToken(jwt);
+      }
       localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
       if (loggedInUser.isAdmin) {
         useMessagingStore.getState().setIsAdmin(true);
@@ -248,7 +328,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         user: loggedInUser,
         isLoading: false,
-        passwordResetMessage: message ?? "Mot de passe mis à jour.",
+        passwordResetMessage: "Mot de passe mis à jour — vous êtes connecté.",
         error: null,
       });
     } catch (err) {
@@ -274,14 +354,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (isChatApiConfigured()) {
+      if (isGoogleSheetsReadConfigured()) {
         const normalizedLogin = email.trim().toLowerCase();
-        const { user, token } = await loginWithApi(email, password);
-        const loggedInUser = toAppUser(user, {
+        const sheetUser = await loginFromViewerSettings(email, password);
+        const loggedInUser = toAppUser(sheetUser, {
           age: normalizedLogin === "admin@rim.com" ? "28" : "",
           bio: normalizedLogin === "admin@rim.com" ? "Bienvenue sur Nel!" : "",
-          isPro: normalizedLogin === "rim",
-          emailVerified: user.emailVerified !== false,
+          isPro: sheetUser.isPro || normalizedLogin === "rim",
         });
         const ipCheck = await enforceLoginIpSecurity({
           userId: loggedInUser.id,
@@ -293,24 +372,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           set({ isLoading: false, error: ipCheck.message });
           return;
         }
-        setAuthToken(token);
+        if (isChatApiConfigured()) {
+          const { token } = await fetchSessionToken(loggedInUser);
+          setAuthToken(token);
+        }
         localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
         if (loggedInUser.isAdmin) {
           useMessagingStore.getState().setIsAdmin(true);
-        }
-        if (loggedInUser.emailVerified) {
-          const proContact = readViewerProContact();
-          syncEmailVerifiedToSheets(
-            loggedInUser.id,
-            loggedInUser.email,
-            loggedInUser.displayName,
-            resolveAvatarUrl(loggedInUser.avatarUrl),
-            !!loggedInUser.isPro,
-            proContact.websiteUrl,
-            proContact.socialUrl,
-            proContact.phone,
-            ipCheck.currentIp || undefined,
-          );
         }
         set({ user: loggedInUser, isLoading: false });
         return;
@@ -353,6 +421,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (loggedInUser.isAdmin) {
         useMessagingStore.getState().setIsAdmin(true);
       }
+      if (isChatApiConfigured()) {
+        try {
+          const { token } = await fetchSessionToken(loggedInUser);
+          setAuthToken(token);
+        } catch {
+          /* chat optionnel en mode démo local */
+        }
+      }
       set({ user: loggedInUser, isLoading: false });
     } catch (err) {
       set({
@@ -374,6 +450,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       if (isChatApiConfigured()) {
+        if (!isGoogleSheetsReadConfigured() || !isGoogleSheetsWriteConfigured()) {
+          set({
+            isLoading: false,
+            error: "Google Sheets non configuré (lecture ou écriture Apps Script).",
+          });
+          return;
+        }
         if (!isValidSignupAge(age)) {
           set({
             isLoading: false,
@@ -381,18 +464,65 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           });
           return;
         }
+        const normalizedEmail = email.trim().toLowerCase();
+        const existing = await findViewerRowByEmail(normalizedEmail);
+        if (existing) {
+          set({ isLoading: false, error: "Cet email est déjà utilisé" });
+          return;
+        }
         sessionStorage.setItem(
           "nel_signup_extras",
           JSON.stringify({ age: age ?? "", bio: bio ?? "", isPro: !!isPro }),
         );
-        const result = await signupWithApi(email, password, displayName);
-        if ("token" in result && result.token && "user" in result) {
-          const loggedInUser = toAppUser(result.user, {
-            age: age ?? "",
-            bio: bio ?? "",
-            isPro: !!isPro,
-            emailVerified: true,
+        const skipVerify = await shouldSkipEmailVerificationFromSheets();
+        const localAuth = buildLocalSignupAuth({ skipEmailVerification: skipVerify });
+        const passwordHash = hashPasswordForSheet(password);
+        const signupIp = await fetchClientIp();
+        try {
+          await persistPendingSignupToSheets(
+            localAuth.userId,
+            normalizedEmail,
+            displayName,
+            !!isPro,
+            {
+              emailVerified: localAuth.emailVerified,
+              verificationToken: localAuth.verificationToken,
+              verificationExpiresAt: localAuth.verificationExpiresAt,
+              passwordHash,
+            },
+            signupIp || undefined,
+          );
+        } catch (sheetErr) {
+          set({
+            isLoading: false,
+            error:
+              sheetErr instanceof Error
+                ? `Enregistrement Google Sheets échoué : ${sheetErr.message}`
+                : "Impossible d'enregistrer le compte dans Google Sheets.",
           });
+          return;
+        }
+        const result = await signupWithApi(email, password, displayName, {
+          userId: localAuth.userId,
+          verificationToken: localAuth.verificationToken,
+          verificationExpiresAt: localAuth.verificationExpiresAt,
+        });
+        const sheetUserId = localAuth.userId;
+        if ("token" in result && result.token && "user" in result) {
+          const loggedInUser = toAppUser(
+            {
+              id: sheetUserId,
+              email: normalizedEmail,
+              displayName: result.user.displayName || displayName,
+              emailVerified: true,
+            },
+            {
+              age: age ?? "",
+              bio: bio ?? "",
+              isPro: !!isPro,
+              emailVerified: true,
+            },
+          );
           const ipCheck = await enforceLoginIpSecurity({
             userId: loggedInUser.id,
             email: loggedInUser.email,
@@ -403,7 +533,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({ isLoading: false, error: ipCheck.message });
             return;
           }
-          setAuthToken(result.token);
+          if (isChatApiConfigured()) {
+            const { token } = await fetchSessionToken(loggedInUser);
+            setAuthToken(token);
+          }
           localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
           if (loggedInUser.isAdmin) {
             useMessagingStore.getState().setIsAdmin(true);
@@ -430,23 +563,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           });
           return;
         }
-        if ("userId" in result && result.userId) {
-          const signupIp = await fetchClientIp();
-          syncPendingSignupToSheets(
-            result.userId,
-            result.email,
-            result.displayName ?? displayName,
-            !!isPro,
-            signupIp || undefined,
-          );
+        if ("pendingVerification" in result && result.pendingVerification) {
+          set({
+            isLoading: false,
+            pendingVerificationEmail: normalizedEmail,
+            pendingVerificationUserId: sheetUserId,
+            verificationMessage: result.message,
+            error: null,
+          });
+          return;
         }
-        set({
-          isLoading: false,
-          pendingVerificationEmail: result.email,
-          verificationMessage: result.message,
-          error: null,
-        });
-        return;
       }
 
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -535,7 +661,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     shutdownGlobalChatSync();
     setAuthToken(null);
     localStorage.removeItem(LS_USER);
-    set({ user: null, error: null, pendingVerificationEmail: null, verificationMessage: null });
+    set({ user: null, error: null, pendingVerificationEmail: null, pendingVerificationUserId: null, verificationMessage: null });
   },
 
   setUser: (user) => {

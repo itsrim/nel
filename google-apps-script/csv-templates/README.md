@@ -40,8 +40,15 @@ Ne pas éditer `public/csv/` à la main — modifier les `.csv` ici.
 | `professionals` | `professionals.csv` |
 | `app_config` | `app_config.csv` |
 
+**En-tête `viewer_settings` (ligne 1 du Sheet — 42 colonnes) :**
+
+```
+userId,id,email,emailVerified,passwordHash,verificationToken,verificationExpiresAt,passwordResetToken,passwordResetExpiresAt,avatarUrl,displayName,isPro,isPremium,premiumExpiresAt,proExpiresAt,premiumPaymentValidated,premiumMonths,premiumLastPaymentAt,premiumLastTransactionId,proPaymentValidated,proMonths,proLastPaymentAt,proLastTransactionId,city,websiteUrl,socialUrl,phone,proAddress,proLat,proLng,karma,badgesJson,friendRequestSentJson,friendRequestRejectedJson,friendRequestDailySentDateKey,profileBadgeSuggestionsJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,signupIp,lastLoginIp,deleted
+```
+
 > `professionals` et `app_config` sont **globaux** (pas de colonne `userId`).  
-> `app_config` : une seule ligne `id=global` (splash, modale d'info admin, `skipEmailVerification`).
+> `app_config` : une seule ligne `id=global` (splash, modale d'info admin, `skipEmailVerification`).  
+> `viewer_settings` : colonnes auth après `emailVerified` — `passwordHash`, `verificationToken`, `verificationExpiresAt`, `passwordResetToken`, `passwordResetExpiresAt`.
 
 ## Ensuite
 

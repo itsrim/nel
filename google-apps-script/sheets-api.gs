@@ -1,8 +1,13 @@
 /**
  * API Google Sheets pour Nel — à déployer comme Application Web.
  *
- * 1. Crée un Google Sheet avec un onglet "messages" et l’en-tête :
- *    conversationId | id | authorId | authorName | text | sentAt
+ * 1. Crée un Google Sheet avec les onglets listés dans google-apps-script/README.md
+ *    (ligne 1 = en-têtes ; copier depuis google-apps-script/csv-templates/*.csv)
+ *
+ *    viewer_settings (ligne 1) :
+ *    userId,id,email,emailVerified,passwordHash,verificationToken,verificationExpiresAt,
+ *    passwordResetToken,passwordResetExpiresAt,avatarUrl,displayName,isPro,...
+ *
  * 2. Extensions → Apps Script → coller ce fichier
  * 3. Remplace SPREADSHEET_ID par l’id de ton classeur
  * 4. Déployer → Nouvelle deployment → Application Web

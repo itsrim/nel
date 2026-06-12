@@ -129,19 +129,28 @@ export async function upsertSheetRow(
 
   if (!isGoogleSheetsWriteConfigured()) return;
 
+  const writePost = () => sheetPost(table, fullRow);
+  const writePut = () => sheetPut(table, id, fullRow);
+
   try {
     if (isSynced(table, id)) {
-      await sheetPut(table, id, fullRow);
+      await writePut();
       return;
     }
-    await sheetPost(table, fullRow);
+    await writePost();
     markSynced(table, id);
-  } catch (postErr) {
+  } catch (firstErr) {
     try {
-      await sheetPut(table, id, fullRow);
+      await writePost();
       markSynced(table, id);
-    } catch (putErr) {
-      console.error(`Sheets upsert [${table}] ${id}:`, postErr, putErr);
+    } catch (postErr) {
+      try {
+        await writePut();
+        markSynced(table, id);
+      } catch (putErr) {
+        console.error(`Sheets upsert [${table}] ${id}:`, firstErr, postErr, putErr);
+        throw putErr;
+      }
     }
   }
 }
@@ -455,10 +464,24 @@ export function rowToVisit(row: Record<string, string>): ProfileVisit {
 
 // ── Viewer settings ────────────────────────────────────────────────────────
 
+/** Colonnes auth de viewer_settings (après emailVerified). */
+export interface ViewerSettingsAuthFields {
+  passwordHash?: string;
+  verificationToken?: string;
+  verificationExpiresAt?: number | null;
+  passwordResetToken?: string;
+  passwordResetExpiresAt?: number | null;
+}
+
 export interface ViewerSettingsRow {
   userId: string;
   email: string;
   emailVerified: boolean;
+  passwordHash?: string;
+  verificationToken?: string;
+  verificationExpiresAt?: number | null;
+  passwordResetToken?: string;
+  passwordResetExpiresAt?: number | null;
   avatarUrl: string;
   displayName: string;
   isPro: boolean;
@@ -514,6 +537,27 @@ function subscriptionPaymentToRowFields(
   };
 }
 
+function authFieldsToRow(auth?: ViewerSettingsAuthFields): Record<string, string> {
+  if (!auth) {
+    return {
+      passwordHash: "",
+      verificationToken: "",
+      verificationExpiresAt: "",
+      passwordResetToken: "",
+      passwordResetExpiresAt: "",
+    };
+  }
+  return {
+    passwordHash: str(auth.passwordHash),
+    verificationToken: str(auth.verificationToken),
+    verificationExpiresAt:
+      auth.verificationExpiresAt != null ? String(auth.verificationExpiresAt) : "",
+    passwordResetToken: str(auth.passwordResetToken),
+    passwordResetExpiresAt:
+      auth.passwordResetExpiresAt != null ? String(auth.passwordResetExpiresAt) : "",
+  };
+}
+
 export function viewerSettingsToRow(
   userId: string,
   data: {
@@ -545,13 +589,14 @@ export function viewerSettingsToRow(
     profileBadgeSuggestions?: string[];
     signupIp?: string;
     lastLoginIp?: string;
-  },
+  } & ViewerSettingsAuthFields,
 ): Record<string, string> {
   return {
     userId,
     id: userId,
     email: data.email ?? "",
     emailVerified: boolToSheet(data.emailVerified),
+    ...authFieldsToRow(data),
     avatarUrl: data.avatarUrl,
     displayName: data.displayName,
     isPro: boolToSheet(data.isPro),
@@ -683,7 +728,17 @@ function cacheGlobalAppConfigRow(row: Record<string, string>): void {
   const next =
     idx >= 0 ? cached.map((r, i) => (i === idx ? row : r)) : [...cached, row];
   saveLocalCache("app_config", GLOBAL_CACHE_USER, next);
-  markSynced("app_config", APP_CONFIG_GLOBAL_ID);
+}
+
+export async function persistAppConfigToSheets(info: AdminAppInfo): Promise<void> {
+  const row = adminAppInfoToRow(info);
+  cacheGlobalAppConfigRow(row);
+  if (!isGoogleSheetsWriteConfigured()) return;
+  await upsertSheetRow("app_config", APP_CONFIG_GLOBAL_ID, row);
+}
+
+export function syncAppConfigToSheets(info: AdminAppInfo): void {
+  syncLater(() => persistAppConfigToSheets(info));
 }
 
 export async function loadAdminAppInfoFromSheets(): Promise<AdminAppInfo | null> {
@@ -705,13 +760,6 @@ export async function hydrateAdminAppInfoFromSheets(): Promise<AdminAppInfo> {
     console.error("hydrateAdminAppInfoFromSheets failed:", err);
     return local;
   }
-}
-
-export function syncAppConfigToSheets(info: AdminAppInfo): void {
-  const row = adminAppInfoToRow(info);
-  cacheGlobalAppConfigRow(row);
-  if (!isGoogleSheetsWriteConfigured()) return;
-  syncLater(() => upsertSheetRow("app_config", APP_CONFIG_GLOBAL_ID, row));
 }
 
 // ── Load / sync API ────────────────────────────────────────────────────────
@@ -1253,32 +1301,112 @@ export function syncAllViewerStateFromStore(state: {
   });
 }
 
-/** À l'inscription — enregistre le profil même si l'email n'est pas encore vérifié. */
+/** À l'inscription — profil + colonnes auth dans viewer_settings (attendre la fin). */
+export async function persistPendingSignupToSheets(
+  userId: string,
+  email: string,
+  displayName: string,
+  isPro: boolean,
+  auth: ViewerSettingsAuthFields & { emailVerified: boolean; passwordHash: string },
+  signupIp?: string,
+): Promise<void> {
+  await upsertSheetRow(
+    "viewer_settings",
+    userId,
+    viewerSettingsToRow(userId, {
+      email,
+      emailVerified: auth.emailVerified,
+      passwordHash: auth.passwordHash,
+      verificationToken: auth.verificationToken ?? "",
+      verificationExpiresAt: auth.verificationExpiresAt ?? null,
+      passwordResetToken: auth.passwordResetToken ?? "",
+      passwordResetExpiresAt: auth.passwordResetExpiresAt ?? null,
+      avatarUrl: "",
+      displayName,
+      isPro,
+      signupIp,
+      friendRequestSentProfilIds: [],
+      friendRequestRejectedProfilIds: [],
+      favoriteConversationIds: [],
+      moderationHiddenEventIds: [],
+      moderationHiddenProfilIds: [],
+    }),
+  );
+}
+
+/** @deprecated Préférer persistPendingSignupToSheets (await). */
 export function syncPendingSignupToSheets(
   userId: string,
   email: string,
   displayName: string,
   isPro: boolean,
+  auth: ViewerSettingsAuthFields & { emailVerified: boolean; passwordHash: string },
   signupIp?: string,
 ): void {
   syncLater(() =>
-    upsertSheetRow(
-      "viewer_settings",
+    persistPendingSignupToSheets(userId, email, displayName, isPro, auth, signupIp),
+  );
+}
+
+/** Renvoi email de vérification — met à jour les tokens (attendre la fin). */
+export async function persistVerificationTokenToSheets(
+  userId: string,
+  verificationToken: string,
+  verificationExpiresAt: number | null,
+): Promise<void> {
+  await upsertSheetRow("viewer_settings", userId, {
+    userId,
+    id: userId,
+    verificationToken,
+    verificationExpiresAt:
+      verificationExpiresAt != null ? String(verificationExpiresAt) : "",
+  });
+}
+
+/** Renvoi email de vérification — met à jour les tokens. */
+export function syncVerificationTokenToSheets(
+  userId: string,
+  verificationToken: string,
+  verificationExpiresAt: number | null,
+): void {
+  syncLater(() =>
+    upsertSheetRow("viewer_settings", userId, {
       userId,
-      viewerSettingsToRow(userId, {
-        email,
-        emailVerified: false,
-        avatarUrl: "",
-        displayName,
-        isPro,
-        signupIp,
-        friendRequestSentProfilIds: [],
-        friendRequestRejectedProfilIds: [],
-        favoriteConversationIds: [],
-        moderationHiddenEventIds: [],
-        moderationHiddenProfilIds: [],
-      }),
-    ),
+      id: userId,
+      verificationToken,
+      verificationExpiresAt:
+        verificationExpiresAt != null ? String(verificationExpiresAt) : "",
+    }),
+  );
+}
+
+/** Demande reset mot de passe — enregistre les tokens reset. */
+export function syncPasswordResetTokenToSheets(
+  userId: string,
+  passwordResetToken: string,
+  passwordResetExpiresAt: number | null,
+): void {
+  syncLater(() =>
+    upsertSheetRow("viewer_settings", userId, {
+      userId,
+      id: userId,
+      passwordResetToken,
+      passwordResetExpiresAt:
+        passwordResetExpiresAt != null ? String(passwordResetExpiresAt) : "",
+    }),
+  );
+}
+
+/** Après reset mot de passe — nouveau hash, tokens reset effacés. */
+export function syncPasswordHashToSheets(userId: string, passwordHash: string): void {
+  syncLater(() =>
+    upsertSheetRow("viewer_settings", userId, {
+      userId,
+      id: userId,
+      passwordHash,
+      passwordResetToken: "",
+      passwordResetExpiresAt: "",
+    }),
   );
 }
 
@@ -1301,6 +1429,10 @@ export function syncEmailVerifiedToSheets(
       viewerSettingsToRow(userId, {
         email,
         emailVerified: true,
+        verificationToken: "",
+        verificationExpiresAt: null,
+        passwordResetToken: "",
+        passwordResetExpiresAt: null,
         avatarUrl,
         displayName,
         isPro,

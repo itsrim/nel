@@ -25,7 +25,7 @@ import {
   syncProfileDeleteToSheets,
   syncReportDeleteToSheets,
   syncReportToSheets,
-  syncAppConfigToSheets,
+  persistAppConfigToSheets,
 } from "../lib/appSheetPersistence";
 import {
   DEFAULT_PROFILE_BADGE_SUGGESTIONS,
@@ -754,7 +754,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     };
     writeAdminAppInfo(next);
     set({ adminAppInfo: next });
-    syncAppConfigToSheets(next);
+    void persistAppConfigToSheets(next).catch((err) => {
+      console.error("Échec sync app_config vers Google Sheets:", err);
+    });
   },
   publishAnnouncement: () => {
     const prev = get().adminAppInfo;
@@ -768,7 +770,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     };
     writeAdminAppInfo(next);
     set({ adminAppInfo: next });
-    syncAppConfigToSheets(next);
+    void persistAppConfigToSheets(next).catch((err) => {
+      console.error("Échec sync app_config vers Google Sheets:", err);
+    });
     if (next.forceAppReloadOnPublish) {
       markForceReloadAckRevision(next.forceReloadRevision);
     }
