@@ -102,7 +102,14 @@ export function LoginPage() {
           </div>
 
           {verificationMessage ? (
-            <div className="login-success" role="status">
+            <div
+              className={
+                verificationMessage.includes("n'a pas pu")
+                  ? "login-error"
+                  : "login-success"
+              }
+              role="status"
+            >
               {verificationMessage}
             </div>
           ) : null}

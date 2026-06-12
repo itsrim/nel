@@ -103,9 +103,8 @@ export function QuestionnaireModal({
 
       <div className="q-modal-content">
         <header className="q-header">
-          <div className="q-header-spacer" />
-          <button className="q-close-btn" onClick={onClose}>
-            <X size={30} color="#fff" />
+          <button type="button" className="q-close-btn" onClick={onClose} aria-label={t("close")}>
+            <X size={22} color="#fff" />
           </button>
         </header>
 

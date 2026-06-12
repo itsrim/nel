@@ -272,7 +272,7 @@ function App() {
         {renderTab()}
         {renderDetailStack()}
       </main>
-      {detailStack.length === 0 ? <BottomNavigation /> : null}
+      {detailStack.length === 0 && !questionnaireOpen ? <BottomNavigation /> : null}
       {toast ? (
         <div className="nel-toast" role="status" aria-live="polite">
           {toast.message}

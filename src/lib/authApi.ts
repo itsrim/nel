@@ -14,6 +14,7 @@ export interface SignupPendingResponse {
   pendingVerification: true;
   email: string;
   message: string;
+  emailDeliveryFailed?: boolean;
 }
 
 export function getAuthToken(): string | null {

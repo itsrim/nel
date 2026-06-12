@@ -51,24 +51,27 @@
 
 .q-header {
   display: flex;
-  justify-content: space-between;
-  padding: 16px;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 44px;
+  padding: calc(6px + env(safe-area-inset-top, 0px)) 8px 0;
 }
 
 .q-close-btn {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 8px;
+  padding: 4px;
+  line-height: 0;
 }
 
 .q-body {
   flex: 1;
-  padding: 0 24px;
+  padding: 8px 24px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   text-align: center;
 }
 
