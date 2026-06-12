@@ -17,6 +17,10 @@ export interface SignupPendingResponse {
   emailDeliveryFailed?: boolean;
 }
 
+export type SignupApiResponse =
+  | SignupPendingResponse
+  | (AuthResponse & { pendingVerification?: false; message?: string });
+
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(LS_AUTH_TOKEN);
@@ -59,14 +63,14 @@ export async function signupWithApi(
   email: string,
   password: string,
   displayName: string,
-): Promise<SignupPendingResponse> {
+): Promise<SignupApiResponse> {
   const res = await fetch(`${CHAT_API_BASE}/api/auth/signup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password, displayName }),
   });
   if (!res.ok) throw new Error(await parseAuthError(res));
-  return (await res.json()) as SignupPendingResponse;
+  return (await res.json()) as SignupApiResponse;
 }
 
 export async function verifyEmailWithApi(token: string): Promise<AuthResponse> {

@@ -127,7 +127,16 @@
   text-align: center;
 }
 
+.login-pending-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+}
+
 .login-button--secondary {
+  width: 100%;
+  box-sizing: border-box;
   background: #fff;
   color: var(--login-maroon);
   border: 2px solid var(--login-maroon);

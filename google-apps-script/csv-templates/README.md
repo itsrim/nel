@@ -41,7 +41,7 @@ Ne pas éditer `public/csv/` à la main — modifier les `.csv` ici.
 | `app_config` | `app_config.csv` |
 
 > `professionals` et `app_config` sont **globaux** (pas de colonne `userId`).  
-> `app_config` : une seule ligne `id=global` (splash, modale d'info admin).
+> `app_config` : une seule ligne `id=global` (splash, modale d'info admin, `skipEmailVerification`).
 
 ## Ensuite
 

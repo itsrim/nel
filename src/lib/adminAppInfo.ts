@@ -9,6 +9,8 @@ export interface AdminAppInfo {
   announcementMessage: string;
   /** Incrémenté à chaque publication pour réafficher la modale aux utilisateurs. */
   announcementRevision: number;
+  /** Si activé, les nouveaux comptes sont validés sans email (backend lit app_config). */
+  skipEmailVerification: boolean;
   /** Si activé, « Publier à tous » impose aussi un rechargement de l'app. */
   forceAppReloadOnPublish: boolean;
   /** Incrémenté quand l'admin impose un rechargement — comparé côté client. */
@@ -26,6 +28,7 @@ export const DEFAULT_ADMIN_APP_INFO: AdminAppInfo = {
   announcementModalDismissible: true,
   announcementMessage: "",
   announcementRevision: 0,
+  skipEmailVerification: false,
   forceAppReloadOnPublish: false,
   forceReloadRevision: 0,
   configUpdatedAt: 0,
@@ -66,6 +69,9 @@ export function normalizeAdminAppInfo(
       Number.isFinite(partial.announcementRevision)
         ? partial.announcementRevision
         : DEFAULT_ADMIN_APP_INFO.announcementRevision,
+    skipEmailVerification:
+      partial.skipEmailVerification ??
+      DEFAULT_ADMIN_APP_INFO.skipEmailVerification,
     forceAppReloadOnPublish:
       partial.forceAppReloadOnPublish ??
       DEFAULT_ADMIN_APP_INFO.forceAppReloadOnPublish,

@@ -7,6 +7,7 @@ import {
   verifyEmailByToken,
   verifyToken,
 } from "../lib/authStore.js";
+import { shouldSkipEmailVerification } from "../lib/appConfig.js";
 import { sendVerificationEmail } from "../lib/emailService.js";
 import type { AuthUser } from "../lib/types.js";
 
@@ -77,7 +78,21 @@ export async function authRoutes(app: FastifyInstance) {
       const email = request.body?.email ?? "";
       const password = request.body?.password ?? "";
       const displayName = request.body?.displayName ?? "";
-      const { user, verificationToken } = signupUser(email, password, displayName);
+      const skipVerify = await shouldSkipEmailVerification();
+      const { user, verificationToken } = signupUser(email, password, displayName, {
+        skipEmailVerification: skipVerify,
+      });
+
+      if (skipVerify) {
+        const token = await createToken(user);
+        return reply.status(201).send({
+          user,
+          token,
+          pendingVerification: false,
+          message: "Compte créé — connexion automatique (vérification email désactivée).",
+        });
+      }
+
       try {
         await dispatchVerificationEmail(user.email, user.displayName, verificationToken);
         return reply.status(201).send({

@@ -656,6 +656,7 @@ export function adminAppInfoToRow(info: AdminAppInfo): Record<string, string> {
     announcementRevision: String(info.announcementRevision),
     forceAppReloadOnPublish: boolToSheet(info.forceAppReloadOnPublish),
     forceReloadRevision: String(info.forceReloadRevision),
+    skipEmailVerification: boolToSheet(info.skipEmailVerification),
     updatedAt: String(info.configUpdatedAt ?? Date.now()),
     deleted: "false",
   };
@@ -671,6 +672,7 @@ export function rowToAdminAppInfo(row: Record<string, string>): AdminAppInfo {
     announcementRevision: numFromSheet(row.announcementRevision, 0),
     forceAppReloadOnPublish: boolFromSheet(row.forceAppReloadOnPublish),
     forceReloadRevision: numFromSheet(row.forceReloadRevision, 0),
+    skipEmailVerification: boolFromSheet(row.skipEmailVerification),
     configUpdatedAt: numFromSheet(row.updatedAt, 0),
   });
 }

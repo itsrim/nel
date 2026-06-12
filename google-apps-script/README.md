@@ -58,7 +58,7 @@ id,firstName,lastName,category,categoryLabel,city,address,description,imageUrl,m
 
 ### `app_config` (config globale admin — une ligne `id=global`)
 ```
-id,splashScreenEnabled,splashImageUrl,announcementModalEnabled,announcementModalDismissible,announcementMessage,announcementRevision,forceAppReloadOnPublish,forceReloadRevision,updatedAt,deleted
+id,splashScreenEnabled,splashImageUrl,announcementModalEnabled,announcementModalDismissible,announcementMessage,announcementRevision,forceAppReloadOnPublish,forceReloadRevision,skipEmailVerification,updatedAt,deleted
 ```
 
 Partager le sheet en **« Toute personne disposant du lien → Lecteur »**.

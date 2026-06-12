@@ -36,6 +36,7 @@ import {
   Sparkles,
   Info,
   RefreshCw,
+  Mail,
 } from "lucide-react";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useNavigationStore } from "../store/useNavigationStore";
@@ -1025,6 +1026,23 @@ export function ProfilePage() {
 
           {activeTab === "info" && isAdmin && userIsAdmin && (
             <div className="admin-info-panel">
+              <div className="setting-item admin-info-setting">
+                <div className="setting-icon green">
+                  <Mail size={20} color="#fff" />
+                </div>
+                <div className="setting-text">
+                  <div className="setting-label">{t("adminInfoSkipEmailLabel")}</div>
+                  <div className="setting-sub">{t("adminInfoSkipEmailSub")}</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={adminAppInfo.skipEmailVerification}
+                  onChange={(e) =>
+                    updateAdminAppInfo({ skipEmailVerification: e.target.checked })
+                  }
+                  className="switch"
+                />
+              </div>
               <div className="setting-item admin-info-setting">
                 <div className="setting-icon green">
                   <Sparkles size={20} color="#fff" />

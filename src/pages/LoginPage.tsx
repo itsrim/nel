@@ -124,14 +124,16 @@ export function LoginPage() {
             <strong>{pendingVerificationEmail}</strong>. {t("loginVerifySentSuffix")}
           </p>
 
-          <button
-            type="button"
-            className="login-button login-button--secondary"
-            disabled={isLoading}
-            onClick={() => void resendVerification()}
-          >
-            {isLoading ? t("loginResending") : t("loginResendEmail")}
-          </button>
+          <div className="login-pending-actions">
+            <button
+              type="button"
+              className="login-button login-button--secondary"
+              disabled={isLoading}
+              onClick={() => void resendVerification()}
+            >
+              {isLoading ? t("loginResending") : t("loginResendEmail")}
+            </button>
+          </div>
 
           <div className="login-footer">
             <button

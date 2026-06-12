@@ -317,6 +317,50 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           JSON.stringify({ age: age ?? "", bio: bio ?? "", isPro: !!isPro }),
         );
         const result = await signupWithApi(email, password, displayName);
+        if ("token" in result && result.token && "user" in result) {
+          const loggedInUser = toAppUser(result.user, {
+            age: age ?? "",
+            bio: bio ?? "",
+            isPro: !!isPro,
+            emailVerified: true,
+          });
+          const ipCheck = await enforceLoginIpSecurity({
+            userId: loggedInUser.id,
+            email: loggedInUser.email,
+            displayName: loggedInUser.displayName,
+            isAdmin: loggedInUser.isAdmin,
+          });
+          if (!ipCheck.allowed) {
+            set({ isLoading: false, error: ipCheck.message });
+            return;
+          }
+          setAuthToken(result.token);
+          localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
+          if (loggedInUser.isAdmin) {
+            useMessagingStore.getState().setIsAdmin(true);
+          }
+          const proContact = readViewerProContact();
+          syncEmailVerifiedToSheets(
+            loggedInUser.id,
+            loggedInUser.email,
+            loggedInUser.displayName,
+            resolveAvatarUrl(loggedInUser.avatarUrl),
+            !!loggedInUser.isPro,
+            proContact.websiteUrl,
+            proContact.socialUrl,
+            proContact.phone,
+            ipCheck.currentIp || undefined,
+          );
+          sessionStorage.removeItem("nel_signup_extras");
+          set({
+            user: loggedInUser,
+            isLoading: false,
+            pendingVerificationEmail: null,
+            verificationMessage: result.message ?? null,
+            error: null,
+          });
+          return;
+        }
         set({
           isLoading: false,
           pendingVerificationEmail: result.email,
