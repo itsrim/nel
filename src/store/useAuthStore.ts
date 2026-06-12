@@ -38,6 +38,26 @@ import { enforceLoginIpSecurity } from "../lib/loginIpSecurity";
 import { resolveAvatarUrl } from "../lib/avatarUrl";
 import { buildLocalSignupAuth, generateVerificationToken } from "../lib/signupAuth";
 import { isValidSignupAge } from "../lib/signupValidation";
+import {
+  matchBuiltinAccount,
+  builtinAccountPasswordHash,
+  isReservedBuiltinEmail,
+  type BuiltinAccount,
+} from "../lib/builtinAccounts";
+
+/** Inscriptions locales hors Sheets/API (legacy). */
+const offlineSignupUsers: Record<
+  string,
+  {
+    email: string;
+    password: string;
+    displayName: string;
+    id: string;
+    age?: string;
+    bio?: string;
+    isPro?: boolean;
+  }
+> = {};
 
 const LS_VIEWER_PRO_WEBSITE = "nel_viewer_pro_website_url";
 const LS_VIEWER_PRO_SOCIAL = "nel_viewer_pro_social_url";
@@ -115,36 +135,82 @@ function applySheetProfileToStores(
   }
 }
 
-const localUsers: Record<
-  string,
-  {
-    email: string;
-    password: string;
-    displayName: string;
-    id: string;
-    age?: string;
-    bio?: string;
-    isPro?: boolean;
+async function ensureBuiltinAccountInSheets(account: BuiltinAccount): Promise<void> {
+  if (!isGoogleSheetsWriteConfigured()) return;
+  const existing = await findViewerRowByEmail(account.email);
+  if (existing) return;
+  try {
+    await persistPendingSignupToSheets(
+      account.id,
+      account.email,
+      account.displayName,
+      !!account.isPro,
+      {
+        emailVerified: account.emailVerified !== false,
+        passwordHash: builtinAccountPasswordHash(account),
+        verificationToken: "",
+        verificationExpiresAt: null,
+      },
+      undefined,
+      {
+        age: account.age ?? "",
+        bio: account.bio ?? "",
+        language: "fr",
+      },
+    );
+  } catch (err) {
+    console.warn("Impossible de créer le compte intégré dans Sheets:", err);
   }
-> = {
-  "admin@rim.com": {
-    email: "admin@rim.com",
-    password: "password",
-    displayName: "Utilisateur Demo",
-    id: "user_demo_001",
-    age: "28",
-    bio: "Bienvenue sur hlg!",
-    isPro: false,
-  },
-  "rim": {
-    email: "rim",
-    password: "1234",
-    displayName: "Admin",
-    id: "user_admin_000",
-    age: "",
-    bio: "",
-    isPro: true,
-  },
+}
+
+async function completeBuiltinLogin(
+  account: BuiltinAccount,
+  set: (partial: Partial<AuthState>) => void,
+): Promise<void> {
+  await ensureBuiltinAccountInSheets(account);
+
+  const normalizedEmail = account.email.trim().toLowerCase();
+  const loggedInUser: User = {
+    id: account.id,
+    email: account.email,
+    displayName: account.displayName,
+    age: account.age || "",
+    bio: account.bio || "",
+    isPro: !!account.isPro,
+    emailVerified: account.emailVerified !== false,
+    isAdmin: isAdminAccount({ email: account.email, id: account.id }),
+    avatarUrl:
+      normalizedEmail === "admin@rim.com"
+        ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800"
+        : resolveAvatarUrl(),
+  };
+
+  const ipCheck = await enforceLoginIpSecurity({
+    userId: loggedInUser.id,
+    email: loggedInUser.email,
+    displayName: loggedInUser.displayName,
+    isAdmin: loggedInUser.isAdmin,
+  });
+  if (!ipCheck.allowed) {
+    set({ isLoading: false, error: ipCheck.message });
+    return;
+  }
+
+  applySheetProfileToStores({
+    age: loggedInUser.age ?? "",
+    bio: loggedInUser.bio ?? "",
+    language: "fr",
+  });
+
+  if (isChatApiConfigured()) {
+    await trySetSessionToken(loggedInUser);
+  }
+
+  localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
+  if (loggedInUser.isAdmin) {
+    useMessagingStore.getState().setIsAdmin(true);
+  }
+  set({ user: loggedInUser, isLoading: false, error: null });
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -372,6 +438,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
+      const builtin = matchBuiltinAccount(email, password);
+      if (builtin) {
+        await completeBuiltinLogin(builtin, set);
+        return;
+      }
+
       if (isGoogleSheetsReadConfigured()) {
         const normalizedLogin = email.trim().toLowerCase();
         const sheetUser = await loginFromViewerSettings(email, password);
@@ -403,50 +475,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       await new Promise((resolve) => setTimeout(resolve, 500));
-      const normalizedEmail = email.trim().toLowerCase();
-      const user = localUsers[normalizedEmail];
-      if (!user || user.password !== password) {
-        set({ isLoading: false, error: "Email ou mot de passe incorrect" });
-        return;
-      }
-
-      const loggedInUser: User = {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        age: user.age || "",
-        bio: user.bio || "",
-        isPro: !!user.isPro,
-        isAdmin: isAdminAccount({ email: user.email, id: user.id }),
-        avatarUrl:
-          normalizedEmail === "admin@rim.com"
-            ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800"
-            : resolveAvatarUrl(),
-      };
-
-      const ipCheck = await enforceLoginIpSecurity({
-        userId: loggedInUser.id,
-        email: loggedInUser.email,
-        displayName: loggedInUser.displayName,
-        isAdmin: loggedInUser.isAdmin,
-      });
-      if (!ipCheck.allowed) {
-        set({ isLoading: false, error: ipCheck.message });
-        return;
-      }
-
-      localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
-      if (loggedInUser.isAdmin) {
-        useMessagingStore.getState().setIsAdmin(true);
-      }
-      useMessagingStore.getState().hydrateViewerProfileFields({
-        age: loggedInUser.age,
-        bio: loggedInUser.bio,
-      });
-      if (isChatApiConfigured()) {
-        await trySetSessionToken(loggedInUser);
-      }
-      set({ user: loggedInUser, isLoading: false });
+      set({ isLoading: false, error: "Email ou mot de passe incorrect" });
     } catch (err) {
       set({
         isLoading: false,
@@ -603,7 +632,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      if (localUsers[email]) {
+      if (isReservedBuiltinEmail(email) || offlineSignupUsers[email.trim().toLowerCase()]) {
         set({ isLoading: false, error: "Cet email est déjà utilisé" });
         return;
       }
@@ -630,7 +659,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      localUsers[email] = {
+      offlineSignupUsers[email.trim().toLowerCase()] = {
         email,
         password,
         displayName,
@@ -657,7 +686,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAdmin: false,
       });
       if (!ipCheck.allowed) {
-        delete localUsers[email];
+        delete offlineSignupUsers[email.trim().toLowerCase()];
         set({ isLoading: false, error: ipCheck.message });
         return;
       }

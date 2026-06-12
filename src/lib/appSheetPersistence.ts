@@ -89,6 +89,46 @@ function rowsForUser(rows: Record<string, string>[], userId: string): Record<str
   return rows.filter((r) => r.userId === userId && !isDeletedFromSheet(r.deleted));
 }
 
+/** Catalogue partagé (ex. `events`) : toutes les lignes actives, pas filtrées par userId. */
+async function readSharedCatalogTable(
+  table: SheetTableName,
+): Promise<Record<string, string>[]> {
+  const markActiveRows = (rows: Record<string, string>[]) => {
+    rows.forEach((r) => {
+      const id = r.id ?? r.profilId ?? r.userId;
+      if (id) markSynced(table, id);
+    });
+  };
+
+  if (isGoogleSheetsReadConfigured()) {
+    try {
+      const rows = await sheetGet<Record<string, string>>(table);
+      const active = rows.filter((r) => !isDeletedFromSheet(r.deleted));
+      saveLocalCache(table, GLOBAL_CACHE_USER, active);
+      markActiveRows(active);
+      return active;
+    } catch (err) {
+      console.error(`Sheets read [${table}] catalog failed, fallback cache:`, err);
+    }
+  }
+
+  const cached = loadLocalCache(table, GLOBAL_CACHE_USER);
+  markActiveRows(cached);
+  return cached;
+}
+
+function patchSharedCatalogCache(
+  table: SheetTableName,
+  idColumn: string,
+  fullRow: Record<string, string>,
+): void {
+  const cached = loadLocalCache(table, GLOBAL_CACHE_USER);
+  const idx = cached.findIndex((r) => r[idColumn] === fullRow[idColumn]);
+  const next =
+    idx >= 0 ? cached.map((r, i) => (i === idx ? fullRow : r)) : [...cached, fullRow];
+  saveLocalCache(table, GLOBAL_CACHE_USER, next);
+}
+
 async function readTable(table: SheetTableName, userId: string): Promise<Record<string, string>[]> {
   if (isGoogleSheetsReadConfigured()) {
     try {
@@ -127,6 +167,9 @@ export async function upsertSheetRow(
     const idx = cached.findIndex((r) => r[idColumn] === id);
     const next = idx >= 0 ? cached.map((r, i) => (i === idx ? fullRow : r)) : [...cached, fullRow];
     saveLocalCache(table, cacheUserId, next);
+  }
+  if (table === "events") {
+    patchSharedCatalogCache(table, idColumn, fullRow);
   }
 
   if (!isGoogleSheetsWriteConfigured()) return;
@@ -249,6 +292,7 @@ export function rowToEvent(row: Record<string, string>): Event {
     organizerRatings: jsonFromSheet(row.organizerRatingsJson, []),
     karmaJoinPaidProfilIds: jsonFromSheet(row.karmaJoinPaidProfilIdsJson, []),
     karmaOrganizePaid: boolFromSheet(row.karmaOrganizePaid),
+    sheetOwnerUserId: row.userId?.trim() || undefined,
   };
 }
 
@@ -921,13 +965,22 @@ function emptyLoadedState(): LoadedAppSheetState {
 /** Onglets footer → GET Sheets ciblé à chaque navigation. */
 export type SheetsTabId = "chat" | "events" | "pro" | "profile";
 
+async function readScopedUserTable(
+  table: SheetTableName,
+  userId: string,
+  isAdmin: boolean,
+): Promise<Record<string, string>[]> {
+  return isAdmin ? readGlobalTable(table) : readTable(table, userId);
+}
+
 export async function loadTabStateFromSheets(
   tab: SheetsTabId,
   userId: string,
+  isAdmin = false,
 ): Promise<LoadedAppSheetState> {
   switch (tab) {
     case "events": {
-      const eventRows = await readTable("events", userId);
+      const eventRows = await readSharedCatalogTable("events");
       return {
         ...emptyLoadedState(),
         events: eventRows.map(rowToEvent),
@@ -935,7 +988,7 @@ export async function loadTabStateFromSheets(
       };
     }
     case "chat": {
-      const convRows = await readTable("conversations", userId);
+      const convRows = await readScopedUserTable("conversations", userId, isAdmin);
       return {
         ...emptyLoadedState(),
         conversations: convRows.map(rowToConversation),
@@ -1048,7 +1101,10 @@ function mergeProfessionals(
   return [...map.values()];
 }
 
-export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppSheetState> {
+export async function loadAppStateFromSheets(
+  userId: string,
+  isAdmin = false,
+): Promise<LoadedAppSheetState> {
   const [
     eventRows,
     convRows,
@@ -1062,11 +1118,11 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     professionalRows,
     appConfigRows,
   ] = await Promise.all([
-    readTable("events", userId),
-    readTable("conversations", userId),
-    readTable("profiles", userId),
-    readTable("suggestions", userId),
-    readTable("profile_visits", userId),
+    readSharedCatalogTable("events"),
+    readScopedUserTable("conversations", userId, isAdmin),
+    readScopedUserTable("profiles", userId, isAdmin),
+    readScopedUserTable("suggestions", userId, isAdmin),
+    readScopedUserTable("profile_visits", userId, isAdmin),
     readTable("viewer_settings", userId),
     readTable("notifications", userId),
     readTable("admin_reports", userId),
@@ -1275,13 +1331,16 @@ function syncLater(fn: () => Promise<void>): void {
 }
 
 export function syncEventToSheets(event: Event): void {
-  const userId = currentUserId();
+  const userId = event.sheetOwnerUserId?.trim() || currentUserId();
   if (!userId) return;
   syncLater(() => upsertSheetRow("events", event.id, eventToRow(event, userId)));
 }
 
-export function syncEventDeleteToSheets(eventId: string): void {
-  const userId = currentUserId();
+export function syncEventDeleteToSheets(
+  eventId: string,
+  ownerUserId?: string,
+): void {
+  const userId = ownerUserId?.trim() || currentUserId();
   if (!userId) return;
   syncLater(() => softDeleteSheetRow("events", userId, eventId));
 }

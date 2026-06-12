@@ -62,6 +62,8 @@ export interface Event {
   karmaJoinPaidProfilIds?: string[];
   /** 3 karma débités à la création (remboursables si annulation). */
   karmaOrganizePaid?: boolean;
+  /** Colonne `userId` Sheets = organisateur (écriture / propriété). */
+  sheetOwnerUserId?: string;
 }
 
 /** Notification in-app (centre Profil — démo). */

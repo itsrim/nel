@@ -12,6 +12,11 @@ import {
   mergeLoadedAppState,
   type LoadedAppSheetState,
 } from "./appSheetPersistence";
+import {
+  buildMissingParticipantConversations,
+  resolveMessageAccessFromStores,
+  userIsAppAdmin,
+} from "./accessScope";
 import { loadHistory } from "./chatPersistence";
 import { writeSubscriptionPaymentRecord } from "./subscriptionPersistence";
 import { useLanguageStore } from "../store/useLanguageStore";
@@ -70,7 +75,10 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
     }
   }
 
-  if (Object.keys(changed).length === 0) return;
+  if (Object.keys(changed).length === 0) {
+    ensureParticipantConversationsInStore();
+    return;
+  }
 
   if ("adminAppInfo" in changed && changed.adminAppInfo) {
     writeAdminAppInfo(changed.adminAppInfo);
@@ -163,32 +171,40 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
       );
     }
   }
+
+  ensureParticipantConversationsInStore();
 }
 
-/** Recharge les messages depuis l'onglet messages (CSV Sheets). */
-export async function refreshChatMessagesFromSheets(): Promise<void> {
-  const history = await loadHistory();
-  if (history.length === 0) return;
+function ensureParticipantConversationsInStore(): void {
+  const user = useAuthStore.getState().user;
+  if (userIsAppAdmin(user)) return;
 
-  const state = useMessagingStore.getState();
-  const viewerId = useAuthStore.getState().user?.id;
-  const viewerName = state.viewerProfileDisplayName;
-  const mergedMsgs = { ...state.messagesByConversation };
-  let hasNew = false;
+  const msg = useMessagingStore.getState();
+  const missing = buildMissingParticipantConversations(msg.events, msg.conversations);
+  if (missing.length === 0) return;
+
+  useMessagingStore.setState({
+    conversations: [...missing, ...msg.conversations],
+  });
+}
+
+/** Recharge les messages visibles (groupes membres ou tout pour admin). */
+export async function refreshChatMessagesFromSheets(): Promise<void> {
+  const viewerId = useAuthStore.getState().user?.id?.trim();
+  if (!viewerId) return;
+
+  const scope = resolveMessageAccessFromStores();
+  const history = await loadHistory(scope);
+  const viewerName = useMessagingStore.getState().viewerProfileDisplayName;
+  const mergedMsgs: Record<string, ReturnType<typeof useMessagingStore.getState>["messagesByConversation"][string]> = {};
 
   history.forEach((m) => {
     if (!mergedMsgs[m.conversationId]) mergedMsgs[m.conversationId] = [];
-    if (!mergedMsgs[m.conversationId].some((msg) => msg.id === m.id)) {
-      hasNew = true;
-      mergedMsgs[m.conversationId].push({
-        ...m,
-        isOwn: m.authorId
-          ? m.authorId === viewerId
-          : m.authorName === viewerName,
-      });
-    }
+    mergedMsgs[m.conversationId].push({
+      ...m,
+      isOwn: m.authorId ? m.authorId === viewerId : m.authorName === viewerName,
+    });
   });
 
-  if (!hasNew) return;
   useMessagingStore.setState({ messagesByConversation: mergedMsgs });
 }

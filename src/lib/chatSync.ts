@@ -1,6 +1,7 @@
 import type { Message } from "../data/mockData";
 import { useAuthStore } from "../store/useAuthStore";
 import { useMessagingStore } from "../store/useMessagingStore";
+import { resolveMessageAccessFromStores } from "./accessScope";
 import { saveHistory } from "./chatPersistence";
 import {
   connectChatSocket,
@@ -85,7 +86,10 @@ function applyMessages(conversationId: string, merged: Message[], incomingMessag
       : s.appNotifications,
   }));
 
-  saveHistory(useMessagingStore.getState().messagesByConversation);
+  saveHistory(
+    useMessagingStore.getState().messagesByConversation,
+    resolveMessageAccessFromStores(),
+  );
 }
 
 function ensureSocketListeners(): void {

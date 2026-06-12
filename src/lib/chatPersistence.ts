@@ -1,8 +1,11 @@
 /**
- * Persistance chat : localStorage (cache) + Google Sheets (source distante).
- * Format CSV : conversationId,id,authorId,authorName,text,sentAt
+ * Persistance chat : cache local + Google Sheets.
+ * - Utilisateur : messages des groupes / fils dont il est membre (via conversationId).
+ * - Admin : tous les messages.
+ * - Écriture Sheets : uniquement les messages envoyés par le compte connecté.
  */
 
+import type { MessageLoadScope } from "./accessScope";
 import {
   isGoogleSheetsReadConfigured,
   isGoogleSheetsWriteConfigured,
@@ -20,11 +23,10 @@ export interface PersistedMessage {
   sentAt: number;
 }
 
-const STORAGE_KEY = "nel_chat_history_csv";
+const STORAGE_KEY_PREFIX = "nel_chat_history_csv";
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const CSV_HEADER = "conversationId,id,authorId,authorName,text,sentAt";
 
-/** IDs déjà synchronisés vers Google Sheets (session). */
 const syncedSheetIds = new Set<string>();
 
 function getCurrentUserIdForSheets(): string {
@@ -36,6 +38,47 @@ function getCurrentUserIdForSheets(): string {
   } catch {
     return "";
   }
+}
+
+function storageKeyForUser(userId?: string): string {
+  const id = (userId ?? getCurrentUserIdForSheets()).trim();
+  return id ? `${STORAGE_KEY_PREFIX}_${id}` : STORAGE_KEY_PREFIX;
+}
+
+function isMessageOwnedByUser(
+  msg: Pick<PersistedMessage, "authorId">,
+  userId: string,
+): boolean {
+  if (!userId) return false;
+  if (msg.authorId?.trim()) return msg.authorId.trim() === userId;
+  return false;
+}
+
+function isConversationInScope(conversationId: string, scope: MessageLoadScope): boolean {
+  if (scope.mode === "admin") return true;
+  const ids = scope.conversationIds;
+  if (!ids) return false;
+  return ids.has(conversationId.trim());
+}
+
+function filterMessagesForScope(
+  messagesByConversation: Record<string, unknown[]>,
+  scope: MessageLoadScope,
+): Record<string, PersistedMessage[]> {
+  const out: Record<string, PersistedMessage[]> = {};
+  for (const [convId, messages] of Object.entries(messagesByConversation)) {
+    if (!isConversationInScope(convId, scope)) continue;
+    const kept = messages.map((m) => m as PersistedMessage);
+    if (kept.length > 0) out[convId] = kept;
+  }
+  return out;
+}
+
+function filterMessageListForScope(
+  messages: PersistedMessage[],
+  scope: MessageLoadScope,
+): PersistedMessage[] {
+  return messages.filter((m) => isConversationInScope(m.conversationId, scope));
 }
 
 function escapeCSV(val: string | number): string {
@@ -139,20 +182,23 @@ export function deserializeCSVToMessages(csv: string): PersistedMessage[] {
   return messages;
 }
 
-function saveHistoryLocal(messagesByConversation: Record<string, unknown[]>): void {
+function saveHistoryLocal(
+  messagesByConversation: Record<string, unknown[]>,
+  userId?: string,
+): void {
   try {
     const csv = serializeMessagesToCSV(messagesByConversation);
-    localStorage.setItem(STORAGE_KEY, csv);
+    localStorage.setItem(storageKeyForUser(userId), csv);
   } catch (err) {
     console.error("Failed to save chat history to localStorage:", err);
   }
 }
 
-function loadHistoryLocal(): PersistedMessage[] {
+function loadHistoryLocal(userId: string, scope: MessageLoadScope): PersistedMessage[] {
   try {
-    const csv = localStorage.getItem(STORAGE_KEY);
+    const csv = localStorage.getItem(storageKeyForUser(userId));
     if (!csv) return [];
-    return deserializeCSVToMessages(csv);
+    return filterMessageListForScope(deserializeCSVToMessages(csv), scope);
   } catch (err) {
     console.error("Failed to load chat history from localStorage:", err);
     return [];
@@ -177,16 +223,16 @@ function rowToMessage(row: Record<string, string>): PersistedMessage | null {
   };
 }
 
-async function loadHistoryFromSheets(): Promise<PersistedMessage[]> {
+async function loadHistoryFromSheets(scope: MessageLoadScope): Promise<PersistedMessage[]> {
   const rows = await sheetGet<Record<string, string>>("messages");
   const messages: PersistedMessage[] = [];
 
   for (const row of rows) {
     const msg = rowToMessage(row);
-    if (msg) {
-      messages.push(msg);
-      syncedSheetIds.add(msg.id);
-    }
+    if (!msg) continue;
+    if (!isConversationInScope(msg.conversationId, scope)) continue;
+    messages.push(msg);
+    syncedSheetIds.add(msg.id);
   }
 
   return messages;
@@ -194,8 +240,9 @@ async function loadHistoryFromSheets(): Promise<PersistedMessage[]> {
 
 async function syncHistoryToSheets(
   messagesByConversation: Record<string, unknown[]>,
+  userId: string,
 ): Promise<void> {
-  if (!isGoogleSheetsWriteConfigured()) return;
+  if (!isGoogleSheetsWriteConfigured() || !userId) return;
 
   const now = Date.now();
   const toSync: Record<string, string>[] = [];
@@ -203,17 +250,18 @@ async function syncHistoryToSheets(
   Object.entries(messagesByConversation).forEach(([convId, messages]) => {
     messages.forEach((m) => {
       const msg = m as PersistedMessage;
+      if (!isMessageOwnedByUser(msg, userId)) return;
       if (now - msg.sentAt > RETENTION_MS) return;
       if (syncedSheetIds.has(msg.id)) return;
 
       toSync.push({
         conversationId: convId,
         id: msg.id,
-        authorId: msg.authorId ?? "",
+        authorId: msg.authorId ?? userId,
         authorName: msg.authorName,
         text: msg.text,
         sentAt: String(msg.sentAt),
-        userId: getCurrentUserIdForSheets(),
+        userId,
       });
       syncedSheetIds.add(msg.id);
     });
@@ -229,26 +277,36 @@ async function syncHistoryToSheets(
   }
 }
 
-/** Sauvegarde locale immédiate + sync Sheets en arrière-plan. */
-export function saveHistory(messagesByConversation: Record<string, unknown[]>): void {
-  saveHistoryLocal(messagesByConversation);
+/** Sauvegarde locale (fils accessibles) + sync Sheets (messages envoyés par le compte). */
+export function saveHistory(
+  messagesByConversation: Record<string, unknown[]>,
+  scope: MessageLoadScope,
+): void {
+  const userId = getCurrentUserIdForSheets();
+  if (!userId) return;
+
+  const inScope = filterMessagesForScope(messagesByConversation, scope);
+  saveHistoryLocal(inScope, userId);
   if (isGoogleSheetsWriteConfigured()) {
-    void syncHistoryToSheets(messagesByConversation);
+    void syncHistoryToSheets(inScope, userId);
   }
 }
 
-/** Charge depuis Sheets si configuré, sinon localStorage. */
-export async function loadHistory(): Promise<PersistedMessage[]> {
+/** Charge les messages visibles selon le périmètre (groupes membres ou admin = tout). */
+export async function loadHistory(scope: MessageLoadScope): Promise<PersistedMessage[]> {
+  const userId = getCurrentUserIdForSheets();
+  if (!userId) return [];
+
   if (isGoogleSheetsReadConfigured()) {
     try {
-      const remote = await loadHistoryFromSheets();
+      const remote = await loadHistoryFromSheets(scope);
       if (remote.length > 0) {
         const byConv: Record<string, PersistedMessage[]> = {};
         remote.forEach((m) => {
           if (!byConv[m.conversationId]) byConv[m.conversationId] = [];
           byConv[m.conversationId].push(m);
         });
-        saveHistoryLocal(byConv);
+        saveHistoryLocal(byConv, userId);
         return remote;
       }
     } catch (err) {
@@ -256,10 +314,9 @@ export async function loadHistory(): Promise<PersistedMessage[]> {
     }
   }
 
-  return loadHistoryLocal();
+  return loadHistoryLocal(userId, scope);
 }
 
-/** PUT — met à jour un message existant (texte, etc.). */
 export async function updateMessageInSheets(
   id: string,
   patch: Partial<Pick<PersistedMessage, "text" | "authorName">>,

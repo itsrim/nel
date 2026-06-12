@@ -11,7 +11,13 @@ import {
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
+import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
+import {
+  isConversationAccessible,
+  resolveConversationAccessScope,
+  userIsAppAdmin,
+} from "../lib/accessScope";
 import {
   formatRelativeTime,
   formatVisitTimeAgo,
@@ -338,8 +344,10 @@ function SubTabPill({
 export function ChatPage() {
   const { openDetail } = useNavigationStore();
   const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
   const {
     conversations,
+    events,
     profileVisits,
     suggestions,
     favoriteConversationIds,
@@ -356,6 +364,26 @@ export function ChatPage() {
   const [userSearchOpen, setUserSearchOpen] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const userSearchInputRef = useRef<HTMLInputElement>(null);
+
+  const conversationAccessScope = useMemo(
+    () =>
+      resolveConversationAccessScope({
+        isAdmin: userIsAppAdmin(user),
+        conversations,
+        events,
+      }),
+    [user, conversations, events],
+  );
+
+  const accessibleConversations = useMemo(
+    () =>
+      conversationAccessScope === null
+        ? conversations
+        : conversations.filter((c) =>
+            isConversationAccessible(c.id, conversationAccessScope),
+          ),
+    [conversations, conversationAccessScope],
+  );
 
   useEffect(() => {
     if (userSearchOpen && viewerPremiumAccess) {
@@ -413,25 +441,25 @@ export function ChatPage() {
 
   const sorted = useMemo(
     () =>
-      [...conversations].sort(
+      [...accessibleConversations].sort(
         (a, b) => conversationRecency(b) - conversationRecency(a),
       ),
-    [conversations],
+    [accessibleConversations],
   );
 
   const favoriteConversationsStrip = useMemo(() => {
-    const byId = new Map(conversations.map((c) => [c.id, c]));
+    const byId = new Map(accessibleConversations.map((c) => [c.id, c]));
     const list = favoriteConversationIds
       .map((id) => byId.get(id))
       .filter((c): c is Conversation => c !== undefined);
     return [...list].sort(
       (a, b) => conversationRecency(b) - conversationRecency(a),
     );
-  }, [conversations, favoriteConversationIds]);
+  }, [accessibleConversations, favoriteConversationIds]);
 
   const messagesTabBadge = useMemo(
-    () => conversations.reduce((s, c) => s + c.unreadCount, 0),
-    [conversations],
+    () => accessibleConversations.reduce((s, c) => s + c.unreadCount, 0),
+    [accessibleConversations],
   );
 
   const profileVisitsVisible = useMemo(

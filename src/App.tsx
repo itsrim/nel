@@ -22,6 +22,7 @@ import {
   refreshChatMessagesFromSheets,
 } from "./lib/applySheetsState";
 import { isGoogleSheetsReadConfigured } from "./lib/googleSheetsDb";
+import { isAdminAccount } from "./lib/accountRoles";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { ChatPage } from "./pages/ChatPage";
 import { EventsPage } from "./pages/EventsPage";
@@ -109,8 +110,13 @@ function App() {
   // Données applicatives depuis Google Sheets (chargement complet à la connexion)
   useEffect(() => {
     if (!user?.id || !isGoogleSheetsReadConfigured()) return;
-    void loadAppStateFromSheets(user.id).then(applySheetsLoadedState);
-  }, [user?.id]);
+    void (async () => {
+      const isAdmin = isAdminAccount(user);
+      const loaded = await loadAppStateFromSheets(user.id, isAdmin);
+      applySheetsLoadedState(loaded);
+      await refreshChatMessagesFromSheets();
+    })();
+  }, [user?.id, user?.isAdmin]);
 
   // GET Sheets ciblé à chaque changement d'onglet footer
   useEffect(() => {
@@ -121,7 +127,8 @@ function App() {
     }
     void (async () => {
       try {
-        const loaded = await loadTabStateFromSheets(tab, user.id);
+        const isAdmin = isAdminAccount(user);
+        const loaded = await loadTabStateFromSheets(tab, user.id, isAdmin);
         applySheetsLoadedState(loaded);
         if (tab === "chat") {
           await refreshChatMessagesFromSheets();
@@ -130,7 +137,7 @@ function App() {
         console.error(`Sheets GET [${tab}] failed:`, err);
       }
     })();
-  }, [activeTab, user?.id]);
+  }, [activeTab, user?.id, user?.isAdmin]);
 
   useEffect(() => {
     const openChat = [...detailStack].reverse().find((d) => d.type === "chat");

@@ -15,7 +15,8 @@ import {
 import { isChatApiConfigured } from "../lib/chatConfig";
 import { sendMessageRemote } from "../lib/chatSocket";
 import { useLanguageStore } from "./useLanguageStore";
-import { loadHistory, saveHistory, type PersistedMessage } from "../lib/chatPersistence";
+import { resolveMessageAccessFromStores } from "../lib/accessScope";
+import { saveHistory, type PersistedMessage } from "../lib/chatPersistence";
 import { useAuthStore } from "./useAuthStore";
 import {
   syncAllViewerStateFromStore,
@@ -315,7 +316,7 @@ function pushMessageRemote(message: PersistedMessage) {
 }
 
 function persistLocalMessages(messagesByConversation: Record<string, Message[]>) {
-  saveHistory(messagesByConversation);
+  saveHistory(messagesByConversation, resolveMessageAccessFromStores());
 }
 
 function syncViewerSettingsFromState(state: MessagingState) {
@@ -1023,7 +1024,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       const event = state.events.find((e) => e.id === id);
       if (!event) return state;
       const cid = event.conversationId;
-      syncEventDeleteToSheets(id);
+      syncEventDeleteToSheets(id, event.sheetOwnerUserId);
       syncConversationDeleteToSheets(cid);
       const { [cid]: _drop, ...restMsgs } = state.messagesByConversation;
       return {
@@ -1399,7 +1400,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       syncReportDeleteToSheets(id);
       if (ev) {
         get().postModerationNotice(ev.conversationId, notice);
-        syncEventDeleteToSheets(ev.id);
+        syncEventDeleteToSheets(ev.id, ev.sheetOwnerUserId);
         syncConversationDeleteToSheets(ev.conversationId);
         syncViewerSettingsFromState(get());
         get().showToast(
@@ -1500,6 +1501,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       applyViewerKarma(-KARMA_ORGANIZE_COST);
     }
     const hostName = vn.trim() || "Moi";
+    const sheetOwnerUserId = useAuthStore.getState().user?.id;
     const event: Event = {
       id,
       conversationId: input.conversationId,
@@ -1536,6 +1538,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       validatedPresentProfilIds: [],
       karmaJoinPaidProfilIds: [],
       organizerRatings: [],
+      sheetOwnerUserId,
     };
     set((s) => ({ events: [event, ...s.events] }));
     syncEventToSheets(event);
@@ -1596,7 +1599,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       const event = state.events.find((e) => e.id === eventId);
       if (!event) return state;
       const cid = event.conversationId;
-      syncEventDeleteToSheets(eventId);
+      syncEventDeleteToSheets(eventId, event.sheetOwnerUserId);
       syncConversationDeleteToSheets(cid);
       const { [cid]: _drop, ...restMsgs } = state.messagesByConversation;
       return {
@@ -1681,7 +1684,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     const newMessage: PersistedMessage = {
       id: Math.random().toString(36).substring(7),
       conversationId,
-      authorId,
+      authorId: authorId ?? useAuthStore.getState().user?.id,
       authorName,
       text,
       sentAt: Date.now(),
@@ -2221,33 +2224,3 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
   },
 };
 });
-
-function initLocalChatHistory() {
-  void (async () => {
-    const history = await loadHistory();
-    if (history.length === 0) return;
-
-    const state = useMessagingStore.getState();
-    const currentDisplayName = state.viewerProfileDisplayName;
-    const mergedMsgs = { ...state.messagesByConversation };
-
-    history.forEach((m) => {
-      if (!mergedMsgs[m.conversationId]) mergedMsgs[m.conversationId] = [];
-      if (!mergedMsgs[m.conversationId].some((msg) => msg.id === m.id)) {
-        mergedMsgs[m.conversationId].push({
-          ...m,
-          isOwn: m.authorId
-            ? m.authorId === useAuthStore.getState().user?.id
-            : m.authorName === currentDisplayName,
-        });
-      }
-    });
-
-    useMessagingStore.setState({ messagesByConversation: mergedMsgs });
-  })();
-}
-
-if (typeof window !== "undefined") {
-  initLocalChatHistory();
-}
-
