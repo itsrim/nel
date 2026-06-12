@@ -7,7 +7,7 @@ import {
   sheetGet,
 } from "./googleSheetsDb";
 import { hashPasswordForSheet, verifyPasswordForSheet } from "./passwordHash";
-import { boolFromSheet, numFromSheet } from "./sheetRowCodec";
+import { boolFromSheet, isDeletedFromSheet, numFromSheet } from "./sheetRowCodec";
 
 export interface SheetAuthUser {
   id: string;
@@ -33,7 +33,7 @@ export async function findViewerRowByEmail(
   return (
     rows.find(
       (r) =>
-        r.deleted !== "true" &&
+        !isDeletedFromSheet(r.deleted) &&
         r.email?.trim().toLowerCase() === normalized,
     ) ?? null
   );
@@ -46,7 +46,7 @@ export async function findViewerRowByVerificationToken(
   if (!trimmed) return null;
   const rows = await loadViewerSettingsRows();
   return (
-    rows.find((r) => r.deleted !== "true" && r.verificationToken?.trim() === trimmed) ??
+    rows.find((r) => !isDeletedFromSheet(r.deleted) && r.verificationToken?.trim() === trimmed) ??
     null
   );
 }
@@ -58,7 +58,7 @@ export async function findViewerRowByPasswordResetToken(
   if (!trimmed) return null;
   const rows = await loadViewerSettingsRows();
   return (
-    rows.find((r) => r.deleted !== "true" && r.passwordResetToken?.trim() === trimmed) ??
+    rows.find((r) => !isDeletedFromSheet(r.deleted) && r.passwordResetToken?.trim() === trimmed) ??
     null
   );
 }

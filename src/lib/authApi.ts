@@ -1,4 +1,4 @@
-import { CHAT_API_BASE } from "./chatConfig";
+import { CHAT_API_BASE, isChatApiConfigured } from "./chatConfig";
 import type { User } from "../store/useAuthStore";
 import { isAdminAccount } from "./accountRoles";
 import { resolveAvatarUrl } from "./avatarUrl";
@@ -77,6 +77,24 @@ export async function fetchSessionToken(user: {
   });
   if (!res.ok) throw new Error(await parseAuthError(res));
   return (await res.json()) as { user: AuthResponse["user"]; token: string };
+}
+
+/** JWT chat — ne bloque pas la connexion si le backend n'a pas encore /api/auth/session. */
+export async function trySetSessionToken(user: {
+  id: string;
+  email: string;
+  displayName: string;
+  emailVerified?: boolean;
+}): Promise<boolean> {
+  if (!isChatApiConfigured()) return false;
+  try {
+    const { token } = await fetchSessionToken(user);
+    setAuthToken(token);
+    return true;
+  } catch (err) {
+    console.warn("[auth] JWT chat indisponible (backend à redéployer ?):", err);
+    return false;
+  }
 }
 
 export async function signupWithApi(

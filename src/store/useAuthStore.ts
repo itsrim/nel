@@ -5,7 +5,7 @@ import {
   isGoogleSheetsWriteConfigured,
 } from "../lib/googleSheetsDb";
 import {
-  fetchSessionToken,
+  trySetSessionToken,
   setAuthToken,
   signupWithApi,
   resendVerificationWithApi,
@@ -192,8 +192,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         ipCheck.currentIp || undefined,
       );
       if (isChatApiConfigured()) {
-        const { token: jwt } = await fetchSessionToken(loggedInUser);
-        setAuthToken(jwt);
+        await trySetSessionToken(loggedInUser);
       }
       localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
       set({
@@ -318,8 +317,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       syncPasswordHashToSheets(userId, hashPasswordForSheet(password));
       const loggedInUser = toAppUser({ ...sheetUser, emailVerified: true });
       if (isChatApiConfigured()) {
-        const { token: jwt } = await fetchSessionToken(loggedInUser);
-        setAuthToken(jwt);
+        await trySetSessionToken(loggedInUser);
       }
       localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
       if (loggedInUser.isAdmin) {
@@ -373,8 +371,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return;
         }
         if (isChatApiConfigured()) {
-          const { token } = await fetchSessionToken(loggedInUser);
-          setAuthToken(token);
+          await trySetSessionToken(loggedInUser);
         }
         localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
         if (loggedInUser.isAdmin) {
@@ -422,12 +419,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         useMessagingStore.getState().setIsAdmin(true);
       }
       if (isChatApiConfigured()) {
-        try {
-          const { token } = await fetchSessionToken(loggedInUser);
-          setAuthToken(token);
-        } catch {
-          /* chat optionnel en mode démo local */
-        }
+        await trySetSessionToken(loggedInUser);
       }
       set({ user: loggedInUser, isLoading: false });
     } catch (err) {
@@ -534,8 +526,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             return;
           }
           if (isChatApiConfigured()) {
-            const { token } = await fetchSessionToken(loggedInUser);
-            setAuthToken(token);
+            await trySetSessionToken(loggedInUser);
           }
           localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
           if (loggedInUser.isAdmin) {

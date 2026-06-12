@@ -28,6 +28,7 @@ import {
 } from "./googleSheetsDb";
 import {
   boolFromSheet,
+  isDeletedFromSheet,
   boolToSheet,
   jsonFromSheet,
   jsonToSheet,
@@ -84,7 +85,7 @@ function loadLocalCache(table: SheetTableName, userId: string): Record<string, s
 }
 
 function rowsForUser(rows: Record<string, string>[], userId: string): Record<string, string>[] {
-  return rows.filter((r) => r.userId === userId && r.deleted !== "true");
+  return rows.filter((r) => r.userId === userId && !isDeletedFromSheet(r.deleted));
 }
 
 async function readTable(table: SheetTableName, userId: string): Promise<Record<string, string>[]> {
@@ -839,7 +840,7 @@ async function readGlobalTable(table: SheetTableName): Promise<Record<string, st
   if (isGoogleSheetsReadConfigured()) {
     try {
       const rows = await sheetGet<Record<string, string>>(table);
-      const active = rows.filter((r) => r.deleted !== "true");
+      const active = rows.filter((r) => !isDeletedFromSheet(r.deleted));
       saveLocalCache(table, GLOBAL_CACHE_USER, active);
       markActiveRows(active);
       return active;
@@ -856,7 +857,7 @@ async function readGlobalTable(table: SheetTableName): Promise<Record<string, st
 
   try {
     const rows = await sheetGet<Record<string, string>>(table);
-    const active = rows.filter((r) => r.deleted !== "true");
+    const active = rows.filter((r) => !isDeletedFromSheet(r.deleted));
     if (active.length > 0) {
       saveLocalCache(table, GLOBAL_CACHE_USER, active);
       markActiveRows(active);
