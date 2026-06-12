@@ -1,5 +1,5 @@
 /**
- * API Google Sheets pour Nel — à déployer comme Application Web.
+ * API Google Sheets pour Hlg — à déployer comme Application Web.
  *
  * 1. Crée un Google Sheet avec les onglets listés dans google-apps-script/README.md
  *    (ligne 1 = en-têtes ; copier depuis google-apps-script/csv-templates/*.csv)

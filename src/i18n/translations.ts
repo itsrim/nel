@@ -558,6 +558,8 @@ export const translations = {
     // ChatPage - Missing strings
     chatMessages: "Messages",
     chatSuggestions: "Suggestions",
+    chatSuggestionsLoadingMore: "Chargement des profils suivants…",
+    noSuggestions: "Aucune suggestion pour le moment.",
     chatVisits: "Visites",
     searchButton: "Rechercher",
     chatUserSearchPlaceholder: "Rechercher un utilisateur…",
@@ -1193,6 +1195,8 @@ export const translations = {
     // ChatPage - Missing strings
     chatMessages: "Messages",
     chatSuggestions: "Suggestions",
+    chatSuggestionsLoadingMore: "Loading more profiles…",
+    noSuggestions: "No suggestions at the moment.",
     chatVisits: "Visits",
     searchButton: "Search",
     chatUserSearchPlaceholder: "Search for a user…",

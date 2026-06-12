@@ -1,4 +1,4 @@
-# Nel — Backend chat API
+# Hlg — Backend chat API
 
 Serveur **Node.js + TypeScript** : **Fastify** (HTTP) + **Socket.IO** (temps réel).  
 Auth JWT, messages en mémoire, notifications **Web Push**.
@@ -419,4 +419,4 @@ Fichiers frontend liés :
 
 ## Licence
 
-Projet privé Nel.
+Projet privé Hlg.

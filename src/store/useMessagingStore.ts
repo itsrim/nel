@@ -475,7 +475,7 @@ interface MessagingState {
   dismissAdminReport: (reportId: string) => void;
   /** Retire le signalement, masque le contenu et envoie un message dans le fil groupe ou DM si possible. */
   moderationHideAndNotifyFromReport: (reportId: string) => void;
-  /** Message « Modération Nel » dans un fil (non écrit par « Moi »). */
+  /** Message « Modération Hlg » dans un fil (non écrit par « Moi »). */
   postModerationNotice: (conversationId: string, text: string) => void;
   favoriteConversationIds: string[];
   messagesByConversation: Record<string, Message[]>;
@@ -1349,7 +1349,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     const newMessage: Message = {
       id: `mod_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
       conversationId: tid,
-      authorName: "Modération Nel",
+      authorName: "Modération Hlg",
       text: body,
       sentAt: Date.now(),
       isOwn: false,
@@ -1385,7 +1385,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     if (!report) return;
 
     const notice =
-      "Suite à un signalement, l’équipe vous informe qu’un problème a été remonté sur ce contenu. Merci de respecter les règles de la communauté Nel.";
+      "Suite à un signalement, l’équipe vous informe qu’un problème a été remonté sur ce contenu. Merci de respecter les règles de la communauté Hlg.";
 
     if (report.kind === "event") {
       const ev = get().events.find((e) => e.id === report.subjectId);

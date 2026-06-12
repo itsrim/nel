@@ -30,7 +30,7 @@ const BUILTIN_ACCOUNTS: Record<string, BuiltinAccount> = {
     displayName: "Admin",
     id: ADMIN_USER_ID,
     age: "28",
-    bio: "Compte admin Nel",
+    bio: "Compte admin Hlg",
     isPro: true,
     emailVerified: true,
   },

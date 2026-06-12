@@ -87,7 +87,7 @@ export type User = {
   bio?: string;
   isPro?: boolean;
   emailVerified?: boolean;
-  /** Compte staff Nel — affiche le mode admin dans les paramètres. */
+  /** Compte staff Hlg — affiche le mode admin dans les paramètres. */
   isAdmin?: boolean;
 };
 
@@ -285,7 +285,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: loggedInUser,
         isLoading: false,
         pendingVerificationEmail: null,
-        verificationMessage: "Email confirmé — bienvenue sur Nel !",
+        verificationMessage: "Email confirmé — bienvenue sur Hlg !",
       });
     } catch (err) {
       set({

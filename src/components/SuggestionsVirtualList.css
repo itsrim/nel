@@ -1,0 +1,131 @@
+.suggestions-virtual {
+  position: relative;
+  width: 100%;
+}
+
+.suggestions-virtual-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.suggestions-load-sentinel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  pointer-events: none;
+}
+
+.suggestions-loading-more {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  margin: 0;
+  padding: 8px 16px 24px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.suggestion-list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  box-sizing: border-box;
+}
+
+.suggestion-list-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.suggestion-list-main:active {
+  opacity: 0.78;
+}
+
+.suggestion-list-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #1c1c1e;
+}
+
+.suggestion-list-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.suggestion-list-name {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestion-list-age {
+  color: #8e8e93;
+  font-size: 14px;
+}
+
+.suggestion-list-add-btn {
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border-radius: 20px;
+  background: rgba(107, 33, 168, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.suggestion-list-add-btn--sent {
+  background: rgba(60, 60, 64, 0.85);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.suggestion-list-add-btn--friend {
+  background: rgba(44, 74, 62, 0.85);
+  border-color: rgba(52, 199, 89, 0.35);
+}
+
+.suggestion-list-add-btn--rejected {
+  background: rgba(58, 52, 40, 0.9);
+  border-color: rgba(255, 159, 10, 0.35);
+}
+
+.suggestion-list-add-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.95;
+}
+
+.suggestions-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 15px;
+}

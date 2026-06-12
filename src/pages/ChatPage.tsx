@@ -18,16 +18,16 @@ import {
   resolveConversationAccessScope,
   userIsAppAdmin,
 } from "../lib/accessScope";
+import { SuggestionsVirtualList } from "../components/SuggestionsVirtualList";
 import {
   formatRelativeTime,
   formatVisitTimeAgo,
   formatBadgeCount,
-  formatSuggestionCaption,
   type Conversation,
-  type SuggestionProfile,
 } from "../data/mockData";
 import { buildConversationMiniSlots } from "../lib/conversationMiniSlots";
 import { hasReachedDailyFriendRequestLimit } from "../lib/eventDateKey";
+import { sortSuggestionsRecentFirst } from "../lib/suggestionListing";
 import { hasViewerPremiumAccess } from "../lib/viewerEntitlements";
 import "./ChatPage.css";
 
@@ -47,27 +47,6 @@ function groupStoryVariant(id: string): 0 | 1 | 2 {
   let s = 0;
   for (let i = 0; i < id.length; i++) s = (s + id.charCodeAt(i)) % 3;
   return s as 0 | 1 | 2;
-}
-
-function buildMasonryColumns(
-  items: SuggestionProfile[],
-  columnCount: number,
-): SuggestionProfile[][] {
-  const cols: SuggestionProfile[][] = Array.from(
-    { length: columnCount },
-    () => [],
-  );
-  const heights = Array(columnCount).fill(0);
-  for (const item of items) {
-    const w = 1 / item.aspectRatio;
-    let minI = 0;
-    for (let c = 1; c < columnCount; c++) {
-      if (heights[c] < heights[minI]) minI = c;
-    }
-    cols[minI].push(item);
-    heights[minI] += w;
-  }
-  return cols;
 }
 
 /* ── Sub-components ── */
@@ -364,6 +343,7 @@ export function ChatPage() {
   const [userSearchOpen, setUserSearchOpen] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const userSearchInputRef = useRef<HTMLInputElement>(null);
+  const chatContentRef = useRef<HTMLDivElement>(null);
 
   const conversationAccessScope = useMemo(
     () =>
@@ -480,9 +460,14 @@ export function ChatPage() {
     [suggestions, moderationHiddenProfilIds],
   );
 
-  const suggestionColumns = useMemo(
-    () => buildMasonryColumns(suggestionsVisible, 2),
+  const sortedSuggestions = useMemo(
+    () => sortSuggestionsRecentFirst(suggestionsVisible),
     [suggestionsVisible],
+  );
+
+  const suggestionsListResetKey = useMemo(
+    () => `${sortedSuggestions.length}-${moderationHiddenProfilIds.join(",")}`,
+    [sortedSuggestions.length, moderationHiddenProfilIds],
   );
 
   const sortedVisits = useMemo(
@@ -643,7 +628,7 @@ export function ChatPage() {
       </div>
 
       {/* Content */}
-      <div className="chat-content">
+      <div className="chat-content" ref={chatContentRef}>
         {userSearchOpen && viewerPremiumAccess ? (
           <div className="chat-user-search-results">
             {userSearchQuery.trim() === "" ? (
@@ -776,67 +761,20 @@ export function ChatPage() {
             )}
 
             {sub === "suggestions" && (
-              <div className="suggestions-masonry">
-            {suggestionColumns.map((col, ci) => (
-              <div key={ci} className="suggestion-col">
-                {col.map((item) => {
-                  const sent = hasSentFriendRequest(item.id);
-                  const mutual = isMutualFriend(item.id);
-                  const rejected = hasRejectedFriendRequest(item.id);
-                  return (
-                    <div key={item.id} className="suggestion-card">
-                      <div
-                        className="suggestion-img-press"
-                        onClick={() => openDetail("profile", item.id)}
-                      >
-                        <img
-                          src={item.imageUrl}
-                          alt={item.pseudo}
-                          className="suggestion-img"
-                          style={{ aspectRatio: item.aspectRatio }}
-                          loading="lazy"
-                        />
-                        <div className="suggestion-img-fade" />
-                        <span className="suggestion-caption">
-                          {formatSuggestionCaption(item.pseudo, item.age)}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        className={`suggestion-add-friend-btn${sent ? " suggestion-add-friend-btn--sent" : ""}${mutual ? " suggestion-add-friend-btn--friend" : ""}${rejected ? " suggestion-add-friend-btn--rejected" : ""}${dailyFriendRequestLimitReached && !sent ? " suggestion-add-friend-btn--daily-limit" : ""}`}
-                        disabled={isFriendRequestBlocked(item.id)}
-                        onClick={(e) => handleFriendRequest(e, item.id)}
-                        aria-label={
-                          mutual
-                            ? t("friendLabel")
-                            : rejected
-                              ? t("requestRejected")
-                              : sent
-                                ? t("requestSent")
-                                : dailyFriendRequestLimitReached
-                                  ? t("friendRequestDailyLimit")
-                                  : t("sendFriendRequest")
-                        }
-                      >
-                        {mutual ? (
-                          <Heart
-                            size={22}
-                            color="#FF4081"
-                            fill="#FF4081"
-                            aria-hidden
-                          />
-                        ) : rejected ? (
-                          <HeartCrack size={22} color="#FF9F0A" aria-hidden />
-                        ) : (
-                          <UserPlus size={22} color="#fff" aria-hidden />
-                        )}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-              </div>
+              <SuggestionsVirtualList
+                suggestions={sortedSuggestions}
+                scrollRef={chatContentRef}
+                listResetKey={suggestionsListResetKey}
+                loadingMoreLabel={t("chatSuggestionsLoadingMore")}
+                emptyMessage={t("noSuggestions")}
+                onOpenProfile={(id) => openDetail("profile", id)}
+                isMutualFriend={isMutualFriend}
+                hasSentFriendRequest={hasSentFriendRequest}
+                hasRejectedFriendRequest={hasRejectedFriendRequest}
+                dailyFriendRequestLimitReached={dailyFriendRequestLimitReached}
+                isFriendRequestBlocked={isFriendRequestBlocked}
+                onFriendRequest={handleFriendRequest}
+              />
             )}
           </>
         )}

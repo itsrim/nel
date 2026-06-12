@@ -121,7 +121,7 @@ Les écritures passent par **GET** + paramètres (`?action=post&sheet=…&row=�
 
 Ouvre l’URL `/exec` dans le navigateur : tu dois voir `{"ok":true,"service":"nel-sheets-api"}`.
 
-## 6. Comportement Nel
+## 6. Comportement Hlg
 
 | Action app | Sheets |
 |------------|--------|

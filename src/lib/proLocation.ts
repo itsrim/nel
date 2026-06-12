@@ -38,7 +38,7 @@ export function buildViewerProfessional(input: {
     categoryLabel: "Professionnel",
     city: input.city.trim() || "France",
     address: input.address.trim() || undefined,
-    description: "Professionnel référencé sur Nel.",
+    description: "Professionnel référencé sur Hlg.",
     imageUrl: input.avatarUrl,
     mapX: 50,
     mapY: 50,
