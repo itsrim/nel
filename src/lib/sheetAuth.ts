@@ -15,6 +15,9 @@ export interface SheetAuthUser {
   displayName: string;
   emailVerified: boolean;
   isPro: boolean;
+  age: string;
+  bio: string;
+  language: string;
 }
 
 const CONFIRM_EMAIL_MSG =
@@ -72,6 +75,9 @@ function rowToAuthUser(row: Record<string, string>): SheetAuthUser {
     displayName: row.displayName?.trim() || email,
     emailVerified: boolFromSheet(row.emailVerified),
     isPro: boolFromSheet(row.isPro),
+    age: row.age?.trim() || "",
+    bio: row.bio?.trim() || "",
+    language: row.language?.trim() || "",
   };
 }
 

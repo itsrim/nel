@@ -18,6 +18,7 @@ interface ImportMetaEnv {
   readonly VITE_SHEET_GID_PROFILE_VISITS?: string;
   readonly VITE_SHEET_GID_NOTIFICATIONS?: string;
   readonly VITE_SHEET_GID_ADMIN_REPORTS?: string;
+  readonly VITE_SHEET_GID_EVENT_REMINDERS?: string;
   readonly VITE_SHEET_GID_PROFESSIONALS?: string;
   readonly VITE_SHEET_GID_APP_CONFIG?: string;
   readonly VITE_DEFAULT_CSV_PATH?: string;

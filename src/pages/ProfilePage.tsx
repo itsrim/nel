@@ -152,7 +152,10 @@ export function ProfilePage() {
     viewerProfileAvatarUrl,
     setViewerProfileAvatarUrl,
     viewerProfileDisplayName,
-    setViewerProfileDisplayName,
+    viewerProfileAge,
+    viewerProfileBio,
+    setViewerProfileBio,
+    persistViewerSettingsToSheets,
     viewerProfileIsPro,
     setViewerProfileIsPro,
     viewerProfileCity,
@@ -233,15 +236,12 @@ export function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlan | null>(null);
+  const [draftBio, setDraftBio] = useState("");
   useLockBodyScroll(settingsOpen);
   const userIsAdmin = isAdminAccount(user);
   const canEditBadges = canManageProfileBadges(user, isAdmin);
 
-  // Mock user state (nom + photo partagés avec EventDetail / création de sortie)
-  const [age, setAge] = useState("28");
-  const [bio, setBio] = useState(
-    "Passionné de rando et de sorties culturelles sur Paris ! 🏔️🎭",
-  );
+  // Photo partagée avec EventDetail / création de sortie ; nom et âge figés après inscription.
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingSplashImage, setUploadingSplashImage] = useState(false);
   const [heroAvatarBroken, setHeroAvatarBroken] = useState(false);
@@ -281,6 +281,7 @@ export function ProfilePage() {
     } else if (viewerProAccess && !draftProAddress.trim()) {
       setViewerProAddress("");
     }
+    setViewerProfileBio(draftBio);
     setEditing(false);
   };
   const unreadAdminReportsCount = useMemo(
@@ -519,30 +520,20 @@ export function ProfilePage() {
           {!editing ? (
             <h1 className="hero-name">
               {viewerProfileDisplayName}
-              {age ? `, ${age}` : ""}
+              {viewerProfileAge ? `, ${viewerProfileAge}` : ""}
             </h1>
           ) : (
             <div className="hero-edit-fields">
+              <p className="hero-name">
+                {viewerProfileDisplayName}
+                {viewerProfileAge ? `, ${viewerProfileAge}` : ""}
+              </p>
               <input
-                value={viewerProfileDisplayName}
-                onChange={(e) => setViewerProfileDisplayName(e.target.value)}
-                placeholder={t("name")}
-                className="hero-input"
+                value={viewerProfileCity}
+                onChange={(e) => setViewerProfileCity(e.target.value)}
+                placeholder={t("cityPlaceholder")}
+                className="hero-input hero-input--city"
               />
-              <div className="hero-edit-row">
-                <input
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  placeholder={t("age")}
-                  className="hero-input hero-input--age"
-                />
-                <input
-                  value={viewerProfileCity}
-                  onChange={(e) => setViewerProfileCity(e.target.value)}
-                  placeholder={t("cityPlaceholder")}
-                  className="hero-input hero-input--city"
-                />
-              </div>
             </div>
           )}
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
@@ -565,11 +556,11 @@ export function ProfilePage() {
         {/* Bio Card */}
         <div className="bio-card">
           {!editing ? (
-            <p className="bio-text">{bio || "—"}</p>
+            <p className="bio-text">{viewerProfileBio || "—"}</p>
           ) : (
             <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
+              value={draftBio}
+              onChange={(e) => setDraftBio(e.target.value)}
               placeholder={t("bio")}
               className="bio-textarea"
             />
@@ -654,6 +645,7 @@ export function ProfilePage() {
                 className="edit-btn"
                 onClick={() => {
                   setDraftProAddress(viewerProAddress);
+                  setDraftBio(viewerProfileBio);
                   setEditing(true);
                 }}
               >
@@ -1467,9 +1459,11 @@ export function ProfilePage() {
                   <input
                     type="checkbox"
                     checked={language === "en"}
-                    onChange={(e) =>
-                      setLanguage(e.target.checked ? "en" : "fr")
-                    }
+                    onChange={(e) => {
+                      const next = e.target.checked ? "en" : "fr";
+                      setLanguage(next);
+                      persistViewerSettingsToSheets();
+                    }}
                     className="switch"
                     aria-label="Toggle language"
                   />

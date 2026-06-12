@@ -11,6 +11,7 @@ export type SheetTableName =
   | "profile_visits"
   | "notifications"
   | "admin_reports"
+  | "event_reminders"
   | "professionals"
   | "app_config";
 
@@ -82,6 +83,11 @@ export const SHEET_TABLES: Record<SheetTableName, SheetTableConfig> = {
   admin_reports: {
     sheetName: "admin_reports",
     gid: gidEnv("VITE_SHEET_GID_ADMIN_REPORTS", "0"),
+    idColumn: "id",
+  },
+  event_reminders: {
+    sheetName: "event_reminders",
+    gid: gidEnv("VITE_SHEET_GID_EVENT_REMINDERS", "0"),
     idColumn: "id",
   },
   professionals: {

@@ -53,6 +53,11 @@ userId,id,createdAt,kind,eventId,eventTitle,inviteeName,inviteeProfilId,conversa
 userId,id,createdAt,kind,subjectId,subjectLabel,explanation,read,deleted
 ```
 
+### `event_reminders`
+```
+userId,id,eventId,eventTitle,participantId,participantName,sentAt,readAt,deleted
+```
+
 ### `professionals` (annuaire global — sans `userId`)
 ```
 id,firstName,lastName,category,categoryLabel,city,address,description,imageUrl,mapX,mapY,lat,lng,verified,websiteUrl,socialUrl,phone,deleted
@@ -93,6 +98,7 @@ VITE_SHEET_GID_VIEWER_SETTINGS=...
 VITE_SHEET_GID_PROFILE_VISITS=...
 VITE_SHEET_GID_NOTIFICATIONS=...
 VITE_SHEET_GID_ADMIN_REPORTS=...
+VITE_SHEET_GID_EVENT_REMINDERS=...
 VITE_SHEET_GID_PROFESSIONALS=...
 ```
 

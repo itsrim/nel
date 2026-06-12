@@ -22,7 +22,7 @@ Ne pas éditer `public/csv/` à la main — modifier les `.csv` ici.
    - **Fichier → Importer** → onglet **Charger** → choisir le `.csv` correspondant.
    - Type de séparateur : **virgule**.
    - Cocher **Remplacer la feuille actuelle** (ou coller la ligne 1 manuellement).
-3. Supprimer les onglets par défaut inutilisés (`Feuille 1`, etc.) une fois les 11 onglets créés.
+3. Supprimer les onglets par défaut inutilisés (`Feuille 1`, etc.) une fois les 12 onglets créés.
 
 ## Correspondance onglet ↔ fichier
 
@@ -37,6 +37,7 @@ Ne pas éditer `public/csv/` à la main — modifier les `.csv` ici.
 | `profile_visits` | `profile_visits.csv` |
 | `notifications` | `notifications.csv` |
 | `admin_reports` | `admin_reports.csv` |
+| `event_reminders` | `event_reminders.csv` |
 | `professionals` | `professionals.csv` |
 | `app_config` | `app_config.csv` |
 

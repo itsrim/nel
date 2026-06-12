@@ -1,4 +1,5 @@
 import type { Event, Friend } from "../data/mockData";
+import { resolveAvatarUrl } from "./avatarUrl";
 
 export function eventHostedByViewer(event: Event): boolean {
   return (
@@ -6,6 +7,18 @@ export function eventHostedByViewer(event: Event): boolean {
     event.hostName === "Moi" ||
     (event.hostAvatar?.includes("nel-organizer") ?? false)
   );
+}
+
+/** Photo hôte à l’affichage — profil visiteur à jour si la sortie est la vôtre. */
+export function resolveEventHostAvatar(
+  event: Event,
+  viewerProfileAvatarUrl: string,
+): string {
+  if (eventHostedByViewer(event)) {
+    return resolveAvatarUrl(viewerProfileAvatarUrl);
+  }
+  const stored = event.hostAvatar?.trim();
+  return stored ? resolveAvatarUrl(stored) : resolveAvatarUrl();
 }
 
 export function resolveEventHostIsPro(

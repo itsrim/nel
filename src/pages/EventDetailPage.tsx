@@ -21,7 +21,7 @@ import { useNavigationStore } from "../store/useNavigationStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { isEventDateBeforeToday } from "../lib/eventDateKey";
-import { eventHostedByViewer, resolveEventHostIsPro } from "../lib/eventHost";
+import { eventHostedByViewer, resolveEventHostAvatar, resolveEventHostIsPro } from "../lib/eventHost";
 import { resolveEventPublicUrl } from "../lib/eventPublicUrl";
 import {
   KARMA_ATTENDANCE_REWARD,
@@ -67,6 +67,10 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     toggleEventFavorite,
     joinEvent,
     leaveEvent,
+    joinWaitlist,
+    leaveWaitlist,
+    approveWaitlistEntry,
+    rejectWaitlistEntry,
     inviteProfilToEvent,
     inviteProfilsToEvent,
     suggestions,
@@ -90,6 +94,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const waitlist = event?.waitlistEntries ?? [];
   const waitlistPending = waitlist.some((w) => w.reason === "en_attente");
   const waitlistOverflow = waitlist.some((w) => w.reason === "overflow");
+  const viewerOnWaitlist = waitlist.some(
+    (w) => w.profilId === VIEWER_KARMA_PARTICIPANT_ID,
+  );
 
   const resolveWaitlistPhoto = (entry: (typeof waitlist)[number]) => {
     if (entry.imageUrl?.trim()) return entry.imageUrl;
@@ -181,9 +188,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const publicShareUrl = resolveEventPublicUrl(event);
 
   const viewerHosts = eventHostedByViewer(event);
-  const hostAvatar = viewerHosts
-    ? viewerProfileAvatarUrl
-    : event.hostAvatar?.trim() || "https://i.pravatar.cc/150?u=nel-host";
+  const hostAvatar = resolveEventHostAvatar(event, viewerProfileAvatarUrl);
   const hostName = viewerHosts
     ? viewerProfileDisplayName
     : event.hostName?.trim() || "Organisateur";
@@ -257,10 +262,29 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
       ) {
         leaveEvent(event.id);
       }
-    } else {
-      joinEvent(event.id);
+      return;
     }
+    if (event.status === "en_attente" || viewerOnWaitlist) {
+      leaveWaitlist(event.id);
+      return;
+    }
+    if (event.manualApproval || isFull) {
+      joinWaitlist(event.id);
+      return;
+    }
+    joinEvent(event.id);
   };
+
+  const joinButtonLabel =
+    event.status === "inscrit"
+      ? t("unregisterButton")
+      : event.status === "en_attente" || viewerOnWaitlist
+        ? t("leaveWaitlist")
+        : isFull
+          ? t("joinWaitlist")
+          : event.manualApproval
+            ? t("joinWaitlist")
+            : t("joinEventButton");
 
   const handleShare = async () => {
     try {
@@ -553,20 +577,46 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                     </div>
                   </>
                 );
+                const showModeration =
+                  isHostOrganizer &&
+                  w.reason === "en_attente" &&
+                  !isPastEvent;
                 return (
                   <div key={w.id} className="ed-waitlist-row" role="listitem">
-                    {w.profilId ? (
-                      <button
-                        type="button"
-                        className="ed-waitlist-row-inner ed-waitlist-row-inner--click"
-                        onClick={() => openDetail("profile", w.profilId!)}
-                        aria-label={`${t("viewProfileLabel")} ${w.name}`}
-                      >
-                        {inner}
-                      </button>
-                    ) : (
-                      <div className="ed-waitlist-row-inner">{inner}</div>
-                    )}
+                    <div className="ed-waitlist-row-main">
+                      {w.profilId ? (
+                        <button
+                          type="button"
+                          className="ed-waitlist-row-inner ed-waitlist-row-inner--click"
+                          onClick={() => openDetail("profile", w.profilId!)}
+                          aria-label={`${t("viewProfileLabel")} ${w.name}`}
+                        >
+                          {inner}
+                        </button>
+                      ) : (
+                        <div className="ed-waitlist-row-inner">{inner}</div>
+                      )}
+                    </div>
+                    {showModeration ? (
+                      <div className="ed-waitlist-actions">
+                        <button
+                          type="button"
+                          className="ed-waitlist-action ed-waitlist-action--approve"
+                          onClick={() => approveWaitlistEntry(event.id, w.id)}
+                          aria-label={t("approveWaitlistEntry")}
+                        >
+                          <CheckCircle2 size={18} aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          className="ed-waitlist-action ed-waitlist-action--reject"
+                          onClick={() => rejectWaitlistEntry(event.id, w.id)}
+                          aria-label={t("rejectWaitlistEntry")}
+                        >
+                          <X size={18} aria-hidden />
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -640,9 +690,8 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
               ) : (
                 <button
                   type="button"
-                  className={`ed-join-btn${showJoinKarmaHint ? " ed-join-btn--with-karma" : ""} ${isInscribed ? "joined" : ""} ${!isInscribed && isFull ? "full" : ""}`}
+                  className={`ed-join-btn${showJoinKarmaHint ? " ed-join-btn--with-karma" : ""} ${isInscribed ? "joined" : ""} ${!isInscribed && isFull && !viewerOnWaitlist && event.status !== "en_attente" ? "full" : ""}`}
                   onClick={handleJoinToggle}
-                  disabled={!isInscribed && isFull}
                   aria-label={
                     showJoinKarmaHint
                       ? viewerProAccess
@@ -652,9 +701,11 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                   }
                 >
                   {event.status === "inscrit" ? (
-                    t("unregisterButton")
-                  ) : isFull ? (
-                    t("completeEventButton")
+                    joinButtonLabel
+                  ) : event.status === "en_attente" || viewerOnWaitlist ? (
+                    joinButtonLabel
+                  ) : isFull && !event.manualApproval ? (
+                    joinButtonLabel
                   ) : (
                     <>
                       <span className="ed-join-btn-label">{t("joinEventButton")}</span>

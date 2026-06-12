@@ -18,9 +18,11 @@ import {
   verifyEmailFromViewerSettings,
   validatePasswordResetToken,
   shouldSkipEmailVerificationFromSheets,
+  type SheetAuthUser,
 } from "../lib/sheetAuth";
 import { shutdownGlobalChatSync } from "../lib/chatSync";
 import { useMessagingStore } from "./useMessagingStore";
+import { useLanguageStore } from "./useLanguageStore";
 import {
   syncEmailVerifiedToSheets,
   syncPasswordHashToSheets,
@@ -100,6 +102,19 @@ interface AuthState {
 
 const LS_USER = "nel_auth_user";
 
+function applySheetProfileToStores(
+  sheetUser: Pick<SheetAuthUser, "age" | "bio" | "language">,
+): void {
+  useMessagingStore.getState().hydrateViewerProfileFields({
+    age: sheetUser.age,
+    bio: sheetUser.bio,
+  });
+  const lang = sheetUser.language;
+  if (lang === "fr" || lang === "en") {
+    useLanguageStore.setState({ language: lang });
+  }
+}
+
 const localUsers: Record<
   string,
   {
@@ -169,6 +184,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         /* ignore */
       }
       const loggedInUser = toAppUser(sheetUser, { ...extras, emailVerified: true });
+      applySheetProfileToStores({
+        age: loggedInUser.age ?? sheetUser.age,
+        bio: loggedInUser.bio ?? sheetUser.bio,
+        language: sheetUser.language,
+      });
       const ipCheck = await enforceLoginIpSecurity({
         userId: loggedInUser.id,
         email: loggedInUser.email,
@@ -356,10 +376,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const normalizedLogin = email.trim().toLowerCase();
         const sheetUser = await loginFromViewerSettings(email, password);
         const loggedInUser = toAppUser(sheetUser, {
-          age: normalizedLogin === "admin@rim.com" ? "28" : "",
-          bio: normalizedLogin === "admin@rim.com" ? "Bienvenue sur Nel!" : "",
+          age: sheetUser.age,
+          bio: sheetUser.bio,
           isPro: sheetUser.isPro || normalizedLogin === "rim",
         });
+        applySheetProfileToStores(sheetUser);
         const ipCheck = await enforceLoginIpSecurity({
           userId: loggedInUser.id,
           email: loggedInUser.email,
@@ -418,6 +439,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (loggedInUser.isAdmin) {
         useMessagingStore.getState().setIsAdmin(true);
       }
+      useMessagingStore.getState().hydrateViewerProfileFields({
+        age: loggedInUser.age,
+        bio: loggedInUser.bio,
+      });
       if (isChatApiConfigured()) {
         await trySetSessionToken(loggedInUser);
       }
@@ -483,6 +508,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               passwordHash,
             },
             signupIp || undefined,
+            {
+              age: age ?? "",
+              bio: bio ?? "",
+              language: useLanguageStore.getState().language,
+            },
           );
         } catch (sheetErr) {
           set({
@@ -532,6 +562,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           if (loggedInUser.isAdmin) {
             useMessagingStore.getState().setIsAdmin(true);
           }
+          applySheetProfileToStores({
+            age: age ?? "",
+            bio: bio ?? "",
+            language: useLanguageStore.getState().language,
+          });
           const proContact = readViewerProContact();
           syncEmailVerifiedToSheets(
             loggedInUser.id,

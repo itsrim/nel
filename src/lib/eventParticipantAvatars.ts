@@ -1,7 +1,8 @@
 import type { Conversation, Event, Friend } from "../data/mockData";
-import { DEFAULT_AVATAR_URL } from "./avatarUrl";
+import { resolveAvatarUrl } from "./avatarUrl";
+import { eventHostedByViewer, resolveEventHostAvatar } from "./eventHost";
 
-const DEFAULT_VIEWER_AVATAR = DEFAULT_AVATAR_URL;
+const DEFAULT_VIEWER_AVATAR = resolveAvatarUrl();
 
 /** Jusqu’à 3 photos pour la pile sur la carte sortie. */
 export function buildEventParticipantAvatars(
@@ -42,14 +43,30 @@ export function resolveEventParticipantAvatars(
   viewerProfileAvatarUrl: string,
   max = 3,
 ): string[] {
+  const hostAvatar = resolveEventHostAvatar(event, viewerProfileAvatarUrl);
+
   if (event.participantAvatars?.length) {
-    return event.participantAvatars.filter(Boolean).slice(0, max);
+    const urls = event.participantAvatars
+      .map((u) => resolveAvatarUrl(u))
+      .filter(Boolean)
+      .slice(0, max);
+    if (eventHostedByViewer(event)) {
+      if (urls.length === 0) return [hostAvatar];
+      urls[0] = hostAvatar;
+      const deduped: string[] = [];
+      for (const u of urls) {
+        if (!deduped.includes(u)) deduped.push(u);
+        if (deduped.length >= max) break;
+      }
+      return deduped;
+    }
+    return urls;
   }
 
   const conv = conversations.find((c) => c.id === event.conversationId);
   if (conv?.members?.length) {
     return buildEventParticipantAvatars(
-      event.hostAvatar,
+      hostAvatar,
       conv.members,
       friends,
       viewerProfileAvatarUrl,
@@ -61,10 +78,10 @@ export function resolveEventParticipantAvatars(
   const push = (url?: string) => {
     const u = url?.trim();
     if (!u || urls.includes(u) || urls.length >= max) return;
-    urls.push(u);
+    urls.push(resolveAvatarUrl(u));
   };
 
-  push(event.hostAvatar);
+  push(hostAvatar);
   for (const w of event.waitlistEntries ?? []) {
     if (urls.length >= max) break;
     push(w.imageUrl);

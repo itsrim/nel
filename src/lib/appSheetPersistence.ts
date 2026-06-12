@@ -8,6 +8,7 @@ import type {
   AppNotification,
   Conversation,
   Event,
+  EventReminder,
   Friend,
   GroupMember,
   ProfileVisit,
@@ -566,6 +567,9 @@ export function viewerSettingsToRow(
     emailVerified?: boolean;
     avatarUrl: string;
     displayName: string;
+    age?: string;
+    bio?: string;
+    language?: string;
     isPro: boolean;
     isPremium?: boolean;
     premiumExpiresAt?: number | null;
@@ -600,6 +604,9 @@ export function viewerSettingsToRow(
     ...authFieldsToRow(data),
     avatarUrl: data.avatarUrl,
     displayName: data.displayName,
+    age: str(data.age),
+    bio: str(data.bio),
+    language: str(data.language),
     isPro: boolToSheet(data.isPro),
     isPremium: boolToSheet(data.isPremium),
     premiumExpiresAt:
@@ -689,6 +696,33 @@ export function rowToReport(row: Record<string, string>): AdminReportEntry {
   };
 }
 
+export function eventReminderToRow(r: EventReminder, userId: string): Record<string, string> {
+  return {
+    userId,
+    id: r.id,
+    eventId: r.eventId,
+    eventTitle: r.eventTitle,
+    participantId: r.participantId,
+    participantName: r.participantName,
+    sentAt: String(r.sentAt),
+    readAt: r.readAt != null ? String(r.readAt) : "",
+    deleted: "false",
+  };
+}
+
+export function rowToEventReminder(row: Record<string, string>): EventReminder {
+  const readRaw = str(row.readAt);
+  return {
+    id: row.id,
+    eventId: row.eventId,
+    eventTitle: row.eventTitle ?? "",
+    participantId: row.participantId ?? "",
+    participantName: row.participantName ?? "",
+    sentAt: numFromSheet(row.sentAt, Date.now()),
+    readAt: readRaw !== "" ? numFromSheet(row.readAt, 0) : undefined,
+  };
+}
+
 // ── App config (global — splash, annonces admin) ───────────────────────────
 
 export function adminAppInfoToRow(info: AdminAppInfo): Record<string, string> {
@@ -773,6 +807,7 @@ export interface LoadedAppSheetState {
   profileVisits: ProfileVisit[];
   appNotifications: AppNotification[];
   adminReports: AdminReportEntry[];
+  eventReminders: EventReminder[];
   professionals: MockProfessional[];
   adminAppInfo?: AdminAppInfo;
   viewerSettings?: {
@@ -780,6 +815,9 @@ export interface LoadedAppSheetState {
     emailVerified: boolean;
     avatarUrl: string;
     displayName: string;
+    age?: string;
+    bio?: string;
+    language?: string;
     isPro: boolean;
     isPremium?: boolean;
     premiumExpiresAt?: number | null;
@@ -813,6 +851,133 @@ export async function loadViewerSettingsRow(
 ): Promise<Record<string, string> | undefined> {
   const rows = await readTable("viewer_settings", userId);
   return rows[0];
+}
+
+function parseViewerSettingsFromRow(
+  viewerRow: Record<string, string>,
+): NonNullable<LoadedAppSheetState["viewerSettings"]> {
+  return {
+    email: viewerRow.email ?? "",
+    emailVerified: boolFromSheet(viewerRow.emailVerified),
+    avatarUrl: viewerRow.avatarUrl ?? "",
+    displayName: viewerRow.displayName ?? "",
+    age: str(viewerRow.age) || undefined,
+    bio: str(viewerRow.bio) || undefined,
+    language: str(viewerRow.language) || undefined,
+    isPro: boolFromSheet(viewerRow.isPro),
+    isPremium: boolFromSheet(viewerRow.isPremium),
+    premiumExpiresAt: viewerRow.premiumExpiresAt
+      ? numFromSheet(viewerRow.premiumExpiresAt, 0) || null
+      : null,
+    proExpiresAt: viewerRow.proExpiresAt
+      ? numFromSheet(viewerRow.proExpiresAt, 0) || null
+      : null,
+    premiumSubscriptionPayment: subscriptionPaymentFromRow(viewerRow, "premium"),
+    proSubscriptionPayment: subscriptionPaymentFromRow(viewerRow, "pro"),
+    city: str(viewerRow.city) || undefined,
+    websiteUrl: str(viewerRow.websiteUrl) || undefined,
+    socialUrl: str(viewerRow.socialUrl) || undefined,
+    phone: str(viewerRow.phone) || undefined,
+    proAddress: str(viewerRow.proAddress) || undefined,
+    proLat: str(viewerRow.proLat) ? numFromSheet(viewerRow.proLat) : null,
+    proLng: str(viewerRow.proLng) ? numFromSheet(viewerRow.proLng) : null,
+    karma:
+      str(viewerRow.karma) !== "" ? numFromSheet(viewerRow.karma, 5) : undefined,
+    friendRequestSentProfilIds: jsonFromSheet(viewerRow.friendRequestSentJson, []),
+    friendRequestRejectedProfilIds: jsonFromSheet(
+      viewerRow.friendRequestRejectedJson,
+      [],
+    ),
+    friendRequestDailySentDateKey:
+      str(viewerRow.friendRequestDailySentDateKey) || null,
+    favoriteConversationIds: jsonFromSheet(viewerRow.favoriteConversationIdsJson, []),
+    moderationHiddenEventIds: jsonFromSheet(viewerRow.moderationHiddenEventIdsJson, []),
+    moderationHiddenProfilIds: jsonFromSheet(
+      viewerRow.moderationHiddenProfilIdsJson,
+      [],
+    ),
+    viewerProfileBadges: jsonFromSheet(viewerRow.badgesJson, []),
+    profileBadgeSuggestions: jsonFromSheet(viewerRow.profileBadgeSuggestionsJson, []),
+    signupIp: str(viewerRow.signupIp) || undefined,
+    lastLoginIp: str(viewerRow.lastLoginIp) || undefined,
+  };
+}
+
+function emptyLoadedState(): LoadedAppSheetState {
+  return {
+    events: [],
+    conversations: [],
+    friends: [],
+    suggestions: [],
+    profileVisits: [],
+    appNotifications: [],
+    adminReports: [],
+    eventReminders: [],
+    professionals: [],
+    hasRemoteData: false,
+  };
+}
+
+/** Onglets footer → GET Sheets ciblé à chaque navigation. */
+export type SheetsTabId = "chat" | "events" | "pro" | "profile";
+
+export async function loadTabStateFromSheets(
+  tab: SheetsTabId,
+  userId: string,
+): Promise<LoadedAppSheetState> {
+  switch (tab) {
+    case "events": {
+      const eventRows = await readTable("events", userId);
+      return {
+        ...emptyLoadedState(),
+        events: eventRows.map(rowToEvent),
+        hasRemoteData: eventRows.length > 0,
+      };
+    }
+    case "chat": {
+      const convRows = await readTable("conversations", userId);
+      return {
+        ...emptyLoadedState(),
+        conversations: convRows.map(rowToConversation),
+        hasRemoteData: convRows.length > 0,
+      };
+    }
+    case "pro": {
+      const professionalRows = await readGlobalTable("professionals");
+      return {
+        ...emptyLoadedState(),
+        professionals: professionalRows.map(rowToProfessional),
+        hasRemoteData: professionalRows.length > 0,
+      };
+    }
+    case "profile": {
+      const [viewerRows, notifRows, reportRows, reminderRows, appConfigRows] =
+        await Promise.all([
+        readTable("viewer_settings", userId),
+        readTable("notifications", userId),
+        readTable("admin_reports", userId),
+        readTable("event_reminders", userId),
+        readGlobalTable("app_config"),
+      ]);
+      const viewerRow = viewerRows[0];
+      const appConfigRow = appConfigRows.find((r) => r.id === APP_CONFIG_GLOBAL_ID);
+      return {
+        ...emptyLoadedState(),
+        appNotifications: notifRows.map(rowToNotification),
+        adminReports: reportRows.map(rowToReport),
+        eventReminders: reminderRows.map(rowToEventReminder),
+        adminAppInfo: appConfigRow ? rowToAdminAppInfo(appConfigRow) : undefined,
+        viewerSettings: viewerRow ? parseViewerSettingsFromRow(viewerRow) : undefined,
+        hasRemoteData: !!(
+          viewerRow ||
+          notifRows.length > 0 ||
+          reportRows.length > 0 ||
+          reminderRows.length > 0 ||
+          appConfigRow
+        ),
+      };
+    }
+  }
 }
 
 function mergeById<T extends { id: string }>(base: T[], remote: T[]): T[] {
@@ -893,6 +1058,7 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     viewerRows,
     notifRows,
     reportRows,
+    reminderRows,
     professionalRows,
     appConfigRows,
   ] = await Promise.all([
@@ -904,6 +1070,7 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     readTable("viewer_settings", userId),
     readTable("notifications", userId),
     readTable("admin_reports", userId),
+    readTable("event_reminders", userId),
     readGlobalTable("professionals"),
     readGlobalTable("app_config"),
   ]);
@@ -918,6 +1085,7 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     viewerRow != null ||
     notifRows.length > 0 ||
     reportRows.length > 0 ||
+    reminderRows.length > 0 ||
     professionalRows.length > 0 ||
     appConfigRows.length > 0;
 
@@ -934,51 +1102,10 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     profileVisits: visitRows.map(rowToVisit),
     appNotifications: notifRows.map(rowToNotification),
     adminReports: reportRows.map(rowToReport),
+    eventReminders: reminderRows.map(rowToEventReminder),
     professionals,
     adminAppInfo,
-    viewerSettings: viewerRow
-      ? {
-          email: viewerRow.email ?? "",
-          emailVerified: boolFromSheet(viewerRow.emailVerified),
-          avatarUrl: viewerRow.avatarUrl ?? "",
-          displayName: viewerRow.displayName ?? "",
-          isPro: boolFromSheet(viewerRow.isPro),
-          isPremium: boolFromSheet(viewerRow.isPremium),
-          premiumExpiresAt: viewerRow.premiumExpiresAt
-            ? numFromSheet(viewerRow.premiumExpiresAt, 0) || null
-            : null,
-          proExpiresAt: viewerRow.proExpiresAt
-            ? numFromSheet(viewerRow.proExpiresAt, 0) || null
-            : null,
-          premiumSubscriptionPayment: subscriptionPaymentFromRow(viewerRow, "premium"),
-          proSubscriptionPayment: subscriptionPaymentFromRow(viewerRow, "pro"),
-          city: str(viewerRow.city) || undefined,
-          websiteUrl: str(viewerRow.websiteUrl) || undefined,
-          socialUrl: str(viewerRow.socialUrl) || undefined,
-          phone: str(viewerRow.phone) || undefined,
-          proAddress: str(viewerRow.proAddress) || undefined,
-          proLat: str(viewerRow.proLat) ? numFromSheet(viewerRow.proLat) : null,
-          proLng: str(viewerRow.proLng) ? numFromSheet(viewerRow.proLng) : null,
-          karma:
-            str(viewerRow.karma) !== ""
-              ? numFromSheet(viewerRow.karma, 5)
-              : undefined,
-          friendRequestSentProfilIds: jsonFromSheet(viewerRow.friendRequestSentJson, []),
-          friendRequestRejectedProfilIds: jsonFromSheet(viewerRow.friendRequestRejectedJson, []),
-          friendRequestDailySentDateKey:
-            str(viewerRow.friendRequestDailySentDateKey) || null,
-          favoriteConversationIds: jsonFromSheet(viewerRow.favoriteConversationIdsJson, []),
-          moderationHiddenEventIds: jsonFromSheet(viewerRow.moderationHiddenEventIdsJson, []),
-          moderationHiddenProfilIds: jsonFromSheet(viewerRow.moderationHiddenProfilIdsJson, []),
-          viewerProfileBadges: jsonFromSheet(viewerRow.badgesJson, []),
-          profileBadgeSuggestions: jsonFromSheet(
-            viewerRow.profileBadgeSuggestionsJson,
-            [],
-          ),
-          signupIp: str(viewerRow.signupIp) || undefined,
-          lastLoginIp: str(viewerRow.lastLoginIp) || undefined,
-        }
-      : undefined,
+    viewerSettings: viewerRow ? parseViewerSettingsFromRow(viewerRow) : undefined,
     hasRemoteData,
   };
 }
@@ -992,6 +1119,7 @@ export function mergeLoadedAppState(
     profileVisits: ProfileVisit[];
     appNotifications: AppNotification[];
     adminReports: AdminReportEntry[];
+    eventReminders: EventReminder[];
     favoriteConversationIds: string[];
     friendRequestSentProfilIds: string[];
     friendRequestRejectedProfilIds: string[];
@@ -1012,6 +1140,9 @@ export function mergeLoadedAppState(
   viewerProfileBadges?: string[];
   profileBadgeSuggestions?: string[];
   viewerProfileCity?: string;
+  viewerProfileAge?: string;
+  viewerProfileBio?: string;
+  viewerPreferredLanguage?: "fr" | "en";
   viewerProWebsiteUrl?: string;
   viewerProSocialUrl?: string;
   viewerProPhone?: string;
@@ -1056,18 +1187,25 @@ export function mergeLoadedAppState(
   if (loaded.adminReports.length > 0) {
     patch.adminReports = mergeById(current.adminReports, loaded.adminReports);
   }
-
-  if (loaded.adminAppInfo) {
-    const localInfo = readAdminAppInfo();
-    const merged = mergeAdminAppInfo(localInfo, loaded.adminAppInfo);
-    writeAdminAppInfo(merged);
-    patch.adminAppInfo = merged;
+  if (loaded.eventReminders.length > 0) {
+    patch.eventReminders = mergeById(current.eventReminders, loaded.eventReminders);
   }
+
+    if (loaded.adminAppInfo) {
+      const localInfo = readAdminAppInfo();
+      const merged = mergeAdminAppInfo(localInfo, loaded.adminAppInfo);
+      patch.adminAppInfo = merged;
+    }
 
   if (loaded.viewerSettings) {
     const vs = loaded.viewerSettings;
     if (vs.avatarUrl) patch.viewerProfileAvatarUrl = resolveAvatarUrl(vs.avatarUrl);
     if (vs.displayName) patch.viewerProfileDisplayName = vs.displayName;
+    if (vs.age != null) patch.viewerProfileAge = vs.age;
+    if (vs.bio != null) patch.viewerProfileBio = vs.bio;
+    if (vs.language === "fr" || vs.language === "en") {
+      patch.viewerPreferredLanguage = vs.language;
+    }
     patch.viewerProfileIsPro = vs.isPro;
     patch.nelDemoIsPremium = vs.isPremium;
     if (vs.premiumExpiresAt != null) {
@@ -1214,6 +1352,12 @@ export function syncNotificationToSheets(n: AppNotification): void {
   syncLater(() => upsertSheetRow("notifications", n.id, notificationToRow(n, userId)));
 }
 
+export function syncEventReminderToSheets(r: EventReminder): void {
+  const userId = currentUserId();
+  if (!userId) return;
+  syncLater(() => upsertSheetRow("event_reminders", r.id, eventReminderToRow(r, userId)));
+}
+
 export function syncReportToSheets(r: AdminReportEntry): void {
   const userId = currentUserId();
   if (!userId) return;
@@ -1249,6 +1393,9 @@ export function syncAllViewerStateFromStore(state: {
   emailVerified?: boolean;
   viewerProfileAvatarUrl: string;
   viewerProfileDisplayName: string;
+  viewerProfileAge?: string;
+  viewerProfileBio?: string;
+  language?: string;
   viewerProfileIsPro: boolean;
   nelDemoIsPremium?: boolean;
   viewerPremiumExpiresAt?: number | null;
@@ -1258,6 +1405,9 @@ export function syncAllViewerStateFromStore(state: {
   viewerProfileBadges: string[];
   profileBadgeSuggestions: string[];
   viewerProfileCity?: string;
+  viewerProfileAge?: string;
+  viewerProfileBio?: string;
+  viewerPreferredLanguage?: "fr" | "en";
   viewerProWebsiteUrl?: string;
   viewerProSocialUrl?: string;
   viewerProPhone?: string;
@@ -1277,6 +1427,9 @@ export function syncAllViewerStateFromStore(state: {
     emailVerified: state.emailVerified,
     avatarUrl: state.viewerProfileAvatarUrl,
     displayName: state.viewerProfileDisplayName,
+    age: state.viewerProfileAge,
+    bio: state.viewerProfileBio,
+    language: state.language,
     isPro: state.viewerProfileIsPro,
     isPremium: state.nelDemoIsPremium,
     premiumExpiresAt: state.viewerPremiumExpiresAt,
@@ -1310,6 +1463,7 @@ export async function persistPendingSignupToSheets(
   isPro: boolean,
   auth: ViewerSettingsAuthFields & { emailVerified: boolean; passwordHash: string },
   signupIp?: string,
+  profileExtras?: { age?: string; bio?: string; language?: string },
 ): Promise<void> {
   await upsertSheetRow(
     "viewer_settings",
@@ -1324,6 +1478,9 @@ export async function persistPendingSignupToSheets(
       passwordResetExpiresAt: auth.passwordResetExpiresAt ?? null,
       avatarUrl: "",
       displayName,
+      age: profileExtras?.age ?? "",
+      bio: profileExtras?.bio ?? "",
+      language: profileExtras?.language ?? "fr",
       isPro,
       signupIp,
       friendRequestSentProfilIds: [],
@@ -1343,9 +1500,18 @@ export function syncPendingSignupToSheets(
   isPro: boolean,
   auth: ViewerSettingsAuthFields & { emailVerified: boolean; passwordHash: string },
   signupIp?: string,
+  profileExtras?: { age?: string; bio?: string; language?: string },
 ): void {
   syncLater(() =>
-    persistPendingSignupToSheets(userId, email, displayName, isPro, auth, signupIp),
+    persistPendingSignupToSheets(
+      userId,
+      email,
+      displayName,
+      isPro,
+      auth,
+      signupIp,
+      profileExtras,
+    ),
   );
 }
 

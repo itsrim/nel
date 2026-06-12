@@ -14,11 +14,14 @@ import {
 import { registerPushNotifications } from "./lib/pushNotifications";
 import {
   loadAppStateFromSheets,
-  mergeLoadedAppState,
+  loadTabStateFromSheets,
+  type SheetsTabId,
 } from "./lib/appSheetPersistence";
-import { writeSubscriptionPaymentRecord } from "./lib/subscriptionPersistence";
+import {
+  applySheetsLoadedState,
+  refreshChatMessagesFromSheets,
+} from "./lib/applySheetsState";
 import { isGoogleSheetsReadConfigured } from "./lib/googleSheetsDb";
-import { useProsStore } from "./store/useProsStore";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { ChatPage } from "./pages/ChatPage";
 import { EventsPage } from "./pages/EventsPage";
@@ -103,95 +106,31 @@ function App() {
     resetData,
   ]);
 
-  // Données applicatives depuis Google Sheets
+  // Données applicatives depuis Google Sheets (chargement complet à la connexion)
   useEffect(() => {
     if (!user?.id || !isGoogleSheetsReadConfigured()) return;
-    void loadAppStateFromSheets(user.id).then((loaded) => {
-      if (loaded.professionals.length > 0) {
-        useProsStore.getState().hydrateProfessionals(loaded.professionals);
-      }
-      if (loaded.adminAppInfo) {
-        useMessagingStore.setState({ adminAppInfo: loaded.adminAppInfo });
-      }
-      if (!loaded.hasRemoteData) return;
-      const patch = mergeLoadedAppState(useMessagingStore.getState(), loaded);
-      useMessagingStore.setState(patch);
-      const msg = useMessagingStore.getState();
-      if (patch.viewerProWebsiteUrl != null) {
-        msg.setViewerProWebsiteUrl(patch.viewerProWebsiteUrl);
-      }
-      if (patch.viewerProSocialUrl != null) {
-        msg.setViewerProSocialUrl(patch.viewerProSocialUrl);
-      }
-      if (patch.viewerProPhone != null) {
-        msg.setViewerProPhone(patch.viewerProPhone);
-      }
-      if (patch.viewerProfileCity != null) {
-        msg.setViewerProfileCity(patch.viewerProfileCity);
-      }
-      if (patch.viewerProAddress != null) {
-        msg.setViewerProAddress(patch.viewerProAddress);
-      }
-      if (patch.viewerProLat != null && patch.viewerProLng != null) {
-        msg.setViewerProLocation(
-          patch.viewerProAddress ?? msg.viewerProAddress,
-          patch.viewerProLat,
-          patch.viewerProLng,
-        );
-      }
-      if (patch.viewerKarma != null) {
-        try {
-          localStorage.setItem("nel_viewer_karma", String(patch.viewerKarma));
-        } catch {
-          /* ignore */
-        }
-        useMessagingStore.setState({ viewerKarma: patch.viewerKarma });
-      }
-      if (patch.viewerProfileBadges != null) {
-        msg.setViewerProfileBadges(patch.viewerProfileBadges);
-      }
-      if (patch.profileBadgeSuggestions != null) {
-        msg.setProfileBadgeSuggestions(patch.profileBadgeSuggestions);
-      }
-      if (patch.nelDemoIsPremium != null) {
-        msg.setNelDemoIsPremium(patch.nelDemoIsPremium);
-      }
-      if (patch.viewerPremiumExpiresAt !== undefined) {
-        useMessagingStore.setState({
-          viewerPremiumExpiresAt: patch.viewerPremiumExpiresAt,
-        });
-      }
-      if (patch.viewerProExpiresAt !== undefined) {
-        useMessagingStore.setState({
-          viewerProExpiresAt: patch.viewerProExpiresAt,
-        });
-      }
-      if (patch.premiumSubscriptionPayment) {
-        writeSubscriptionPaymentRecord("premium", patch.premiumSubscriptionPayment);
-        useMessagingStore.setState({
-          premiumSubscriptionPayment: patch.premiumSubscriptionPayment,
-        });
-      }
-      if (patch.proSubscriptionPayment) {
-        writeSubscriptionPaymentRecord("pro", patch.proSubscriptionPayment);
-        useMessagingStore.setState({
-          proSubscriptionPayment: patch.proSubscriptionPayment,
-        });
-      }
-      if (loaded.viewerSettings?.emailVerified) {
-        const authUser = useAuthStore.getState().user;
-        if (authUser) {
-          useAuthStore.setState({
-            user: { ...authUser, emailVerified: true },
-          });
-          localStorage.setItem(
-            "nel_auth_user",
-            JSON.stringify({ ...authUser, emailVerified: true }),
-          );
-        }
-      }
-    });
+    void loadAppStateFromSheets(user.id).then(applySheetsLoadedState);
   }, [user?.id]);
+
+  // GET Sheets ciblé à chaque changement d'onglet footer
+  useEffect(() => {
+    if (!user?.id || !isGoogleSheetsReadConfigured()) return;
+    const tab = activeTab as SheetsTabId;
+    if (tab !== "chat" && tab !== "events" && tab !== "pro" && tab !== "profile") {
+      return;
+    }
+    void (async () => {
+      try {
+        const loaded = await loadTabStateFromSheets(tab, user.id);
+        applySheetsLoadedState(loaded);
+        if (tab === "chat") {
+          await refreshChatMessagesFromSheets();
+        }
+      } catch (err) {
+        console.error(`Sheets GET [${tab}] failed:`, err);
+      }
+    })();
+  }, [activeTab, user?.id]);
 
   useEffect(() => {
     const openChat = [...detailStack].reverse().find((d) => d.type === "chat");

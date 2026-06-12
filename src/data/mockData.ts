@@ -65,6 +65,19 @@ export interface Event {
 }
 
 /** Notification in-app (centre Profil — démo). */
+/** Relance envoyée par l’organisateur à un participant (onglet `event_reminders`). */
+export interface EventReminder {
+  id: string;
+  eventId: string;
+  eventTitle: string;
+  participantId: string;
+  participantName: string;
+  sentAt: number;
+  readAt?: number;
+}
+
+export type WaitlistEntry = NonNullable<Event["waitlistEntries"]>[number];
+
 export interface AppNotification {
   id: string;
   createdAt: number;
