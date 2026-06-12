@@ -323,6 +323,8 @@ export const translations = {
     createEventAriaLabel: "Créer un événement",
     topWeeklyEvents: "Top 5 de la semaine",
     noEventsThisWeek: "Aucun événement sur cette semaine.",
+    noSearchResults: "Aucune activité ne correspond à votre recherche.",
+    eventsSearchLoadingMore: "Chargement des sorties suivantes…",
     searchEvents: "Recherche",
 
     // CreateEventPage aria-labels
@@ -961,6 +963,8 @@ export const translations = {
     createEventAriaLabel: "Create an event",
     topWeeklyEvents: "Top 5 of the week",
     noEventsThisWeek: "No events this week.",
+    noSearchResults: "No activities match your search.",
+    eventsSearchLoadingMore: "Loading more events…",
     searchEvents: "Search",
 
     // CreateEventPage aria-labels

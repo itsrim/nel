@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   Calendar,
   Check,
@@ -13,6 +13,7 @@ import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { EventCard } from "../components/EventCard";
+import { EventsSearchVirtualList } from "../components/EventsSearchVirtualList";
 import type { Event } from "../data/mockData";
 import {
   EVENT_THEME_TAG_OPTIONS,
@@ -23,6 +24,10 @@ import {
   parseDateKeyLocal,
 } from "../lib/eventDateKey";
 import { eventIsVisibleInDiscovery } from "../lib/eventVisibility";
+import {
+  filterUpcomingSearchEvents,
+  pickTopUpcomingEvents,
+} from "../lib/eventSearchListing";
 import "./EventsPage.css";
 
 /* ── Date helpers ── */
@@ -67,40 +72,10 @@ function formatWeekMonthTitle(weekStart: Date): string {
   });
   return `${a} – ${b}`;
 }
-function foldSearch(s: string): string {
-  return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-}
-function eventMatchesSearch(e: Event, query: string): boolean {
-  const q = foldSearch(query.trim());
-  if (!q) return true;
-  return foldSearch(`${e.title} ${e.location} ${e.notes ?? ""}`).includes(q);
-}
 
 /** Clé du jour local (min sur `<input type="date">`, comparaisons). */
 function todayDateKey(): string {
   return toDateKey(new Date());
-}
-
-/** Filtre « à partir du » : `e.dateKey >= fromKey` ; vide = pas de filtre date. */
-function eventMatchesFilterDate(e: Event, fromDateKey: string): boolean {
-  const d = fromDateKey.trim();
-  if (!d) return true;
-  return e.dateKey >= d;
-}
-
-function eventMatchesFilterLocation(e: Event, q: string): boolean {
-  const t = foldSearch(q.trim());
-  if (!t) return true;
-  return foldSearch(e.location).includes(t);
-}
-
-function eventMatchesFilterTag(e: Event, raw: string): boolean {
-  let t = raw.trim();
-  if (t.startsWith("#")) t = t.slice(1);
-  const f = foldSearch(t);
-  if (!f) return true;
-  const hay = foldSearch(`${e.category} ${e.title} ${e.notes ?? ""}`);
-  return hay.includes(f);
 }
 
 const EVENTS_LAYOUT_NARROW_PX = 640;
@@ -181,6 +156,7 @@ export function EventsPage() {
   const [filterDate, setFilterDate] = useState("");
   const [filterLocation, setFilterLocation] = useState("");
   const [filterTag, setFilterTag] = useState("");
+  const eventsContentRef = useRef<HTMLDivElement>(null);
 
   const monthTitle = useMemo(
     () => formatWeekMonthTitle(weekStartMonday),
@@ -218,39 +194,50 @@ export function EventsPage() {
     ],
   );
 
-  const filteredWeekEvents = useMemo(() => {
-    if (headerMode !== "search") return weekEvents;
-    return weekEvents.filter(
-      (e) =>
-        eventMatchesSearch(e, committedSearch) &&
-        eventMatchesFilterDate(e, filterDate) &&
-        eventMatchesFilterLocation(e, filterLocation) &&
-        eventMatchesFilterTag(e, filterTag),
+  const searchFromDateKey = useMemo(() => {
+    const today = todayDateKey();
+    const picked = filterDate.trim();
+    if (!picked) return today;
+    if (!isAdmin && picked < today) return today;
+    return picked;
+  }, [filterDate, isAdmin]);
+
+  const allSearchEvents = useMemo(() => {
+    if (headerMode !== "search") return [];
+    return filterUpcomingSearchEvents(
+      events,
+      {
+        fromDateKey: searchFromDateKey,
+        searchQuery: committedSearch,
+        locationQuery: filterLocation,
+        tagQuery: filterTag,
+      },
+      {
+        isAdmin,
+        moderationHiddenEventIds,
+        viewerProfileDisplayName,
+      },
     );
   }, [
-    weekEvents,
     headerMode,
+    events,
+    searchFromDateKey,
     committedSearch,
-    filterDate,
     filterLocation,
     filterTag,
+    isAdmin,
+    moderationHiddenEventIds,
+    viewerProfileDisplayName,
   ]);
 
-  const topWeekEvents = useMemo(
-    () =>
-      [...weekEvents]
-        .sort(
-          (a, b) =>
-            (b.visitsCount ?? b.participantCount * 5) -
-            (a.visitsCount ?? a.participantCount * 5),
-        )
-        .slice(0, 5),
-    [weekEvents],
+  const topSearchEvents = useMemo(
+    () => pickTopUpcomingEvents(allSearchEvents, 5),
+    [allSearchEvents],
   );
 
   const sections = useMemo(() => {
     const map = new Map<string, Event[]>();
-    for (const e of filteredWeekEvents) {
+    for (const e of weekEvents) {
       if (!map.has(e.dateKey)) map.set(e.dateKey, []);
       map.get(e.dateKey)!.push(e);
     }
@@ -263,7 +250,7 @@ export function EventsPage() {
           a.timeShort.localeCompare(b.timeShort),
         ),
       }));
-  }, [filteredWeekEvents]);
+  }, [weekEvents]);
 
   const isNarrowLayout = viewportW < EVENTS_LAYOUT_NARROW_PX;
 
@@ -305,6 +292,12 @@ export function EventsPage() {
     setFilterTag("");
     setSearchFilterPanelOpen(false);
   }, []);
+
+  const searchListResetKey = useMemo(
+    () =>
+      `${searchFromDateKey}|${committedSearch}|${filterLocation}|${filterTag}`,
+    [searchFromDateKey, committedSearch, filterLocation, filterTag],
+  );
 
   const filterChipsActive = Boolean(
     filterDate || filterLocation.trim(),
@@ -505,13 +498,13 @@ export function EventsPage() {
       )}
 
       {/* Events content */}
-      <div className="events-content">
+      <div className="events-content" ref={eventsContentRef}>
         {/* Top 5 (search mode) */}
-        {headerMode === "search" && topWeekEvents.length > 0 && (
+        {headerMode === "search" && topSearchEvents.length > 0 && (
           <div className="events-top5">
             <h3 className="events-top5-title">{t("topWeeklyEvents")}</h3>
             <div className="events-top5-scroll">
-              {topWeekEvents.map((e) => (
+              {topSearchEvents.map((e) => (
                 <div
                   key={e.id}
                   style={{ width: topCardW, flexShrink: 0, marginRight: 12 }}
@@ -528,13 +521,19 @@ export function EventsPage() {
           </div>
         )}
 
-        {/* Sections */}
-        {sections.length === 0 ? (
-          <p className="events-empty">
-            {weekEvents.length === 0
-              ? t("noEventsThisWeek")
-              : "Aucune activité ne correspond à votre recherche."}
-          </p>
+        {headerMode === "search" ? (
+          <EventsSearchVirtualList
+            events={allSearchEvents}
+            scrollRef={eventsContentRef}
+            eventCardW={eventCardW}
+            onOpenEvent={(id) => openDetail("event", id)}
+            onToggleFavorite={toggleEventFavorite}
+            emptyMessage={t("noSearchResults")}
+            loadingMoreLabel={t("eventsSearchLoadingMore")}
+            listResetKey={searchListResetKey}
+          />
+        ) : sections.length === 0 ? (
+          <p className="events-empty">{t("noEventsThisWeek")}</p>
         ) : (
           sections.map((section) => (
             <div key={section.dateKey}>
