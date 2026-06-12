@@ -102,6 +102,37 @@ export async function resendVerificationWithApi(
   return (await res.json()) as ResendVerificationResponse;
 }
 
+export interface ForgotPasswordResponse {
+  ok?: boolean;
+  message?: string;
+  emailDeliveryFailed?: boolean;
+}
+
+export async function forgotPasswordWithApi(
+  email: string,
+): Promise<ForgotPasswordResponse> {
+  const res = await fetch(`${CHAT_API_BASE}/api/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error(await parseAuthError(res));
+  return (await res.json()) as ForgotPasswordResponse;
+}
+
+export async function resetPasswordWithApi(
+  token: string,
+  password: string,
+): Promise<AuthResponse & { message?: string }> {
+  const res = await fetch(`${CHAT_API_BASE}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password }),
+  });
+  if (!res.ok) throw new Error(await parseAuthError(res));
+  return (await res.json()) as AuthResponse & { message?: string };
+}
+
 export function toAppUser(
   apiUser: AuthResponse["user"],
   extras?: Partial<User>,

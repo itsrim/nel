@@ -210,6 +210,8 @@
 }
 
 .login-button {
+  width: 100%;
+  box-sizing: border-box;
   padding: 12px 16px;
   background: linear-gradient(
     135deg,
@@ -361,4 +363,26 @@
   line-height: 1.35;
   color: #8e8e93;
   font-style: italic;
+}
+
+.login-forgot-link {
+  align-self: flex-end;
+  margin: -4px 0 0;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--login-maroon);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.login-forgot-link:hover:not(:disabled) {
+  color: var(--login-maroon-dark);
+}
+
+.login-forgot-hint {
+  margin: 0 0 4px;
+  line-height: 1.45;
 }

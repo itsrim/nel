@@ -24,6 +24,19 @@ function readVerifyTokenFromUrl(): string | null {
   return token;
 }
 
+function readResetTokenFromUrl(): string | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("resetPassword")?.trim();
+  if (!token) return null;
+  const url = new URL(window.location.href);
+  url.searchParams.delete("resetPassword");
+  window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+  return token;
+}
+
+type LoginView = "signin" | "signup" | "forgot" | "reset";
+
 export function LoginPage() {
   const { t } = useTranslation();
   const {
@@ -31,14 +44,21 @@ export function LoginPage() {
     signup,
     verifyEmail,
     resendVerification,
+    requestPasswordReset,
+    resetPassword,
     clearPendingVerification,
+    clearPasswordResetMessage,
     isLoading,
     error,
     pendingVerificationEmail,
     verificationMessage,
+    passwordResetMessage,
   } = useAuthStore();
 
-  const [isSignup, setIsSignup] = useState(false);
+  const [view, setView] = useState<LoginView>("signin");
+  const [resetToken, setResetToken] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -62,30 +82,64 @@ export function LoginPage() {
     void verifyEmail(token).finally(() => setVerifyingLink(false));
   }, [verifyEmail]);
 
+  useEffect(() => {
+    const token = readResetTokenFromUrl();
+    if (!token) return;
+    setResetToken(token);
+    setView("reset");
+    clearPasswordResetMessage();
+  }, [clearPasswordResetMessage]);
+
   const signupFormValid = useMemo(() => {
-    if (!isSignup) return true;
+    if (view !== "signup") return true;
     if (!email.trim() || !password || !displayName.trim()) return false;
     if (!isValidSignupAge(age)) return false;
     return isMathCaptchaAnswerValid(captcha, captchaAnswer);
-  }, [isSignup, email, password, displayName, age, captcha, captchaAnswer]);
+  }, [view, email, password, displayName, age, captcha, captchaAnswer]);
+
+  const resetFormValid = useMemo(() => {
+    return (
+      newPassword.length >= 6 &&
+      confirmPassword.length >= 6 &&
+      newPassword === confirmPassword
+    );
+  }, [newPassword, confirmPassword]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError("");
 
-    if (isSignup && !isValidSignupAge(age)) {
+    if (view === "forgot") {
+      await requestPasswordReset(email);
+      return;
+    }
+
+    if (view === "reset") {
+      if (!resetToken) {
+        setLocalError(t("loginGenericError"));
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setLocalError(t("loginResetMismatch"));
+        return;
+      }
+      await resetPassword(resetToken, newPassword);
+      return;
+    }
+
+    if (view === "signup" && !isValidSignupAge(age)) {
       setLocalError(t("loginAgeInvalid"));
       return;
     }
 
-    if (isSignup && !isMathCaptchaAnswerValid(captcha, captchaAnswer)) {
+    if (view === "signup" && !isMathCaptchaAnswerValid(captcha, captchaAnswer)) {
       setLocalError(t("loginCaptchaInvalid"));
       refreshCaptcha();
       return;
     }
 
     try {
-      if (isSignup) {
+      if (view === "signup") {
         await signup(email, password, displayName, age, bio, isPro);
       } else {
         await login(email, password);
@@ -157,7 +211,7 @@ export function LoginPage() {
               className="login-toggle-button"
               onClick={() => {
                 clearPendingVerification();
-                setIsSignup(false);
+                setView("signin");
               }}
               disabled={isLoading}
             >
@@ -169,14 +223,21 @@ export function LoginPage() {
     );
   }
 
+  const subtitle =
+    view === "signup"
+      ? t("loginSignUp")
+      : view === "forgot"
+        ? t("loginForgotTitle")
+        : view === "reset"
+          ? t("loginResetTitle")
+          : t("loginSignIn");
+
   return (
     <div className="login-page">
       <div className="login-container">
         <div className="login-header">
           <h1 className="login-title">{t("loginTitle")}</h1>
-          <p className="login-subtitle">
-            {isSignup ? t("loginSignUp") : t("loginSignIn")}
-          </p>
+          <p className="login-subtitle">{subtitle}</p>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
@@ -186,26 +247,52 @@ export function LoginPage() {
             </div>
           )}
 
-          <div className="login-field">
-            <label htmlFor="email" className="login-label">
-              {isSignup ? t("loginEmail") : t("loginEmailOrId")}
-            </label>
-            <input
-              id="email"
-              type={isSignup ? "email" : "text"}
-              className="login-input"
-              placeholder={
-                isSignup ? t("loginPlaceholderEmail") : t("loginPlaceholderId")
+          {passwordResetMessage ? (
+            <div
+              className={
+                passwordResetMessage.includes("n'a pas pu") ||
+                passwordResetMessage.includes("not been sent")
+                  ? "login-error"
+                  : "login-success"
               }
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={isLoading}
-              required
-            />
-          </div>
+              role="status"
+            >
+              {passwordResetMessage}
+            </div>
+          ) : null}
 
-          {isSignup && (
+          {view === "forgot" ? (
+            <p className="login-field-hint login-forgot-hint">{t("loginForgotHint")}</p>
+          ) : null}
+
+          {view === "reset" ? (
+            <p className="login-field-hint login-forgot-hint">{t("loginResetHint")}</p>
+          ) : null}
+
+          {(view === "signin" || view === "signup" || view === "forgot") && (
+            <div className="login-field">
+              <label htmlFor="email" className="login-label">
+                {view === "signup" || view === "forgot" ? t("loginEmail") : t("loginEmailOrId")}
+              </label>
+              <input
+                id="email"
+                type={view === "signup" || view === "forgot" ? "email" : "text"}
+                className="login-input"
+                placeholder={
+                  view === "signup" || view === "forgot"
+                    ? t("loginPlaceholderEmail")
+                    : t("loginPlaceholderId")
+                }
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+                required
+              />
+            </div>
+          )}
+
+          {view === "signup" && (
             <>
               <div className="login-field">
                 <label htmlFor="displayName" className="login-label">
@@ -279,23 +366,78 @@ export function LoginPage() {
             </>
           )}
 
-          <div className="login-field">
-            <label htmlFor="password" className="login-label">
-              {t("loginPassword")}
-            </label>
-            <input
-              id="password"
-              type="password"
-              className="login-input"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={isLoading}
-              required
-            />
-          </div>
+          {view === "reset" && (
+            <>
+              <div className="login-field">
+                <label htmlFor="newPassword" className="login-label">
+                  {t("loginResetPassword")}
+                </label>
+                <input
+                  id="newPassword"
+                  type="password"
+                  className="login-input"
+                  placeholder="••••••••"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  disabled={isLoading}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="login-field">
+                <label htmlFor="confirmPassword" className="login-label">
+                  {t("loginResetConfirm")}
+                </label>
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  className="login-input"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={isLoading}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+              </div>
+            </>
+          )}
 
-          {isSignup ? (
+          {(view === "signin" || view === "signup") && (
+            <div className="login-field">
+              <label htmlFor="password" className="login-label">
+                {t("loginPassword")}
+              </label>
+              <input
+                id="password"
+                type="password"
+                className="login-input"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
+                required
+              />
+              {view === "signin" ? (
+                <button
+                  type="button"
+                  className="login-forgot-link"
+                  onClick={() => {
+                    setLocalError("");
+                    clearPasswordResetMessage();
+                    setView("forgot");
+                  }}
+                  disabled={isLoading}
+                >
+                  {t("loginForgotPassword")}
+                </button>
+              ) : null}
+            </div>
+          )}
+
+          {view === "signup" ? (
             <div className="login-field">
               <label htmlFor="captcha" className="login-label">
                 {t("loginCaptchaLabel")} — {captcha.question}
@@ -318,15 +460,23 @@ export function LoginPage() {
           <button
             type="submit"
             className="login-button"
-            disabled={isLoading || (isSignup && !signupFormValid)}
+            disabled={
+              isLoading ||
+              (view === "signup" && !signupFormValid) ||
+              (view === "reset" && !resetFormValid)
+            }
           >
             {isLoading ? (
               <span className="login-button-loading">
                 <span className="spinner" />
                 {t("loginLoading")}
               </span>
-            ) : isSignup ? (
+            ) : view === "signup" ? (
               t("loginSignUp")
+            ) : view === "forgot" ? (
+              t("loginForgotSubmit")
+            ) : view === "reset" ? (
+              t("loginResetSubmit")
             ) : (
               t("loginSignIn")
             )}
@@ -334,29 +484,49 @@ export function LoginPage() {
         </form>
 
         <div className="login-footer">
-          <p className="login-toggle-text">
-            {isSignup ? t("loginHasAccount") : t("loginNoAccount")}
-          </p>
-          <button
-            type="button"
-            className="login-toggle-button"
-            onClick={() => {
-              const nextSignup = !isSignup;
-              setIsSignup(nextSignup);
-              setLocalError("");
-              clearPendingVerification();
-              setEmail("");
-              setPassword("");
-              setDisplayName("");
-              setAge("");
-              setBio("");
-              setIsPro(false);
-              refreshCaptcha();
-            }}
-            disabled={isLoading}
-          >
-            {isSignup ? t("loginSignIn") : t("loginSignUp")}
-          </button>
+          {view === "forgot" || view === "reset" ? (
+            <button
+              type="button"
+              className="login-toggle-button"
+              onClick={() => {
+                setView("signin");
+                setLocalError("");
+                clearPasswordResetMessage();
+                setNewPassword("");
+                setConfirmPassword("");
+              }}
+              disabled={isLoading}
+            >
+              {t("loginForgotBack")}
+            </button>
+          ) : (
+            <>
+              <p className="login-toggle-text">
+                {view === "signup" ? t("loginHasAccount") : t("loginNoAccount")}
+              </p>
+              <button
+                type="button"
+                className="login-toggle-button"
+                onClick={() => {
+                  const nextSignup = view !== "signup";
+                  setView(nextSignup ? "signup" : "signin");
+                  setLocalError("");
+                  clearPendingVerification();
+                  clearPasswordResetMessage();
+                  setEmail("");
+                  setPassword("");
+                  setDisplayName("");
+                  setAge("");
+                  setBio("");
+                  setIsPro(false);
+                  refreshCaptcha();
+                }}
+                disabled={isLoading}
+              >
+                {view === "signup" ? t("loginSignIn") : t("loginSignUp")}
+              </button>
+            </>
+          )}
         </div>
 
       </div>

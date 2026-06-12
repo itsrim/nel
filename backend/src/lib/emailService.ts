@@ -49,22 +49,41 @@ function buildVerificationHtml(displayName: string, verifyUrl: string): string {
   `;
 }
 
-export async function sendVerificationEmail(
+function buildPasswordResetHtml(displayName: string, resetUrl: string): string {
+  const name = displayName.trim() || "there";
+  return `
+    <div style="font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto; color: #111;">
+      <h1 style="font-size: 22px; margin-bottom: 8px;">Réinitialisation du mot de passe</h1>
+      <p style="line-height: 1.5; color: #444;">
+        Bonjour ${escapeHtml(name)}, cliquez sur le bouton ci-dessous pour choisir un nouveau mot de passe.
+        Ce lien expire dans 1&nbsp;heure.
+      </p>
+      <p style="margin: 28px 0;">
+        <a href="${resetUrl}" style="background: #fbbf24; color: #111; font-weight: 700; padding: 12px 24px; border-radius: 999px; text-decoration: none; display: inline-block;">
+          Choisir un nouveau mot de passe
+        </a>
+      </p>
+      <p style="font-size: 13px; color: #888; word-break: break-all;">
+        Ou copiez ce lien :<br />${resetUrl}
+      </p>
+      <p style="font-size: 12px; color: #aaa; margin-top: 32px;">
+        Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.
+      </p>
+    </div>
+  `;
+}
+
+async function sendMailjetHtml(
   to: string,
   displayName: string,
-  token: string,
+  subject: string,
+  html: string,
 ): Promise<void> {
-  const verifyUrl = buildVerificationUrl(token);
-
   if (!isEmailConfigured()) {
-    console.warn("[email] Mailjet absent — email de vérification non envoyé");
-    console.warn(`[email] Lien de vérification (dev): ${verifyUrl}`);
-    return;
+    throw new Error("Service email non configuré");
   }
 
   const from = parseEmailFrom(emailFrom());
-  const html = buildVerificationHtml(displayName, verifyUrl);
-
   const res = await fetch("https://api.mailjet.com/v3.1/send", {
     method: "POST",
     headers: {
@@ -76,7 +95,7 @@ export async function sendVerificationEmail(
         {
           From: { Email: from.email, Name: from.name },
           To: [{ Email: to, Name: displayName.trim() || to }],
-          Subject: "Confirmation email — Happy let's GO !",
+          Subject: subject,
           HTMLPart: html,
         },
       ],
@@ -101,10 +120,60 @@ export async function sendVerificationEmail(
   }
 }
 
+export async function sendVerificationEmail(
+  to: string,
+  displayName: string,
+  token: string,
+): Promise<void> {
+  const verifyUrl = buildVerificationUrl(token);
+
+  if (!isEmailConfigured()) {
+    console.warn("[email] Mailjet absent — email de vérification non envoyé");
+    console.warn(`[email] Lien de vérification (dev): ${verifyUrl}`);
+    return;
+  }
+
+  await sendMailjetHtml(
+    to,
+    displayName,
+    "Confirmation email — Happy let's GO !",
+    buildVerificationHtml(displayName, verifyUrl),
+  );
+}
+
+export async function sendPasswordResetEmail(
+  to: string,
+  displayName: string,
+  token: string,
+): Promise<void> {
+  const resetUrl = buildPasswordResetUrl(token);
+
+  if (!isEmailConfigured()) {
+    console.warn("[email] Mailjet absent — email de réinitialisation non envoyé");
+    console.warn(`[email] Lien de réinitialisation (dev): ${resetUrl}`);
+    return;
+  }
+
+  await sendMailjetHtml(
+    to,
+    displayName,
+    "Réinitialisation du mot de passe — Happy let's GO",
+    buildPasswordResetHtml(displayName, resetUrl),
+  );
+}
+
 export function buildVerificationUrl(token: string): string {
+  return buildAppUrlParam("verifyEmail", token);
+}
+
+export function buildPasswordResetUrl(token: string): string {
+  return buildAppUrlParam("resetPassword", token);
+}
+
+function buildAppUrlParam(param: string, token: string): string {
   const base = appPublicUrl();
   const sep = base.includes("?") ? "&" : "?";
-  return `${base}${sep}verifyEmail=${encodeURIComponent(token)}`;
+  return `${base}${sep}${param}=${encodeURIComponent(token)}`;
 }
 
 function escapeHtml(s: string): string {

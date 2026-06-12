@@ -7,6 +7,8 @@ import {
   toAppUser,
   verifyEmailWithApi,
   resendVerificationWithApi,
+  forgotPasswordWithApi,
+  resetPasswordWithApi,
 } from "../lib/authApi";
 import { shutdownGlobalChatSync } from "../lib/chatSync";
 import { useMessagingStore } from "./useMessagingStore";
@@ -59,6 +61,7 @@ interface AuthState {
   /** Inscription backend : en attente de clic sur le lien email. */
   pendingVerificationEmail: string | null;
   verificationMessage: string | null;
+  passwordResetMessage: string | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (
     email: string,
@@ -70,7 +73,10 @@ interface AuthState {
   ) => Promise<void>;
   verifyEmail: (token: string) => Promise<void>;
   resendVerification: (email?: string) => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  resetPassword: (token: string, password: string) => Promise<void>;
   clearPendingVerification: () => void;
+  clearPasswordResetMessage: () => void;
   logout: () => void;
   setUser: (user: User | null) => void;
   loadUser: () => void;
@@ -116,9 +122,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
   pendingVerificationEmail: null,
   verificationMessage: null,
+  passwordResetMessage: null,
 
   clearPendingVerification: () =>
     set({ pendingVerificationEmail: null, verificationMessage: null, error: null }),
+
+  clearPasswordResetMessage: () =>
+    set({ passwordResetMessage: null, error: null }),
 
   verifyEmail: async (token: string) => {
     set({ isLoading: true, error: null });
@@ -194,6 +204,57 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
         verificationMessage: message,
         error: null,
+      });
+    }
+  },
+
+  requestPasswordReset: async (email: string) => {
+    const target = email.trim();
+    if (!target) return;
+    set({ isLoading: true, error: null, passwordResetMessage: null });
+    try {
+      if (!isChatApiConfigured()) {
+        set({ isLoading: false, error: "Backend non configuré" });
+        return;
+      }
+      const result = await forgotPasswordWithApi(target);
+      set({
+        isLoading: false,
+        passwordResetMessage: result.message ?? "Email envoyé si le compte existe.",
+        error: null,
+      });
+    } catch (err) {
+      set({
+        isLoading: false,
+        error: err instanceof Error ? err.message : "Envoi impossible",
+      });
+    }
+  },
+
+  resetPassword: async (token: string, password: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      if (!isChatApiConfigured()) {
+        set({ isLoading: false, error: "Backend non configuré" });
+        return;
+      }
+      const { user, token: jwt, message } = await resetPasswordWithApi(token, password);
+      const loggedInUser = toAppUser(user, { emailVerified: true });
+      setAuthToken(jwt);
+      localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
+      if (loggedInUser.isAdmin) {
+        useMessagingStore.getState().setIsAdmin(true);
+      }
+      set({
+        user: loggedInUser,
+        isLoading: false,
+        passwordResetMessage: message ?? "Mot de passe mis à jour.",
+        error: null,
+      });
+    } catch (err) {
+      set({
+        isLoading: false,
+        error: err instanceof Error ? err.message : "Réinitialisation échouée",
       });
     }
   },
