@@ -1253,7 +1253,7 @@ export function syncAllViewerStateFromStore(state: {
   });
 }
 
-/** À l'inscription — enregistre le profil même si l'email n'est pas encore vérifié. */
+/** À l'inscription — profil uniquement (auth : passwordHash, emailVerified → backend). */
 export function syncPendingSignupToSheets(
   userId: string,
   email: string,
@@ -1262,23 +1262,16 @@ export function syncPendingSignupToSheets(
   signupIp?: string,
 ): void {
   syncLater(() =>
-    upsertSheetRow(
-      "viewer_settings",
+    upsertSheetRow("viewer_settings", userId, {
       userId,
-      viewerSettingsToRow(userId, {
-        email,
-        emailVerified: false,
-        avatarUrl: "",
-        displayName,
-        isPro,
-        signupIp,
-        friendRequestSentProfilIds: [],
-        friendRequestRejectedProfilIds: [],
-        favoriteConversationIds: [],
-        moderationHiddenEventIds: [],
-        moderationHiddenProfilIds: [],
-      }),
-    ),
+      id: userId,
+      email,
+      displayName,
+      isPro: boolToSheet(isPro),
+      avatarUrl: "",
+      ...(signupIp != null ? { signupIp: str(signupIp) } : {}),
+      deleted: "false",
+    }),
   );
 }
 

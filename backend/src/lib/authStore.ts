@@ -148,7 +148,11 @@ async function persistUser(user: StoredUser): Promise<void> {
 
 async function createUser(user: StoredUser): Promise<void> {
   if (isSheetsWriteConfigured()) {
-    await sheetPost("viewer_settings", storedUserToRow(user));
+    const row = storedUserToRow(user);
+    const result = await sheetPost("viewer_settings", row);
+    if (result.skipped) {
+      await sheetPut("viewer_settings", user.id, row);
+    }
     return;
   }
   registerMemoryUser(user);

@@ -134,7 +134,7 @@
   width: 100%;
 }
 
-.login-button--secondary {
+.login-button.login-button--secondary {
   width: 100%;
   box-sizing: border-box;
   background: #fff;
@@ -143,8 +143,11 @@
   margin-bottom: 8px;
 }
 
-.login-button--secondary:hover:not(:disabled) {
-  background: #fff5f0;
+.login-button.login-button--secondary:hover:not(:disabled) {
+  background: #fff;
+  color: var(--login-maroon);
+  transform: none;
+  box-shadow: none;
 }
 
 .login-field {

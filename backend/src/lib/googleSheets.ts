@@ -177,8 +177,8 @@ async function sheetMutate(
 export async function sheetPost(
   table: SheetTableName,
   row: Record<string, string>,
-): Promise<void> {
-  await sheetMutate("post", table, { row });
+): Promise<{ ok?: boolean; skipped?: boolean }> {
+  return sheetMutate("post", table, { row });
 }
 
 /** PUT — met à jour une ligne existante par id. */
