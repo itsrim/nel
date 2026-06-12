@@ -40,7 +40,7 @@ export const translations = {
     adminInfoTab: "Info",
     adminInfoSkipEmailLabel: "Inscription sans vérification email",
     adminInfoSkipEmailSub:
-      "Valide automatiquement les nouveaux comptes (utile si Resend n'est pas configuré)",
+      "Valide automatiquement les nouveaux comptes (utile si l'envoi d'email n'est pas configuré)",
     adminInfoSplashLabel: "Splash screen au démarrage",
     adminInfoSplashSub: "Afficher l'écran « Happy, let's GO » à l'ouverture de l'app",
     adminInfoSplashImageLabel: "Image du splash",
@@ -665,7 +665,7 @@ export const translations = {
     adminInfoTab: "Info",
     adminInfoSkipEmailLabel: "Sign up without email verification",
     adminInfoSkipEmailSub:
-      "Auto-validates new accounts (useful when Resend is not configured)",
+      "Auto-validates new accounts (useful when email delivery is not configured)",
     adminInfoSplashLabel: "Startup splash screen",
     adminInfoSplashSub: "Show the « Happy, let's GO » screen when the app opens",
     adminInfoSplashImageLabel: "Splash image",

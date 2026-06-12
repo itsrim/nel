@@ -124,7 +124,7 @@ export function LoginPage() {
             <div
               className={
                 verificationMessage?.includes("n'a pas pu") ||
-                verificationMessage?.includes("Resend") ||
+                verificationMessage?.includes("Mailjet") ||
                 error
                   ? "login-error"
                   : "login-success"

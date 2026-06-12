@@ -159,11 +159,11 @@ export async function authRoutes(app: FastifyInstance) {
             ok: false,
             emailDeliveryFailed: true,
             message:
-              "L'email n'a pas pu être envoyé (Resend). Réessayez plus tard ou demandez à l'admin d'activer l'inscription sans vérification email.",
+              "L'email n'a pas pu être envoyé (Mailjet). Réessayez plus tard ou demandez à l'admin d'activer l'inscription sans vérification email.",
           });
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Resend failed";
+        const message = err instanceof Error ? err.message : "Envoi email impossible";
         return reply.status(400).send({ error: message });
       }
     },
