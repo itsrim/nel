@@ -10,7 +10,11 @@ import {
 } from "../lib/authApi";
 import { shutdownGlobalChatSync } from "../lib/chatSync";
 import { useMessagingStore } from "./useMessagingStore";
-import { syncEmailVerifiedToSheets } from "../lib/appSheetPersistence";
+import {
+  syncEmailVerifiedToSheets,
+  syncPendingSignupToSheets,
+} from "../lib/appSheetPersistence";
+import { fetchClientIp } from "../lib/clientIp";
 import { isAdminAccount } from "../lib/accountRoles";
 import { enforceLoginIpSecurity } from "../lib/loginIpSecurity";
 import { resolveAvatarUrl } from "../lib/avatarUrl";
@@ -174,18 +178,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   resendVerification: async (email?: string) => {
     const target = (email ?? get().pendingVerificationEmail ?? "").trim();
     if (!target) return;
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, verificationMessage: null });
     try {
-      const message = await resendVerificationWithApi(target);
+      const result = await resendVerificationWithApi(target);
+      const message = result.message ?? "Email renvoyé.";
       set({
         isLoading: false,
         pendingVerificationEmail: target,
         verificationMessage: message,
+        error: null,
       });
     } catch (err) {
+      const message = err instanceof Error ? err.message : "Envoi impossible";
       set({
         isLoading: false,
-        error: err instanceof Error ? err.message : "Envoi impossible",
+        verificationMessage: message,
+        error: null,
       });
     }
   },
@@ -360,6 +368,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             error: null,
           });
           return;
+        }
+        if ("userId" in result && result.userId) {
+          const signupIp = await fetchClientIp();
+          syncPendingSignupToSheets(
+            result.userId,
+            result.email,
+            result.displayName ?? displayName,
+            !!isPro,
+            signupIp || undefined,
+          );
         }
         set({
           isLoading: false,

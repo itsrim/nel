@@ -1253,6 +1253,35 @@ export function syncAllViewerStateFromStore(state: {
   });
 }
 
+/** À l'inscription — enregistre le profil même si l'email n'est pas encore vérifié. */
+export function syncPendingSignupToSheets(
+  userId: string,
+  email: string,
+  displayName: string,
+  isPro: boolean,
+  signupIp?: string,
+): void {
+  syncLater(() =>
+    upsertSheetRow(
+      "viewer_settings",
+      userId,
+      viewerSettingsToRow(userId, {
+        email,
+        emailVerified: false,
+        avatarUrl: "",
+        displayName,
+        isPro,
+        signupIp,
+        friendRequestSentProfilIds: [],
+        friendRequestRejectedProfilIds: [],
+        favoriteConversationIds: [],
+        moderationHiddenEventIds: [],
+        moderationHiddenProfilIds: [],
+      }),
+    ),
+  );
+}
+
 /** Après vérification email — sync Sheets sans dépendre du store messaging. */
 export function syncEmailVerifiedToSheets(
   userId: string,

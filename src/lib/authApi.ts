@@ -13,6 +13,8 @@ export interface AuthResponse {
 export interface SignupPendingResponse {
   pendingVerification: true;
   email: string;
+  userId: string;
+  displayName: string;
   message: string;
   emailDeliveryFailed?: boolean;
 }
@@ -82,15 +84,22 @@ export async function verifyEmailWithApi(token: string): Promise<AuthResponse> {
   return { user: data.user, token: data.token };
 }
 
-export async function resendVerificationWithApi(email: string): Promise<string> {
+export interface ResendVerificationResponse {
+  ok?: boolean;
+  message?: string;
+  emailDeliveryFailed?: boolean;
+}
+
+export async function resendVerificationWithApi(
+  email: string,
+): Promise<ResendVerificationResponse> {
   const res = await fetch(`${CHAT_API_BASE}/api/auth/resend-verification`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
   });
   if (!res.ok) throw new Error(await parseAuthError(res));
-  const data = (await res.json()) as { message?: string };
-  return data.message ?? "Email renvoyé.";
+  return (await res.json()) as ResendVerificationResponse;
 }
 
 export function toAppUser(

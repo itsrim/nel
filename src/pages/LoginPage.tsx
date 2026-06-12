@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
 import {
@@ -6,6 +6,11 @@ import {
   MAX_SIGNUP_AGE,
   MIN_SIGNUP_AGE,
 } from "../lib/signupValidation";
+import {
+  createMathCaptcha,
+  isMathCaptchaAnswerValid,
+  type MathCaptcha,
+} from "../lib/signupCaptcha";
 import "./LoginPage.css";
 
 function readVerifyTokenFromUrl(): string | null {
@@ -42,6 +47,13 @@ export function LoginPage() {
   const [isPro, setIsPro] = useState(false);
   const [localError, setLocalError] = useState("");
   const [verifyingLink, setVerifyingLink] = useState(false);
+  const [captcha, setCaptcha] = useState<MathCaptcha>(() => createMathCaptcha());
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
+
+  const refreshCaptcha = useCallback(() => {
+    setCaptcha(createMathCaptcha());
+    setCaptchaAnswer("");
+  }, []);
 
   useEffect(() => {
     const token = readVerifyTokenFromUrl();
@@ -53,8 +65,9 @@ export function LoginPage() {
   const signupFormValid = useMemo(() => {
     if (!isSignup) return true;
     if (!email.trim() || !password || !displayName.trim()) return false;
-    return isValidSignupAge(age);
-  }, [isSignup, email, password, displayName, age]);
+    if (!isValidSignupAge(age)) return false;
+    return isMathCaptchaAnswerValid(captcha, captchaAnswer);
+  }, [isSignup, email, password, displayName, age, captcha, captchaAnswer]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +75,12 @@ export function LoginPage() {
 
     if (isSignup && !isValidSignupAge(age)) {
       setLocalError(t("loginAgeInvalid"));
+      return;
+    }
+
+    if (isSignup && !isMathCaptchaAnswerValid(captcha, captchaAnswer)) {
+      setLocalError(t("loginCaptchaInvalid"));
+      refreshCaptcha();
       return;
     }
 
@@ -101,21 +120,18 @@ export function LoginPage() {
             <p className="login-subtitle">{t("loginVerifyTitle")}</p>
           </div>
 
-          {verificationMessage ? (
+          {(verificationMessage || error) ? (
             <div
               className={
-                verificationMessage.includes("n'a pas pu")
+                verificationMessage?.includes("n'a pas pu") ||
+                verificationMessage?.includes("Resend") ||
+                error
                   ? "login-error"
                   : "login-success"
               }
-              role="status"
+              role="alert"
             >
-              {verificationMessage}
-            </div>
-          ) : null}
-          {error ? (
-            <div className="login-error" role="alert">
-              {error}
+              {error || verificationMessage}
             </div>
           ) : null}
 
@@ -257,6 +273,9 @@ export function LoginPage() {
                   {t("loginProAccount")}
                 </label>
               </div>
+              {isPro ? (
+                <p className="login-pro-hint">{t("loginProCompleteInProfile")}</p>
+              ) : null}
             </>
           )}
 
@@ -275,6 +294,26 @@ export function LoginPage() {
               required
             />
           </div>
+
+          {isSignup ? (
+            <div className="login-field">
+              <label htmlFor="captcha" className="login-label">
+                {t("loginCaptchaLabel")} — {captcha.question}
+              </label>
+              <input
+                id="captcha"
+                type="number"
+                inputMode="numeric"
+                className="login-input"
+                placeholder={t("loginCaptchaPlaceholder")}
+                value={captchaAnswer}
+                onChange={(e) => setCaptchaAnswer(e.target.value)}
+                disabled={isLoading}
+                required
+                autoComplete="off"
+              />
+            </div>
+          ) : null}
 
           <button
             type="submit"
@@ -312,6 +351,7 @@ export function LoginPage() {
               setAge("");
               setBio("");
               setIsPro(false);
+              refreshCaptcha();
             }}
             disabled={isLoading}
           >

@@ -353,3 +353,12 @@
   font-weight: 600;
   color: #333;
 }
+
+.login-pro-hint {
+  margin: -8px 0 0;
+  padding-left: 28px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #8e8e93;
+  font-style: italic;
+}
