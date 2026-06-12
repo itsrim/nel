@@ -13,6 +13,7 @@ import {
   type WaitlistEntry,
 } from "../data/mockData";
 import { isChatApiConfigured } from "../lib/chatConfig";
+import { sendMessageRemote } from "../lib/chatSocket";
 import { useLanguageStore } from "./useLanguageStore";
 import { loadHistory, saveHistory, type PersistedMessage } from "../lib/chatPersistence";
 import { useAuthStore } from "./useAuthStore";
