@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
 import {
+  canSubmitSignin,
+  isValidEmailFormat,
+  signinEmailValidationHint,
+} from "../lib/loginFormValidation";
+import { matchFrontAdminLogin } from "../lib/frontAdminLogin";
+import {
   isValidSignupAge,
   MAX_SIGNUP_AGE,
   MIN_SIGNUP_AGE,
@@ -93,9 +99,25 @@ export function LoginPage() {
   const signupFormValid = useMemo(() => {
     if (view !== "signup") return true;
     if (!email.trim() || !password || !displayName.trim()) return false;
+    if (!isValidEmailFormat(email)) return false;
     if (!isValidSignupAge(age)) return false;
     return isMathCaptchaAnswerValid(captcha, captchaAnswer);
   }, [view, email, password, displayName, age, captcha, captchaAnswer]);
+
+  const signinFormValid = useMemo(() => {
+    if (view !== "signin") return true;
+    return canSubmitSignin(email, password);
+  }, [view, email, password]);
+
+  const signinEmailHint = useMemo(() => {
+    if (view !== "signin") return null;
+    return signinEmailValidationHint(email, password);
+  }, [view, email, password]);
+
+  const forgotFormValid = useMemo(() => {
+    if (view !== "forgot") return true;
+    return isValidEmailFormat(email);
+  }, [view, email]);
 
   const resetFormValid = useMemo(() => {
     return (
@@ -124,6 +146,21 @@ export function LoginPage() {
         return;
       }
       await resetPassword(resetToken, newPassword);
+      return;
+    }
+
+    if (view === "signup" && !isValidEmailFormat(email)) {
+      setLocalError(t("loginEmailInvalid"));
+      return;
+    }
+
+    if (view === "signin" && !matchFrontAdminLogin(email, password) && !isValidEmailFormat(email)) {
+      setLocalError(t("loginEmailInvalid"));
+      return;
+    }
+
+    if (view === "forgot" && !isValidEmailFormat(email)) {
+      setLocalError(t("loginEmailInvalid"));
       return;
     }
 
@@ -242,7 +279,7 @@ export function LoginPage() {
           <p className="login-subtitle">{subtitle}</p>
         </div>
 
-        <form className="login-form" onSubmit={handleSubmit}>
+        <form className="login-form" onSubmit={handleSubmit} noValidate>
           {(error || localError) && (
             <div className="login-error" role="alert">
               {error || localError}
@@ -274,23 +311,34 @@ export function LoginPage() {
           {(view === "signin" || view === "signup" || view === "forgot") && (
             <div className="login-field">
               <label htmlFor="email" className="login-label">
-                {view === "signup" || view === "forgot" ? t("loginEmail") : t("loginEmailOrId")}
+                {t("loginEmail")}
               </label>
               <input
                 id="email"
-                type={view === "signup" || view === "forgot" ? "email" : "text"}
+                type="text"
+                inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 className="login-input"
-                placeholder={
-                  view === "signup" || view === "forgot"
-                    ? t("loginPlaceholderEmail")
-                    : t("loginPlaceholderId")
-                }
+                placeholder={t("loginPlaceholderEmail")}
                 autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
                 required
+                aria-invalid={view === "signin" && signinEmailHint === "invalid"}
+                aria-describedby={
+                  view === "signin" && signinEmailHint === "invalid"
+                    ? "login-email-hint"
+                    : undefined
+                }
               />
+              {view === "signin" && signinEmailHint === "invalid" ? (
+                <p id="login-email-hint" className="login-field-hint login-field-hint--error">
+                  {t("loginEmailInvalid")}
+                </p>
+              ) : null}
             </div>
           )}
 
@@ -464,7 +512,9 @@ export function LoginPage() {
             className="login-button"
             disabled={
               isLoading ||
+              (view === "signin" && !signinFormValid) ||
               (view === "signup" && !signupFormValid) ||
+              (view === "forgot" && !forgotFormValid) ||
               (view === "reset" && !resetFormValid)
             }
           >

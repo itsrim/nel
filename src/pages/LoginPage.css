@@ -166,10 +166,14 @@
 }
 
 .login-field-hint {
-  margin: 0;
-  font-size: 12px;
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
   line-height: 1.35;
   color: #8e8e93;
+}
+
+.login-field-hint--error {
+  color: #dc2626;
 }
 
 @media (max-height: 600px) {

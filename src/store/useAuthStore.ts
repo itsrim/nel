@@ -46,9 +46,12 @@ import {
   matchBuiltinAccount,
   builtinAccountPasswordHash,
   isReservedBuiltinEmail,
-  isFrontOnlyBuiltinAccount,
   type BuiltinAccount,
 } from "../lib/builtinAccounts";
+import {
+  getFrontAdminAccount,
+  matchFrontAdminLogin,
+} from "../lib/frontAdminLogin";
 
 /** Inscriptions locales hors Sheets/API (legacy). */
 const offlineSignupUsers: Record<
@@ -187,10 +190,21 @@ async function completeBuiltinLogin(
   account: BuiltinAccount,
   set: (partial: Partial<AuthState>) => void,
 ): Promise<void> {
-  if (!isFrontOnlyBuiltinAccount(account)) {
-    await ensureBuiltinAccountInSheets(account);
-  }
+  await ensureBuiltinAccountInSheets(account);
+  await finishBuiltinSession(account, set);
+}
 
+/** rim / 1234!! — session locale, sans Google Sheets. */
+async function completeFrontAdminLogin(
+  set: (partial: Partial<AuthState>) => void,
+): Promise<void> {
+  await finishBuiltinSession(getFrontAdminAccount(), set);
+}
+
+async function finishBuiltinSession(
+  account: BuiltinAccount,
+  set: (partial: Partial<AuthState>) => void,
+): Promise<void> {
   const normalizedEmail = account.email.trim().toLowerCase();
   const loggedInUser: User = {
     id: account.id,
@@ -488,6 +502,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
+      if (matchFrontAdminLogin(email, password)) {
+        await completeFrontAdminLogin(set);
+        return;
+      }
+
       const builtin = matchBuiltinAccount(email, password);
       if (builtin) {
         await completeBuiltinLogin(builtin, set);
