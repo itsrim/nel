@@ -19,9 +19,15 @@ import {
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useTranslation } from "../i18n/useTranslation";
+import { useAuthStore } from "../store/useAuthStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { isEventDateBeforeToday } from "../lib/eventDateKey";
-import { eventHostedByViewer, resolveEventHostAvatar, resolveEventHostIsPro } from "../lib/eventHost";
+import {
+  effectiveViewerEventStatus,
+  eventHostedByViewer,
+  resolveEventHostAvatar,
+  resolveEventHostIsPro,
+} from "../lib/eventHost";
 import { resolveEventPublicUrl } from "../lib/eventPublicUrl";
 import {
   KARMA_ATTENDANCE_REWARD,
@@ -82,8 +88,13 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     finalizeEventOrganizerKarma,
     isAdmin,
     adminDeleteEvent,
+    cancelEvent,
   } = useMessagingStore();
   const viewerProAccess = useMessagingStore(hasViewerProAccess);
+  const user = useAuthStore((s) => s.user);
+  const viewerContext = user
+    ? { id: user.id, displayName: user.displayName }
+    : null;
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteSearch, setInviteSearch] = useState("");
@@ -111,8 +122,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
 
   const participantSlots = useMemo((): ParticipantSlot[] => {
     if (!event) return [];
+    const viewerStatus = effectiveViewerEventStatus(event, viewerContext);
     const isInscribed =
-      event.status === "inscrit" || event.status === "organisateur";
+      viewerStatus === "inscrit" || viewerStatus === "organisateur";
     const slots: ParticipantSlot[] = [];
     const othersLimit = Math.min(
       Math.max(0, event.participantCount - (isInscribed ? 1 : 0)),
@@ -151,7 +163,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
       used++;
     }
     return slots;
-  }, [event, conversations, friends]);
+  }, [event, conversations, friends, viewerContext]);
 
   const allAppProfiles = useMemo(
     () => listAllAppProfiles(friends, suggestions),
@@ -187,8 +199,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
 
   const publicShareUrl = resolveEventPublicUrl(event);
 
-  const viewerHosts = eventHostedByViewer(event);
-  const hostAvatar = resolveEventHostAvatar(event, viewerProfileAvatarUrl);
+  const viewerStatus = effectiveViewerEventStatus(event, viewerContext);
+  const viewerHosts = eventHostedByViewer(event, viewerContext);
+  const hostAvatar = resolveEventHostAvatar(event, viewerProfileAvatarUrl, viewerContext);
   const hostName = viewerHosts
     ? viewerProfileDisplayName
     : event.hostName?.trim() || "Organisateur";
@@ -197,14 +210,15 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     event,
     friends,
     viewerProAccess,
+    viewerContext,
   );
 
   const isInscribed =
-    event.status === "inscrit" || event.status === "organisateur";
+    viewerStatus === "inscrit" || viewerStatus === "organisateur";
   const isFull = event.participantCount >= event.participantMax;
-  const isHostOrganizer = viewerHosts && event.status === "organisateur";
+  const isHostOrganizer = viewerStatus === "organisateur";
   const isPastEvent = isEventDateBeforeToday(event.dateKey);
-  const canEditEvent = isHostOrganizer || isAdmin;
+  const canEditEvent = isHostOrganizer;
   const canInvite = (isHostOrganizer || isAdmin) && !isPastEvent;
   const validatedPresent = new Set(event.validatedPresentProfilIds ?? []);
   const viewerValidatedPresent = validatedPresent.has(
@@ -219,7 +233,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     viewerValidatedPresent &&
     isInscribed;
   const showJoinKarmaHint =
-    !isHostOrganizer && event.status !== "inscrit" && !isFull && !isPastEvent;
+    !isHostOrganizer && viewerStatus !== "inscrit" && !isFull && !isPastEvent;
 
   const markParticipantPresent = (participantProfilId: string) => {
     validateEventParticipantPresent(event.id, participantProfilId);
@@ -249,14 +263,19 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     setInviteSearch("");
   };
 
-  const handleAdminDeleteEvent = () => {
-    if (!window.confirm(t("adminDeleteEventConfirm"))) return;
-    adminDeleteEvent(event.id);
+  const handleDeleteEvent = () => {
+    if (!window.confirm(t("deleteEventConfirmation"))) return;
+    if (isAdmin) {
+      adminDeleteEvent(event.id);
+    } else {
+      cancelEvent(event.id);
+      showToast("Sortie supprimée.");
+    }
     closeDetail();
   };
 
   const handleJoinToggle = () => {
-    if (event.status === "inscrit") {
+    if (viewerStatus === "inscrit") {
       if (
         confirm("Voulez-vous vraiment vous désinscrire de cette activité ?")
       ) {
@@ -264,7 +283,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
       }
       return;
     }
-    if (event.status === "en_attente" || viewerOnWaitlist) {
+    if (viewerStatus === "en_attente" || viewerOnWaitlist) {
       leaveWaitlist(event.id);
       return;
     }
@@ -276,9 +295,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   };
 
   const joinButtonLabel =
-    event.status === "inscrit"
+    viewerStatus === "inscrit"
       ? t("unregisterButton")
-      : event.status === "en_attente" || viewerOnWaitlist
+      : viewerStatus === "en_attente" || viewerOnWaitlist
         ? t("leaveWaitlist")
         : isFull
           ? t("joinWaitlist")
@@ -363,12 +382,12 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             >
               <AlertTriangle size={24} color="#FFCC00" />
             </button>
-            {isAdmin ? (
+            {isHostOrganizer || isAdmin ? (
               <button
                 type="button"
                 className="ed-icon-btn ed-icon-btn--danger"
-                onClick={handleAdminDeleteEvent}
-                aria-label={t("adminDeleteEvent")}
+                onClick={handleDeleteEvent}
+                aria-label={isAdmin ? t("adminDeleteEvent") : t("deleteEvent")}
               >
                 <Trash2 size={22} color="#FF453A" />
               </button>
@@ -690,7 +709,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
               ) : (
                 <button
                   type="button"
-                  className={`ed-join-btn${showJoinKarmaHint ? " ed-join-btn--with-karma" : ""} ${isInscribed ? "joined" : ""} ${!isInscribed && isFull && !viewerOnWaitlist && event.status !== "en_attente" ? "full" : ""}`}
+                  className={`ed-join-btn${showJoinKarmaHint ? " ed-join-btn--with-karma" : ""} ${isInscribed ? "joined" : ""} ${!isInscribed && isFull && !viewerOnWaitlist && viewerStatus !== "en_attente" ? "full" : ""}`}
                   onClick={handleJoinToggle}
                   aria-label={
                     showJoinKarmaHint
@@ -700,9 +719,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                       : undefined
                   }
                 >
-                  {event.status === "inscrit" ? (
+                  {viewerStatus === "inscrit" ? (
                     joinButtonLabel
-                  ) : event.status === "en_attente" || viewerOnWaitlist ? (
+                  ) : viewerStatus === "en_attente" || viewerOnWaitlist ? (
                     joinButtonLabel
                   ) : isFull && !event.manualApproval ? (
                     joinButtonLabel

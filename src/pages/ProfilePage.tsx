@@ -57,6 +57,7 @@ import { ProfileBadgesSection } from "../components/ProfileBadgesSection";
 import { SubscriptionCheckoutModal } from "../components/SubscriptionCheckoutModal";
 import { SubscriptionSettingActions } from "../components/SubscriptionSettingActions";
 import { canManageProfileBadges, isAdminAccount } from "../lib/accountRoles";
+import { eventOrganizedByViewer } from "../lib/viewerEventScope";
 import { DEFAULT_AVATAR_URL, resolveAvatarUrl } from "../lib/avatarUrl";
 import type { SubscriptionPlan } from "../lib/subscriptionPayment";
 import "../components/ProContactLinks.css";
@@ -289,30 +290,40 @@ export function ProfilePage() {
     [adminReports],
   );
 
-  /** Favoris + créées : uniquement à partir d’aujourd’hui (jour calendaire local). */
+  const viewerContext = useMemo(
+    () =>
+      user
+        ? { id: user.id, displayName: user.displayName }
+        : null,
+    [user],
+  );
+
+  const isMyOrganizedEvent = useCallback(
+    (e: (typeof events)[number]) => eventOrganizedByViewer(e, viewerContext),
+    [viewerContext],
+  );
+
+  /** Sorties organisées par moi — à partir d’aujourd’hui. */
   const favoritesAndCreatedEvents = useMemo(
     () =>
       events.filter(
-        (e) =>
-          e.hostedByViewer &&
-          (e.isFavorite || e.status === "organisateur") &&
-          !isEventDateBeforeToday(e.dateKey),
+        (e) => isMyOrganizedEvent(e) && !isEventDateBeforeToday(e.dateKey),
       ),
-    [events],
+    [events, isMyOrganizedEvent],
   );
-  /** Passés : avant aujourd'hui parmi créés par l'utilisateur. */
+  /** Passés : avant aujourd'hui parmi mes sorties organisées. */
   const historyEvents = useMemo(
     () =>
       events.filter(
-        (e) => e.hostedByViewer && isEventDateBeforeToday(e.dateKey),
+        (e) => isMyOrganizedEvent(e) && isEventDateBeforeToday(e.dateKey),
       ),
-    [events],
+    [events, isMyOrganizedEvent],
   );
 
-  /** Sorties créées par l'utilisateur (onglet Calendrier Pro). */
+  /** Sorties que j’organise (onglet Calendrier Pro). */
   const createdEvents = useMemo(
-    () => events.filter((e) => e.hostedByViewer),
-    [events],
+    () => events.filter((e) => isMyOrganizedEvent(e)),
+    [events, isMyOrganizedEvent],
   );
 
   const createdEventsByDateKey = useMemo(() => {
@@ -555,6 +566,25 @@ export function ProfilePage() {
       <div className="profile-content">
         {/* Bio Card */}
         <div className="bio-card">
+          {user?.email ? (
+            <div className="profile-email-field">
+              <label className="pro-contact-edit-label">
+                <Mail size={16} aria-hidden />
+                <span>{t("loginEmail")}</span>
+              </label>
+              {editing ? (
+                <input
+                  type="email"
+                  value={user.email}
+                  readOnly
+                  className="profile-email-readonly"
+                  aria-readonly="true"
+                />
+              ) : (
+                <p className="profile-email-value">{user.email}</p>
+              )}
+            </div>
+          ) : null}
           {!editing ? (
             <p className="bio-text">{viewerProfileBio || "—"}</p>
           ) : (

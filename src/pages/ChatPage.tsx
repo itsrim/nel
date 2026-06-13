@@ -27,7 +27,6 @@ import {
 } from "../data/mockData";
 import { buildConversationMiniSlots } from "../lib/conversationMiniSlots";
 import { hasReachedDailyFriendRequestLimit } from "../lib/eventDateKey";
-import { sortSuggestionsRecentFirst } from "../lib/suggestionListing";
 import { hasViewerPremiumAccess } from "../lib/viewerEntitlements";
 import "./ChatPage.css";
 
@@ -337,6 +336,7 @@ export function ChatPage() {
     sendFriendRequest,
     moderationHiddenProfilIds,
     showToast,
+    isAdmin: adminModeActive,
   } = useMessagingStore();
   const viewerPremiumAccess = useMessagingStore(hasViewerPremiumAccess);
   const [sub, setSub] = useState<SubTab>("messages");
@@ -348,19 +348,22 @@ export function ChatPage() {
   const conversationAccessScope = useMemo(
     () =>
       resolveConversationAccessScope({
-        isAdmin: userIsAppAdmin(user),
+        adminModeActive,
+        isStaffAccount: userIsAppAdmin(user),
         conversations,
         events,
       }),
-    [user, conversations, events],
+    [adminModeActive, user, conversations, events],
   );
 
   const accessibleConversations = useMemo(
     () =>
       conversationAccessScope === null
         ? conversations
-        : conversations.filter((c) =>
-            isConversationAccessible(c.id, conversationAccessScope),
+        : conversations.filter(
+            (c) =>
+              isConversationAccessible(c.id, conversationAccessScope) &&
+              (c.members.length === 0 || c.members.some((m) => m.isSelf)),
           ),
     [conversations, conversationAccessScope],
   );
@@ -460,10 +463,7 @@ export function ChatPage() {
     [suggestions, moderationHiddenProfilIds],
   );
 
-  const sortedSuggestions = useMemo(
-    () => sortSuggestionsRecentFirst(suggestionsVisible),
-    [suggestionsVisible],
-  );
+  const sortedSuggestions = suggestionsVisible;
 
   const suggestionsListResetKey = useMemo(
     () => `${sortedSuggestions.length}-${moderationHiddenProfilIds.join(",")}`,

@@ -4,27 +4,36 @@ import { useMessagingStore } from "../store/useMessagingStore";
 import { isAdminAccount } from "./accountRoles";
 import { viewerParticipatesInEvent } from "./eventVisibility";
 
-/** `null` = accès total (admin). */
+/** `null` = accès total (mode admin actif). */
 export type ConversationAccessScope = ReadonlySet<string> | null;
 
 export type MessageLoadScope =
   | { mode: "admin" }
   | { mode: "member"; conversationIds: ReadonlySet<string> };
 
+export function viewerIsConversationMember(conversation: Conversation): boolean {
+  return conversation.members.some((m) => m.isSelf);
+}
+
 export function resolveConversationAccessScope(input: {
-  isAdmin: boolean;
+  /** Mode admin UI (pas seulement compte staff). */
+  adminModeActive: boolean;
+  isStaffAccount: boolean;
   conversations: Conversation[];
   events: Event[];
 }): ConversationAccessScope {
-  if (input.isAdmin) return null;
+  if (input.adminModeActive && input.isStaffAccount) return null;
 
   const ids = new Set<string>();
   for (const c of input.conversations) {
-    if (c.id?.trim()) ids.add(c.id.trim());
+    const cid = c.id?.trim();
+    if (!cid) continue;
+    if (viewerIsConversationMember(c)) ids.add(cid);
   }
   for (const e of input.events) {
-    if (!e.conversationId?.trim()) continue;
-    if (viewerParticipatesInEvent(e)) ids.add(e.conversationId.trim());
+    if (!viewerParticipatesInEvent(e)) continue;
+    const cid = e.conversationId?.trim();
+    if (cid) ids.add(cid);
   }
   return ids;
 }
@@ -64,7 +73,14 @@ export function buildMissingParticipantConversations(
       unreadCount: 0,
       updatedAt: Date.now(),
       isFavorite: false,
-      members: [],
+      members: [
+        {
+          id: "me",
+          name: "Moi",
+          isSelf: true,
+          avatarGradient: ["#78909C", "#546E7A"] as const,
+        },
+      ],
       memberCount: e.participantCount,
     });
   }
@@ -73,23 +89,35 @@ export function buildMissingParticipantConversations(
 }
 
 export function toMessageLoadScope(
-  isAdmin: boolean,
+  adminModeActive: boolean,
+  isStaffAccount: boolean,
   conversationScope: ConversationAccessScope,
 ): MessageLoadScope {
-  if (isAdmin || conversationScope === null) return { mode: "admin" };
+  if (adminModeActive && isStaffAccount) return { mode: "admin" };
+  if (conversationScope === null) return { mode: "admin" };
   return { mode: "member", conversationIds: conversationScope };
 }
 
 export function resolveMessageAccessFromStores(): MessageLoadScope {
   const user = useAuthStore.getState().user;
-  const isAdmin = userIsAppAdmin(user);
-  if (isAdmin) return { mode: "admin" };
+  const isStaff = userIsAppAdmin(user);
+  const adminModeActive = useMessagingStore.getState().isAdmin;
+  if (adminModeActive && isStaff) return { mode: "admin" };
 
   const msg = useMessagingStore.getState();
   const ids = resolveConversationAccessScope({
-    isAdmin: false,
+    adminModeActive,
+    isStaffAccount: isStaff,
     conversations: msg.conversations,
     events: msg.events,
   });
   return { mode: "member", conversationIds: ids ?? new Set<string>() };
+}
+
+/** Admin Sheets/API : scope élargi seulement si mode admin actif. */
+export function resolveSheetsAdminScope(
+  user: { id?: string; email?: string; isAdmin?: boolean } | null | undefined,
+): boolean {
+  if (!userIsAppAdmin(user)) return false;
+  return useMessagingStore.getState().isAdmin;
 }

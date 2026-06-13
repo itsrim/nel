@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
-import {
-  canSubmitSignin,
-  isValidEmailFormat,
-  signinEmailValidationHint,
-} from "../lib/loginFormValidation";
+import { canSubmitSignin, isValidEmailFormat } from "../lib/loginFormValidation";
 import { matchFrontAdminLogin } from "../lib/frontAdminLogin";
 import {
   isValidSignupAge,
@@ -106,13 +102,9 @@ export function LoginPage() {
 
   const signinFormValid = useMemo(() => {
     if (view !== "signin") return true;
-    return canSubmitSignin(email, password);
-  }, [view, email, password]);
-
-  const signinEmailHint = useMemo(() => {
-    if (view !== "signin") return null;
-    return signinEmailValidationHint(email, password);
-  }, [view, email, password]);
+    if (!canSubmitSignin(email, password)) return false;
+    return isMathCaptchaAnswerValid(captcha, captchaAnswer);
+  }, [view, email, password, captcha, captchaAnswer]);
 
   const forgotFormValid = useMemo(() => {
     if (view !== "forgot") return true;
@@ -169,7 +161,10 @@ export function LoginPage() {
       return;
     }
 
-    if (view === "signup" && !isMathCaptchaAnswerValid(captcha, captchaAnswer)) {
+    if (
+      (view === "signin" || view === "signup") &&
+      !isMathCaptchaAnswerValid(captcha, captchaAnswer)
+    ) {
       setLocalError(t("loginCaptchaInvalid"));
       refreshCaptcha();
       return;
@@ -327,16 +322,11 @@ export function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
                 required
-                aria-invalid={view === "signin" && signinEmailHint === "invalid"}
-                aria-describedby={
-                  view === "signin" && signinEmailHint === "invalid"
-                    ? "login-email-hint"
-                    : undefined
-                }
+                aria-describedby={view === "signin" ? "login-email-format-hint" : undefined}
               />
-              {view === "signin" && signinEmailHint === "invalid" ? (
-                <p id="login-email-hint" className="login-field-hint login-field-hint--error">
-                  {t("loginEmailInvalid")}
+              {view === "signin" ? (
+                <p id="login-email-format-hint" className="login-field-hint">
+                  {t("loginEmailFormatHint")}
                 </p>
               ) : null}
             </div>
@@ -487,7 +477,7 @@ export function LoginPage() {
             </div>
           )}
 
-          {view === "signup" ? (
+          {(view === "signin" || view === "signup") ? (
             <div className="login-field">
               <label htmlFor="captcha" className="login-label">
                 {t("loginCaptchaLabel")} : {captcha.question}

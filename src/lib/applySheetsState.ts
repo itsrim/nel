@@ -20,6 +20,8 @@ import {
 import { loadHistory } from "./chatPersistence";
 import { writeSubscriptionPaymentRecord } from "./subscriptionPersistence";
 import { useLanguageStore } from "../store/useLanguageStore";
+import { enrichEventsForViewer } from "./viewerEventScope";
+import { buildSuggestionCatalog } from "./suggestionCatalog";
 
 export function dataEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -53,6 +55,11 @@ function previewMergedProfessionals(
 }
 
 export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
+  const authUser = useAuthStore.getState().user;
+  const viewerContext = authUser
+    ? { id: authUser.id, displayName: authUser.displayName }
+    : null;
+
   if (loaded.professionals.length > 0) {
     const currentPros = useProsStore.getState().professionals;
     const nextPros = previewMergedProfessionals(currentPros, loaded.professionals);
@@ -63,9 +70,20 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
 
   const msgStore = useMessagingStore.getState();
 
-  if (!loaded.hasRemoteData) return;
+  if (!loaded.hasRemoteData) {
+    ensureDerivedCatalogInStore(viewerContext);
+    return;
+  }
 
-  const patch = mergeLoadedAppState(msgStore, loaded);
+  const enrichedLoaded: LoadedAppSheetState = {
+    ...loaded,
+    events:
+      loaded.events.length > 0
+        ? enrichEventsForViewer(loaded.events, viewerContext)
+        : loaded.events,
+  };
+
+  const patch = mergeLoadedAppState(msgStore, enrichedLoaded);
   const changed = filterChangedPatch(msgStore, patch);
 
   const lang = loaded.viewerSettings?.language;
@@ -77,6 +95,7 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
 
   if (Object.keys(changed).length === 0) {
     ensureParticipantConversationsInStore();
+    ensureDerivedCatalogInStore(viewerContext);
     return;
   }
 
@@ -102,6 +121,23 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
   }
 
   const msg = useMessagingStore.getState();
+
+  if ("viewerProfileAvatarUrl" in changed && changed.viewerProfileAvatarUrl) {
+    msg.setViewerProfileAvatarUrl(changed.viewerProfileAvatarUrl);
+    const authUser = useAuthStore.getState().user;
+    if (authUser) {
+      const nextUser = {
+        ...authUser,
+        avatarUrl: changed.viewerProfileAvatarUrl,
+      };
+      useAuthStore.setState({ user: nextUser });
+      try {
+        localStorage.setItem("nel_auth_user", JSON.stringify(nextUser));
+      } catch {
+        /* ignore */
+      }
+    }
+  }
 
   if (
     "viewerProWebsiteUrl" in changed &&
@@ -173,11 +209,41 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
   }
 
   ensureParticipantConversationsInStore();
+  ensureDerivedCatalogInStore(viewerContext);
+}
+
+/** Suggestions dérivées des profils Sheets, des inscrits viewer_settings ou des pros. */
+function ensureDerivedCatalogInStore(
+  viewerContext: { id: string; displayName?: string } | null,
+): void {
+  const msg = useMessagingStore.getState();
+  const patch: Partial<typeof msg> = {};
+
+  if (msg.events.length > 0 && viewerContext) {
+    const enriched = enrichEventsForViewer(msg.events, viewerContext);
+    if (!dataEqual(msg.events, enriched)) {
+      patch.events = enriched;
+    }
+  }
+
+  if (msg.suggestions.length === 0 && msg.friends.length > 0) {
+    const built = buildSuggestionCatalog(
+      msg.friends,
+      msg.profileVisits,
+      useProsStore.getState().professionals,
+    );
+    if (built.length > 0) patch.suggestions = built;
+  }
+
+  if (Object.keys(patch).length > 0) {
+    useMessagingStore.setState(patch);
+  }
 }
 
 function ensureParticipantConversationsInStore(): void {
   const user = useAuthStore.getState().user;
-  if (userIsAppAdmin(user)) return;
+  const adminModeActive = useMessagingStore.getState().isAdmin;
+  if (adminModeActive && userIsAppAdmin(user)) return;
 
   const msg = useMessagingStore.getState();
   const missing = buildMissingParticipantConversations(msg.events, msg.conversations);

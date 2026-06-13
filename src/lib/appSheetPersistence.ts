@@ -46,6 +46,8 @@ import {
   type AdminAppInfo,
 } from "./adminAppInfo";
 import { ADMIN_USER_ID } from "./accountRoles";
+import { buildSuggestionCatalog } from "./suggestionCatalog";
+import { shouldSkipEmailVerificationFromSheets } from "./sheetAuth";
 
 const LS_CACHE_PREFIX = "nel_sheet_cache_";
 const GLOBAL_CACHE_USER = "__global__";
@@ -857,6 +859,8 @@ export interface LoadedAppSheetState {
   eventReminders: EventReminder[];
   professionals: MockProfessional[];
   adminAppInfo?: AdminAppInfo;
+  /** Suggestions dérivées de tous les comptes viewer_settings (si suggestions/profiles vides). */
+  registeredMemberSuggestions?: SuggestionProfile[];
   viewerSettings?: {
     email: string;
     emailVerified: boolean;
@@ -976,6 +980,80 @@ async function readScopedUserTable(
   return isAdmin ? readGlobalTable(table) : readTable(table, userId);
 }
 
+function isEligibleRegisteredMember(
+  row: Record<string, string>,
+  excludeUserId: string,
+  skipEmailVerification: boolean,
+): boolean {
+  const id = row.id?.trim() || row.userId?.trim();
+  if (!id || id === excludeUserId) return false;
+  if (isDeletedFromSheet(row.deleted)) return false;
+  const label = row.displayName?.trim() || row.email?.trim();
+  if (!label) return false;
+  if (skipEmailVerification || boolFromSheet(row.emailVerified)) return true;
+  return !!row.passwordHash?.trim();
+}
+
+function viewerSettingsRowToFriend(row: Record<string, string>): Friend {
+  const id = row.id?.trim() || row.userId?.trim() || "";
+  const name = row.displayName?.trim() || row.email?.trim() || id;
+  const ageRaw = row.age?.trim();
+  return {
+    profilId: id,
+    name,
+    age: ageRaw ? numFromSheet(ageRaw) : null,
+    city: row.city?.trim() ?? "",
+    imageUrl: resolveAvatarUrl(row.avatarUrl),
+    eventsInCommon: 0,
+    mainChatConversationId: "",
+    pseudo: name.split(/\s+/)[0] || undefined,
+    verified: boolFromSheet(row.emailVerified),
+    isPro: boolFromSheet(row.isPro),
+  };
+}
+
+/** Annuaire découverte : tous les inscrits actifs dans viewer_settings (hors soi). */
+export async function loadRegisteredMemberSuggestions(
+  excludeUserId: string,
+  profileVisits: ProfileVisit[],
+  professionals: MockProfessional[],
+): Promise<SuggestionProfile[]> {
+  if (!isGoogleSheetsReadConfigured()) return [];
+  try {
+    const [rows, skipEmailVerification] = await Promise.all([
+      sheetGet<Record<string, string>>("viewer_settings"),
+      shouldSkipEmailVerificationFromSheets(),
+    ]);
+    const friends = rows
+      .filter((row) =>
+        isEligibleRegisteredMember(row, excludeUserId, skipEmailVerification),
+      )
+      .map(viewerSettingsRowToFriend);
+    return buildSuggestionCatalog(friends, profileVisits, professionals);
+  } catch (err) {
+    console.error("loadRegisteredMemberSuggestions failed:", err);
+    return [];
+  }
+}
+
+async function attachRegisteredMemberSuggestions(
+  state: LoadedAppSheetState,
+  excludeUserId: string,
+): Promise<LoadedAppSheetState> {
+  if (state.suggestions.length > 0) return state;
+  const registeredMemberSuggestions = await loadRegisteredMemberSuggestions(
+    excludeUserId,
+    state.profileVisits,
+    state.professionals,
+  );
+  if (registeredMemberSuggestions.length === 0) return state;
+  return {
+    ...state,
+    registeredMemberSuggestions,
+    hasRemoteData: true,
+  };
+}
+
 export async function loadTabStateFromSheets(
   tab: SheetsTabId,
   userId: string,
@@ -991,12 +1069,32 @@ export async function loadTabStateFromSheets(
       };
     }
     case "chat": {
-      const convRows = await readScopedUserTable("conversations", userId, isAdmin);
-      return {
-        ...emptyLoadedState(),
-        conversations: convRows.map(rowToConversation),
-        hasRemoteData: convRows.length > 0,
-      };
+      const [convRows, suggestionRows, profileRows, visitRows, professionalRows] =
+        await Promise.all([
+        readScopedUserTable("conversations", userId, isAdmin),
+        readScopedUserTable("suggestions", userId, isAdmin),
+        readScopedUserTable("profiles", userId, isAdmin),
+        readScopedUserTable("profile_visits", userId, isAdmin),
+        readGlobalTable("professionals"),
+      ]);
+      const profileVisits = visitRows.map(rowToVisit);
+      const professionals = professionalRows.map(rowToProfessional);
+      return attachRegisteredMemberSuggestions(
+        {
+          ...emptyLoadedState(),
+          conversations: convRows.map(rowToConversation),
+          suggestions: suggestionRows.map(rowToSuggestion),
+          friends: profileRows.map(rowToFriend),
+          profileVisits,
+          professionals,
+          hasRemoteData:
+            convRows.length > 0 ||
+            suggestionRows.length > 0 ||
+            profileRows.length > 0 ||
+            visitRows.length > 0,
+        },
+        userId,
+      );
     }
     case "pro": {
       const professionalRows = await readGlobalTable("professionals");
@@ -1153,20 +1251,23 @@ export async function loadAppStateFromSheets(
 
   const professionals = professionalRows.map(rowToProfessional);
 
-  return {
-    events: eventRows.map(rowToEvent),
-    conversations: convRows.map(rowToConversation),
-    friends: profileRows.map(rowToFriend),
-    suggestions: suggestionRows.map(rowToSuggestion),
-    profileVisits: visitRows.map(rowToVisit),
-    appNotifications: notifRows.map(rowToNotification),
-    adminReports: reportRows.map(rowToReport),
-    eventReminders: reminderRows.map(rowToEventReminder),
-    professionals,
-    adminAppInfo,
-    viewerSettings: viewerRow ? parseViewerSettingsFromRow(viewerRow) : undefined,
-    hasRemoteData,
-  };
+  return attachRegisteredMemberSuggestions(
+    {
+      events: eventRows.map(rowToEvent),
+      conversations: convRows.map(rowToConversation),
+      friends: profileRows.map(rowToFriend),
+      suggestions: suggestionRows.map(rowToSuggestion),
+      profileVisits: visitRows.map(rowToVisit),
+      appNotifications: notifRows.map(rowToNotification),
+      adminReports: reportRows.map(rowToReport),
+      eventReminders: reminderRows.map(rowToEventReminder),
+      professionals,
+      adminAppInfo,
+      viewerSettings: viewerRow ? parseViewerSettingsFromRow(viewerRow) : undefined,
+      hasRemoteData,
+    },
+    userId,
+  );
 }
 
 export function mergeLoadedAppState(
@@ -1236,6 +1337,8 @@ export function mergeLoadedAppState(
   }
   if (loaded.suggestions.length > 0) {
     patch.suggestions = mergeById(current.suggestions, loaded.suggestions);
+  } else if (loaded.registeredMemberSuggestions?.length) {
+    patch.suggestions = loaded.registeredMemberSuggestions;
   }
   if (loaded.profileVisits.length > 0) {
     patch.profileVisits = mergeById(current.profileVisits, loaded.profileVisits);

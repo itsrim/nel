@@ -131,12 +131,17 @@ interface AuthState {
 const LS_USER = "nel_auth_user";
 
 function applySheetProfileToStores(
-  sheetUser: Pick<SheetAuthUser, "age" | "bio" | "language">,
+  sheetUser: Pick<SheetAuthUser, "age" | "bio" | "language" | "avatarUrl">,
 ): void {
   useMessagingStore.getState().hydrateViewerProfileFields({
     age: sheetUser.age,
     bio: sheetUser.bio,
   });
+  if (sheetUser.avatarUrl?.trim()) {
+    useMessagingStore
+      .getState()
+      .setViewerProfileAvatarUrl(sheetUser.avatarUrl.trim());
+  }
   const lang = sheetUser.language;
   if (lang === "fr" || lang === "en") {
     useLanguageStore.setState({ language: lang });
@@ -311,12 +316,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } catch {
         /* ignore */
       }
-      const loggedInUser = toAppUser(sheetUser, { ...extras, emailVerified: true });
-      applySheetProfileToStores({
-        age: loggedInUser.age ?? sheetUser.age,
-        bio: loggedInUser.bio ?? sheetUser.bio,
-        language: sheetUser.language,
+      const loggedInUser = toAppUser(sheetUser, {
+        ...extras,
+        emailVerified: true,
+        ...(sheetUser.avatarUrl?.trim()
+          ? { avatarUrl: resolveAvatarUrl(sheetUser.avatarUrl) }
+          : {}),
       });
+      applySheetProfileToStores(sheetUser);
       const ipCheck = await enforceLoginIpSecurity({
         userId: loggedInUser.id,
         email: loggedInUser.email,
@@ -520,6 +527,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           age: sheetUser.age,
           bio: sheetUser.bio,
           isPro: sheetUser.isPro || normalizedLogin === "rim",
+          ...(sheetUser.avatarUrl?.trim()
+            ? { avatarUrl: resolveAvatarUrl(sheetUser.avatarUrl) }
+            : {}),
         });
         applySheetProfileToStores(sheetUser);
         const ipCheck = await enforceLoginIpSecurity({

@@ -185,12 +185,16 @@ export async function forgotPasswordWithApi(
 }
 
 export function toAppUser(
-  apiUser: AuthResponse["user"],
+  apiUser: AuthResponse["user"] & { avatarUrl?: string },
   extras?: Partial<User>,
 ): User {
   const emailNorm = apiUser.email.trim().toLowerCase();
   const isDemo = emailNorm === "admin@rim.com";
   const isRimAdmin = emailNorm === "rim" || apiUser.id === "user_admin_001";
+  const avatarFromSource =
+    extras?.avatarUrl?.trim() ||
+    apiUser.avatarUrl?.trim() ||
+    "";
   return {
     id: apiUser.id,
     email: apiUser.email,
@@ -199,7 +203,9 @@ export function toAppUser(
     isAdmin: isAdminAccount({ email: apiUser.email, id: apiUser.id }),
     avatarUrl: isDemo
       ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800"
-      : resolveAvatarUrl(),
+      : avatarFromSource
+        ? resolveAvatarUrl(avatarFromSource)
+        : resolveAvatarUrl(),
     isPro: extras?.isPro ?? isRimAdmin,
     ...extras,
   };

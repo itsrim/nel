@@ -1,6 +1,7 @@
 import { Heart, Check, Clock, MapPin } from 'lucide-react';
 import type { Event } from '../data/mockData';
 import { useTranslation } from '../i18n/useTranslation';
+import { useAuthStore } from '../store/useAuthStore';
 import { useMessagingStore } from '../store/useMessagingStore';
 import { resolveEventHostIsPro } from '../lib/eventHost';
 import { resolveEventParticipantAvatars } from '../lib/eventParticipantAvatars';
@@ -20,9 +21,13 @@ interface EventCardProps {
 
 export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardProps) {
   const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
   const { conversations, friends, viewerProfileAvatarUrl } = useMessagingStore();
   const viewerProAccess = useMessagingStore(hasViewerProAccess);
-  const hostIsPro = resolveEventHostIsPro(item, friends, viewerProAccess);
+  const viewerContext = user
+    ? { id: user.id, displayName: user.displayName }
+    : null;
+  const hostIsPro = resolveEventHostIsPro(item, friends, viewerProAccess, viewerContext);
   const coverTheme = resolveEventCoverTheme(item);
   const themeBadgeColors = coverTheme
     ? getEventThemeBadgeColors(coverTheme.tag)
@@ -32,6 +37,8 @@ export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardP
     conversations,
     friends,
     viewerProfileAvatarUrl,
+    3,
+    viewerContext,
   );
   const CARD_IMAGE_ASPECT = 2.05;
   const imgH = width ? Math.round(width / CARD_IMAGE_ASPECT) : 90;

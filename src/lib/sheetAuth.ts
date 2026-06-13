@@ -19,6 +19,7 @@ export interface SheetAuthUser {
   age: string;
   bio: string;
   language: string;
+  avatarUrl: string;
 }
 
 const CONFIRM_EMAIL_MSG =
@@ -94,6 +95,7 @@ function rowToAuthUser(row: Record<string, string>): SheetAuthUser {
     age: row.age?.trim() || "",
     bio: row.bio?.trim() || "",
     language: row.language?.trim() || "",
+    avatarUrl: row.avatarUrl?.trim() || "",
   };
 }
 
@@ -132,6 +134,7 @@ export async function loginFromViewerSettings(
       age: builtin.age ?? "",
       bio: builtin.bio ?? "",
       language: "fr",
+      avatarUrl: "",
     };
   }
 

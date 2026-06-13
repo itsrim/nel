@@ -22,7 +22,7 @@ import {
   refreshChatMessagesFromSheets,
 } from "./lib/applySheetsState";
 import { isGoogleSheetsReadConfigured } from "./lib/googleSheetsDb";
-import { isAdminAccount } from "./lib/accountRoles";
+import { resolveSheetsAdminScope } from "./lib/accessScope";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { ChatPage } from "./pages/ChatPage";
 import { EventsPage } from "./pages/EventsPage";
@@ -36,7 +36,7 @@ import { OtherProfilePage } from "./pages/OtherProfilePage";
 import { ChatSettingsPage } from "./pages/ChatSettingsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { QuestionnaireModal } from "./components/QuestionnaireModal";
-import { resolveAvatarUrl } from "./lib/avatarUrl";
+import { resolveAvatarUrl, DEFAULT_AVATAR_URL } from "./lib/avatarUrl";
 import {
   markDailyQuestionnaireShown,
   shouldShowDailyQuestionnaire,
@@ -91,12 +91,15 @@ function App() {
     loadUser();
   }, [loadUser]);
 
-  // Sync auth user to messaging store profile
+  // Sync auth user to messaging store profile (sans écraser l'avatar Sheets par le défaut)
   useEffect(() => {
     if (user) {
       setViewerProfileDisplayName(user.displayName);
       setViewerProfileIsPro(!!user.isPro);
-      setViewerProfileAvatarUrl(resolveAvatarUrl(user.avatarUrl));
+      const fromUser = resolveAvatarUrl(user.avatarUrl);
+      if (fromUser !== DEFAULT_AVATAR_URL) {
+        setViewerProfileAvatarUrl(fromUser);
+      }
       resetData();
     }
   }, [
@@ -111,7 +114,7 @@ function App() {
   useEffect(() => {
     if (!user?.id || !isGoogleSheetsReadConfigured()) return;
     void (async () => {
-      const isAdmin = isAdminAccount(user);
+      const isAdmin = resolveSheetsAdminScope(user);
       const loaded = await loadAppStateFromSheets(user.id, isAdmin);
       applySheetsLoadedState(loaded);
       await refreshChatMessagesFromSheets();
@@ -127,7 +130,7 @@ function App() {
     }
     void (async () => {
       try {
-        const isAdmin = isAdminAccount(user);
+        const isAdmin = resolveSheetsAdminScope(user);
         const loaded = await loadTabStateFromSheets(tab, user.id, isAdmin);
         applySheetsLoadedState(loaded);
         if (tab === "chat") {

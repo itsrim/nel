@@ -13,10 +13,11 @@
 }
 
 .floating-tab-bar-inner {
+  position: relative;
   pointer-events: auto;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   max-width: min(360px, calc(100vw - 24px));
   background: rgba(44, 44, 48, 0.94);
   border: 2px solid #fbbf24;
@@ -30,20 +31,41 @@
     0 0 18px rgba(251, 191, 36, 0.35);
 }
 
-/* Pas de scale : sur mobile ça ressemble à un zoom / bouge la mise en page */
-@keyframes ftb-tab-select {
+.ftb-indicator {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  border-radius: 22px;
+  background: linear-gradient(145deg, #fde047, #fbbf24);
+  box-shadow: 0 2px 12px rgba(251, 191, 36, 0.35);
+  transition:
+    transform 0.38s cubic-bezier(0.34, 1.25, 0.64, 1),
+    width 0.38s cubic-bezier(0.34, 1.25, 0.64, 1);
+  z-index: 0;
+  pointer-events: none;
+}
+
+@keyframes ftb-icon-pop {
   0% {
-    opacity: 0.65;
+    transform: scale(0.82);
+  }
+  55% {
+    transform: scale(1.18);
   }
   100% {
-    opacity: 1;
+    transform: scale(1.12);
   }
 }
 
 .ftb-item {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  gap: 0;
+  min-width: 44px;
   padding: 10px 12px;
   border: none;
   border-radius: 22px;
@@ -52,16 +74,19 @@
   cursor: pointer;
   font-size: 16px;
   font-weight: 600;
-  transition: background 0.2s ease, box-shadow 0.22s ease, color 0.18s ease;
+  transition: color 0.22s ease, padding 0.32s cubic-bezier(0.34, 1.2, 0.64, 1);
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 }
 
-.ftb-item:hover {
+.ftb-item:not(.ftb-item--active) {
+  padding: 10px;
+}
+
+.ftb-item:hover:not(.ftb-item--active) {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* Anneau focus : utile souris / clavier, pas sur mobile tactile */
 @media (hover: hover) and (pointer: fine) {
   .ftb-item:focus-visible {
     outline: 2px solid rgba(255, 214, 10, 0.65);
@@ -70,37 +95,53 @@
 }
 
 .ftb-item--active {
-  background: linear-gradient(145deg, #fde047, #fbbf24);
   color: #0a0a0a;
-  box-shadow: 0 2px 12px rgba(251, 191, 36, 0.35);
-  animation: ftb-tab-select 0.28s ease-out both;
+  padding: 10px 14px;
+  gap: 6px;
 }
 
 .ftb-item--active:hover {
   color: #0a0a0a;
-  background: linear-gradient(145deg, #fde047, #f59e0b);
 }
 
 .ftb-item--active .ftb-icon {
   color: #0a0a0a;
+  animation: ftb-icon-pop 0.36s cubic-bezier(0.34, 1.35, 0.64, 1) both;
 }
 
 .ftb-icon {
   flex-shrink: 0;
   color: currentColor;
+  transition: transform 0.28s ease;
 }
 
 .ftb-label {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.2px;
+  animation: ftb-label-in 0.32s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+}
+
+@keyframes ftb-label-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ftb-indicator {
+    transition-duration: 0.01ms;
+  }
   .ftb-item {
     transition-duration: 0.01ms;
   }
-  .ftb-item--active {
+  .ftb-item--active .ftb-icon,
+  .ftb-label {
     animation: none;
   }
 }

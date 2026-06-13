@@ -1,6 +1,17 @@
-import { isFrontAdminLoginIdentifier, matchFrontAdminLogin } from "./frontAdminLogin";
+import {
+  FRONT_ADMIN_LOGIN,
+  matchFrontAdminLogin,
+} from "./frontAdminLogin";
 
 const EMAIL_FORMAT_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Ne pas afficher « email invalide » pendant une saisie type rim / rims (évite de révéler le compte admin). */
+function shouldHideSigninEmailHint(email: string): boolean {
+  const typed = email.trim().toLowerCase();
+  if (!typed) return true;
+  const admin = FRONT_ADMIN_LOGIN;
+  return admin.startsWith(typed) || typed.startsWith(admin);
+}
 
 export function isValidEmailFormat(value: string): boolean {
   const trimmed = value.trim();
@@ -8,17 +19,15 @@ export function isValidEmailFormat(value: string): boolean {
   return EMAIL_FORMAT_RE.test(trimmed);
 }
 
-/** Connexion : email valide, ou combinaison admin rim / 1234!! */
+/** Prêt à soumettre (UI) — même règle pour tous les comptes, sans révéler l’admin. */
 export function canSubmitSignin(email: string, password: string): boolean {
-  if (!password) return false;
-  if (matchFrontAdminLogin(email, password)) return true;
-  return isValidEmailFormat(email);
+  return !!email.trim() && password.length >= 6;
 }
 
 export function signinEmailValidationHint(email: string, password: string): "invalid" | null {
   const trimmed = email.trim();
   if (!trimmed || matchFrontAdminLogin(email, password)) return null;
-  if (isFrontAdminLoginIdentifier(trimmed)) return null;
+  if (shouldHideSigninEmailHint(email)) return null;
   if (!isValidEmailFormat(trimmed)) return "invalid";
   return null;
 }
