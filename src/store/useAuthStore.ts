@@ -25,8 +25,8 @@ import { useMessagingStore } from "./useMessagingStore";
 import { useLanguageStore } from "./useLanguageStore";
 import {
   syncEmailVerifiedToSheets,
-  syncPasswordHashToSheets,
-  syncPasswordResetTokenToSheets,
+  persistPasswordResetTokenToSheets,
+  persistPasswordHashToSheets,
   persistPendingSignupToSheets,
   persistVerificationTokenToSheets,
 } from "../lib/appSheetPersistence";
@@ -36,7 +36,7 @@ import { fetchClientIp } from "../lib/clientIp";
 import { isAdminAccount } from "../lib/accountRoles";
 import { enforceLoginIpSecurity } from "../lib/loginIpSecurity";
 import { resolveAvatarUrl } from "../lib/avatarUrl";
-import { buildLocalSignupAuth, generateVerificationToken } from "../lib/signupAuth";
+import { buildLocalSignupAuth, buildPasswordResetAuth, generateVerificationToken } from "../lib/signupAuth";
 import { isValidSignupAge } from "../lib/signupValidation";
 import {
   matchBuiltinAccount,
@@ -358,18 +358,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         });
         return;
       }
+      const userId = row?.id?.trim() || row?.userId?.trim();
+      const resetAuth = buildPasswordResetAuth();
+      if (userId && isGoogleSheetsWriteConfigured()) {
+        await persistPasswordResetTokenToSheets(
+          userId,
+          resetAuth.passwordResetToken,
+          resetAuth.passwordResetExpiresAt,
+        );
+      }
       const result = await forgotPasswordWithApi(
         target,
         row?.displayName?.trim() || target,
+        resetAuth,
       );
-      const userId = row?.id?.trim() || row?.userId?.trim();
-      if (userId && result.passwordResetToken) {
-        syncPasswordResetTokenToSheets(
-          userId,
-          result.passwordResetToken,
-          result.passwordResetExpiresAt ?? null,
-        );
-      }
       set({
         isLoading: false,
         passwordResetMessage: result.message ?? "Email envoyé si le compte existe.",
@@ -400,7 +402,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const sheetUser = await validatePasswordResetToken(token);
       const row = await findViewerRowByPasswordResetToken(token);
       const userId = row?.id?.trim() || row?.userId?.trim() || sheetUser.id;
-      syncPasswordHashToSheets(userId, hashPasswordForSheet(password));
+      await persistPasswordHashToSheets(userId, hashPasswordForSheet(password));
       const loggedInUser = toAppUser({ ...sheetUser, emailVerified: true });
       if (isChatApiConfigured()) {
         await trySetSessionToken(loggedInUser);
@@ -557,6 +559,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           userId: localAuth.userId,
           verificationToken: localAuth.verificationToken,
           verificationExpiresAt: localAuth.verificationExpiresAt,
+          skipEmailVerification: skipVerify,
         });
         const sheetUserId = localAuth.userId;
         if ("token" in result && result.token && "user" in result) {
@@ -619,6 +622,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return;
         }
         if ("pendingVerification" in result && result.pendingVerification) {
+          const tokenFromApi = result.sheetAuth?.verificationToken?.trim();
+          if (
+            tokenFromApi &&
+            tokenFromApi !== localAuth.verificationToken &&
+            isGoogleSheetsWriteConfigured()
+          ) {
+            await persistVerificationTokenToSheets(
+              sheetUserId,
+              tokenFromApi,
+              result.sheetAuth?.verificationExpiresAt ?? localAuth.verificationExpiresAt,
+            );
+          }
           set({
             isLoading: false,
             pendingVerificationEmail: normalizedEmail,

@@ -105,6 +105,7 @@ export async function signupWithApi(
     userId?: string;
     verificationToken?: string;
     verificationExpiresAt?: number | null;
+    skipEmailVerification?: boolean;
   },
 ): Promise<SignupApiResponse> {
   const res = await fetch(`${CHAT_API_BASE}/api/auth/signup`, {
@@ -117,6 +118,7 @@ export async function signupWithApi(
       userId: options?.userId,
       verificationToken: options?.verificationToken,
       verificationExpiresAt: options?.verificationExpiresAt,
+      skipEmailVerification: options?.skipEmailVerification === true,
     }),
   });
   if (!res.ok) throw new Error(await parseAuthError(res));
@@ -163,11 +165,20 @@ export interface ForgotPasswordResponse {
 export async function forgotPasswordWithApi(
   email: string,
   displayName?: string,
+  options?: {
+    passwordResetToken?: string;
+    passwordResetExpiresAt?: number | null;
+  },
 ): Promise<ForgotPasswordResponse> {
   const res = await fetch(`${CHAT_API_BASE}/api/auth/forgot-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, displayName }),
+    body: JSON.stringify({
+      email,
+      displayName,
+      passwordResetToken: options?.passwordResetToken,
+      passwordResetExpiresAt: options?.passwordResetExpiresAt,
+    }),
   });
   if (!res.ok) throw new Error(await parseAuthError(res));
   return (await res.json()) as ForgotPasswordResponse;

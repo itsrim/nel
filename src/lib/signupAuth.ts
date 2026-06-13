@@ -28,11 +28,23 @@ export function buildLocalSignupAuth(options?: {
   userId?: string;
 }): LocalSignupAuth {
   const skipVerify = options?.skipEmailVerification === true;
-  const verificationToken = skipVerify ? "" : generateVerificationToken();
+  const verificationToken = generateVerificationToken();
   return {
     userId: options?.userId ?? generateSignupUserId(),
     emailVerified: skipVerify,
     verificationToken,
-    verificationExpiresAt: skipVerify ? null : Date.now() + VERIFICATION_TTL_MS,
+    verificationExpiresAt: Date.now() + VERIFICATION_TTL_MS,
+  };
+}
+
+export const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
+
+export function buildPasswordResetAuth(): {
+  passwordResetToken: string;
+  passwordResetExpiresAt: number;
+} {
+  return {
+    passwordResetToken: generateVerificationToken(),
+    passwordResetExpiresAt: Date.now() + PASSWORD_RESET_TTL_MS,
   };
 }

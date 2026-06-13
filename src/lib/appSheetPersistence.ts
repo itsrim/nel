@@ -1606,6 +1606,21 @@ export function syncVerificationTokenToSheets(
   );
 }
 
+/** Demande reset mot de passe — enregistre les tokens reset (attendre la fin). */
+export async function persistPasswordResetTokenToSheets(
+  userId: string,
+  passwordResetToken: string,
+  passwordResetExpiresAt: number | null,
+): Promise<void> {
+  await upsertSheetRow("viewer_settings", userId, {
+    userId,
+    id: userId,
+    passwordResetToken,
+    passwordResetExpiresAt:
+      passwordResetExpiresAt != null ? String(passwordResetExpiresAt) : "",
+  });
+}
+
 /** Demande reset mot de passe — enregistre les tokens reset. */
 export function syncPasswordResetTokenToSheets(
   userId: string,
@@ -1621,6 +1636,20 @@ export function syncPasswordResetTokenToSheets(
         passwordResetExpiresAt != null ? String(passwordResetExpiresAt) : "",
     }),
   );
+}
+
+/** Après reset mot de passe — nouveau hash, tokens reset effacés. */
+export async function persistPasswordHashToSheets(
+  userId: string,
+  passwordHash: string,
+): Promise<void> {
+  await upsertSheetRow("viewer_settings", userId, {
+    userId,
+    id: userId,
+    passwordHash,
+    passwordResetToken: "",
+    passwordResetExpiresAt: "",
+  });
 }
 
 /** Après reset mot de passe — nouveau hash, tokens reset effacés. */
