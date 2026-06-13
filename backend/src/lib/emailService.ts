@@ -28,6 +28,9 @@ function getSmtpTransporter(): nodemailer.Transporter {
         user: smtpUser(),
         pass: smtpPass(),
       },
+      connectionTimeout: 15_000,
+      greetingTimeout: 15_000,
+      socketTimeout: 20_000,
     });
   }
   return smtpTransporter;
