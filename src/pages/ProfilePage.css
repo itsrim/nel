@@ -1267,6 +1267,133 @@
   cursor: not-allowed;
 }
 
+.admin-info-sheet-maintenance {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-info-sheet-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #34c759;
+  margin-bottom: 6px;
+}
+
+.admin-info-sheet-refresh {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #8e8e93;
+  cursor: pointer;
+}
+
+.admin-info-sheet-refresh:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.admin-info-sheet-error {
+  color: #ff453a;
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+.admin-info-sheet-loading {
+  color: #8e8e93;
+  font-size: 13px;
+  margin: 10px 0 0;
+}
+
+.admin-info-sheet-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0 18px;
+}
+
+.admin-info-sheet-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-info-sheet-stat-label {
+  font-size: 11px;
+  color: #8e8e93;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.admin-info-sheet-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.admin-info-sheet-purge {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-info-sheet-purge-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.admin-info-sheet-date {
+  flex: 1;
+  min-width: 140px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1c1c1e;
+  color: #fff;
+  font: inherit;
+}
+
+.admin-info-sheet-purge-btn,
+.admin-info-sheet-purge-all-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 69, 58, 0.35);
+  background: rgba(255, 69, 58, 0.12);
+  color: #ff453a;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-info-sheet-purge-all-btn {
+  margin-top: 4px;
+  width: 100%;
+}
+
+.admin-info-sheet-purge-btn:disabled,
+.admin-info-sheet-purge-all-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .admin-info-splash-image {
   display: flex;
   flex-direction: column;

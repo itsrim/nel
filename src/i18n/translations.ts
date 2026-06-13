@@ -64,6 +64,27 @@ export const translations = {
     adminInfoForceReloadLabel: "Imposer une mise à jour",
     adminInfoForceReloadSub:
       "À la publication, demande à tous de recharger l'application",
+    adminSheetMaintenanceTitle: "Google Sheet",
+    adminSheetMaintenanceHint:
+      "Taille du classeur et nettoyage de l'onglet messages (action irréversible).",
+    adminSheetSizeLabel: "Taille du classeur",
+    adminSheetMessagesLabel: "Messages",
+    adminSheetTabsLabel: "Onglets",
+    adminSheetRefreshStats: "Actualiser les statistiques",
+    adminSheetLoading: "Chargement…",
+    adminSheetApiMissing:
+      "API Sheets non configurée (VITE_GOOGLE_SHEETS_API_URL). Redéployez sheets-api.gs.",
+    adminSheetDeleteBeforeLabel: "Supprimer les messages avant le",
+    adminSheetDeleteBeforeHint:
+      "Efface définitivement les lignes de l'onglet messages dont la date est antérieure à la date choisie (minuit, heure locale).",
+    adminSheetDeleteBeforeBtn: "Supprimer avant cette date",
+    adminSheetDeleteAllBtn: "Supprimer tous les messages",
+    adminSheetDeleteAllConfirm:
+      "Supprimer définitivement tous les messages du Google Sheet ? Cette action est irréversible.",
+    adminSheetDeleteBeforeConfirm:
+      "Supprimer définitivement les messages antérieurs à la date choisie ? Cette action est irréversible.",
+    adminSheetPickDate: "Choisissez une date.",
+    adminSheetMessagesPurged: "{count} message(s) supprimé(s).",
     announcementModalTitle: "Information",
     appForceReloadTitle: "Mise à jour requise",
     appForceReloadBody:
@@ -726,6 +747,27 @@ export const translations = {
     adminInfoForceReloadLabel: "Force app update",
     adminInfoForceReloadSub:
       "On publish, ask everyone to reload the application",
+    adminSheetMaintenanceTitle: "Google Sheet",
+    adminSheetMaintenanceHint:
+      "Spreadsheet size and messages tab cleanup (irreversible).",
+    adminSheetSizeLabel: "Spreadsheet size",
+    adminSheetMessagesLabel: "Messages",
+    adminSheetTabsLabel: "Tabs",
+    adminSheetRefreshStats: "Refresh statistics",
+    adminSheetLoading: "Loading…",
+    adminSheetApiMissing:
+      "Sheets API not configured (VITE_GOOGLE_SHEETS_API_URL). Redeploy sheets-api.gs.",
+    adminSheetDeleteBeforeLabel: "Delete messages before",
+    adminSheetDeleteBeforeHint:
+      "Permanently removes message rows sent before the chosen date (midnight, local time).",
+    adminSheetDeleteBeforeBtn: "Delete before this date",
+    adminSheetDeleteAllBtn: "Delete all messages",
+    adminSheetDeleteAllConfirm:
+      "Permanently delete all messages from the Google Sheet? This cannot be undone.",
+    adminSheetDeleteBeforeConfirm:
+      "Permanently delete messages before the chosen date? This cannot be undone.",
+    adminSheetPickDate: "Pick a date.",
+    adminSheetMessagesPurged: "{count} message(s) deleted.",
     announcementModalTitle: "Information",
     appForceReloadTitle: "Update required",
     appForceReloadBody:

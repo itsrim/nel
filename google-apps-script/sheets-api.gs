@@ -115,7 +115,98 @@ function handleRequest_(body) {
     return updateRow_(sheet, idColumn, body.id, body.row || {});
   }
 
+  if (action === "spreadsheetStats") {
+    return getSpreadsheetStats_();
+  }
+
+  if (action === "deleteMessages") {
+    var beforeSentAt = body.beforeSentAt;
+    if (beforeSentAt == null || beforeSentAt === "" || beforeSentAt === "0") {
+      return deleteAllMessages_();
+    }
+    return deleteMessagesBefore_(Number(beforeSentAt));
+  }
+
   throw new Error("Unknown action: " + action);
+}
+
+function parseSentAtMs_(val) {
+  if (val == null || val === "") return null;
+  if (val instanceof Date) return val.getTime();
+  var n = Number(String(val).trim());
+  if (!isNaN(n) && n > 0) return n;
+  var d = new Date(String(val));
+  if (!isNaN(d.getTime())) return d.getTime();
+  return null;
+}
+
+function getSpreadsheetStats_() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var file = DriveApp.getFileById(SPREADSHEET_ID);
+  var bytes = file.getSize();
+  var sheets = ss.getSheets();
+  var sheetStats = [];
+  var messageRows = 0;
+
+  sheets.forEach(function (sh) {
+    var rows = Math.max(0, sh.getLastRow() - 1);
+    var name = sh.getName();
+    if (name === "messages") messageRows = rows;
+    sheetStats.push({ name: name, rows: rows });
+  });
+
+  return {
+    ok: true,
+    bytes: bytes,
+    sheetCount: sheets.length,
+    messageRows: messageRows,
+    sheets: sheetStats,
+  };
+}
+
+function deleteAllMessages_() {
+  var sheet = getSheet_("messages");
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { ok: true, deleted: 0, remaining: 0 };
+  var count = lastRow - 1;
+  sheet.deleteRows(2, count);
+  return { ok: true, deleted: count, remaining: 0 };
+}
+
+function deleteMessagesBefore_(cutoffMs) {
+  if (isNaN(cutoffMs) || cutoffMs <= 0) {
+    throw new Error("Invalid beforeSentAt");
+  }
+
+  var sheet = getSheet_("messages");
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { ok: true, deleted: 0, remaining: 0 };
+
+  var headers = getHeaders_(sheet);
+  var sentAtIndex = headers.indexOf("sentAt");
+  if (sentAtIndex < 0) throw new Error("Column sentAt missing on messages sheet");
+
+  var data = sheet.getRange(2, 1, lastRow, headers.length).getValues();
+  var toDelete = [];
+  for (var i = 0; i < data.length; i++) {
+    var sentAt = parseSentAtMs_(data[i][sentAtIndex]);
+    if (sentAt != null && sentAt < cutoffMs) {
+      toDelete.push(i + 2);
+    }
+  }
+
+  toDelete.sort(function (a, b) {
+    return b - a;
+  });
+  toDelete.forEach(function (rowNum) {
+    sheet.deleteRow(rowNum);
+  });
+
+  return {
+    ok: true,
+    deleted: toDelete.length,
+    remaining: Math.max(0, sheet.getLastRow() - 1),
+  };
 }
 
 function doGet(e) {
@@ -126,6 +217,7 @@ function doGet(e) {
         sheet: e.parameter.sheet,
         idColumn: e.parameter.idColumn,
         id: e.parameter.id,
+        beforeSentAt: e.parameter.beforeSentAt,
         row: e.parameter.row ? JSON.parse(e.parameter.row) : {},
       };
       return jsonResponse_(handleRequest_(body));

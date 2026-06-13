@@ -37,6 +37,7 @@ import {
   Info,
   RefreshCw,
   Mail,
+  Database,
 } from "lucide-react";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useNavigationStore } from "../store/useNavigationStore";
@@ -49,6 +50,16 @@ import {
   uploadSplashImageToImageKit,
 } from "../lib/imagekitUpload";
 import { resolveSplashImageUrl } from "../lib/adminAppInfo";
+import {
+  dateInputToCutoffMs,
+  deleteAllSheetMessages,
+  deleteSheetMessagesBefore,
+  fetchSpreadsheetStats,
+  formatSheetBytes,
+  type SpreadsheetStats,
+} from "../lib/adminSheetMaintenance";
+import { refreshChatMessagesFromSheets } from "../lib/applySheetsState";
+import { isGoogleSheetsWriteConfigured } from "../lib/googleSheetsDb";
 import { withUrlUploadVersion } from "../lib/versionRemoteAssetUrl";
 import { formatBadgeCount } from "../data/mockData";
 import { ProProfileDetails } from "../components/ProProfileDetails";
@@ -258,6 +269,11 @@ export function ProfilePage() {
   // Photo partagée avec EventDetail / création de sortie ; nom et âge figés après inscription.
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingSplashImage, setUploadingSplashImage] = useState(false);
+  const [sheetStats, setSheetStats] = useState<SpreadsheetStats | null>(null);
+  const [sheetStatsLoading, setSheetStatsLoading] = useState(false);
+  const [sheetStatsError, setSheetStatsError] = useState<string | null>(null);
+  const [purgeBeforeDate, setPurgeBeforeDate] = useState("");
+  const [purgingMessages, setPurgingMessages] = useState(false);
   const [heroAvatarBroken, setHeroAvatarBroken] = useState(false);
   const heroAvatarSrc = heroAvatarBroken
     ? DEFAULT_AVATAR_URL
@@ -457,6 +473,75 @@ export function ProfilePage() {
       input.value = "";
     }
   };
+
+  const loadSheetStats = useCallback(async () => {
+    if (!isGoogleSheetsWriteConfigured()) {
+      setSheetStats(null);
+      setSheetStatsError(t("adminSheetStatsApiMissing"));
+      return;
+    }
+    setSheetStatsLoading(true);
+    setSheetStatsError(null);
+    try {
+      const stats = await fetchSpreadsheetStats();
+      setSheetStats(stats);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setSheetStatsError(msg);
+    } finally {
+      setSheetStatsLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    if (activeTab === "info" && isAdmin && userIsAdmin) {
+      void loadSheetStats();
+    }
+  }, [activeTab, isAdmin, userIsAdmin, loadSheetStats]);
+
+  const afterMessagesPurged = useCallback(
+    async (deleted: number) => {
+      await refreshChatMessagesFromSheets();
+      await loadSheetStats();
+      showToast(
+        t("adminSheetMessagesPurged").replace("{count}", String(deleted)),
+      );
+    },
+    [loadSheetStats, showToast, t],
+  );
+
+  const handleDeleteAllMessages = useCallback(async () => {
+    if (!window.confirm(t("adminSheetDeleteAllConfirm"))) return;
+    setPurgingMessages(true);
+    try {
+      const result = await deleteAllSheetMessages();
+      await afterMessagesPurged(result.deleted);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      window.alert(msg);
+    } finally {
+      setPurgingMessages(false);
+    }
+  }, [afterMessagesPurged, t]);
+
+  const handleDeleteMessagesBeforeDate = useCallback(async () => {
+    const cutoffMs = dateInputToCutoffMs(purgeBeforeDate);
+    if (cutoffMs == null) {
+      showToast(t("adminSheetPickDate"));
+      return;
+    }
+    if (!window.confirm(t("adminSheetDeleteBeforeConfirm"))) return;
+    setPurgingMessages(true);
+    try {
+      const result = await deleteSheetMessagesBefore(cutoffMs);
+      await afterMessagesPurged(result.deleted);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      window.alert(msg);
+    } finally {
+      setPurgingMessages(false);
+    }
+  }, [afterMessagesPurged, purgeBeforeDate, showToast, t]);
 
   const handleSubscriptionSuccess = (
     plan: SubscriptionPlan,
@@ -1244,6 +1329,106 @@ export function ProfilePage() {
                   <Send size={16} />
                   {t("adminInfoPublish")}
                 </button>
+              </div>
+
+              <div className="admin-info-sheet-maintenance">
+                <div className="admin-info-sheet-header">
+                  <Database size={18} aria-hidden />
+                  <span className="admin-info-message-label">
+                    {t("adminSheetMaintenanceTitle")}
+                  </span>
+                  <button
+                    type="button"
+                    className="admin-info-sheet-refresh"
+                    onClick={() => void loadSheetStats()}
+                    disabled={sheetStatsLoading || purgingMessages}
+                    aria-label={t("adminSheetRefreshStats")}
+                  >
+                    <RefreshCw
+                      size={16}
+                      className={sheetStatsLoading ? "admin-info-splash-spinner" : undefined}
+                    />
+                  </button>
+                </div>
+                <p className="admin-info-message-hint">{t("adminSheetMaintenanceHint")}</p>
+
+                {sheetStatsError ? (
+                  <p className="admin-info-sheet-error">{sheetStatsError}</p>
+                ) : null}
+
+                {sheetStats ? (
+                  <div className="admin-info-sheet-stats">
+                    <div className="admin-info-sheet-stat">
+                      <span className="admin-info-sheet-stat-label">
+                        {t("adminSheetSizeLabel")}
+                      </span>
+                      <span className="admin-info-sheet-stat-value">
+                        {formatSheetBytes(sheetStats.bytes)}
+                      </span>
+                    </div>
+                    <div className="admin-info-sheet-stat">
+                      <span className="admin-info-sheet-stat-label">
+                        {t("adminSheetMessagesLabel")}
+                      </span>
+                      <span className="admin-info-sheet-stat-value">
+                        {sheetStats.messageRows.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="admin-info-sheet-stat">
+                      <span className="admin-info-sheet-stat-label">
+                        {t("adminSheetTabsLabel")}
+                      </span>
+                      <span className="admin-info-sheet-stat-value">
+                        {sheetStats.sheetCount}
+                      </span>
+                    </div>
+                  </div>
+                ) : sheetStatsLoading ? (
+                  <p className="admin-info-sheet-loading">{t("adminSheetLoading")}</p>
+                ) : null}
+
+                <div className="admin-info-sheet-purge">
+                  <label className="admin-info-message-label" htmlFor="admin-purge-before-date">
+                    {t("adminSheetDeleteBeforeLabel")}
+                  </label>
+                  <p className="admin-info-message-hint">{t("adminSheetDeleteBeforeHint")}</p>
+                  <div className="admin-info-sheet-purge-row">
+                    <input
+                      id="admin-purge-before-date"
+                      type="date"
+                      className="admin-info-sheet-date"
+                      value={purgeBeforeDate}
+                      onChange={(e) => setPurgeBeforeDate(e.target.value)}
+                      disabled={purgingMessages}
+                    />
+                    <button
+                      type="button"
+                      className="admin-info-sheet-purge-btn"
+                      onClick={() => void handleDeleteMessagesBeforeDate()}
+                      disabled={purgingMessages || !purgeBeforeDate}
+                    >
+                      {purgingMessages ? (
+                        <Loader2 size={16} className="admin-info-splash-spinner" />
+                      ) : (
+                        <Trash2 size={16} aria-hidden />
+                      )}
+                      {t("adminSheetDeleteBeforeBtn")}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="admin-info-sheet-purge-all-btn"
+                    onClick={() => void handleDeleteAllMessages()}
+                    disabled={purgingMessages}
+                  >
+                    {purgingMessages ? (
+                      <Loader2 size={16} className="admin-info-splash-spinner" />
+                    ) : (
+                      <Trash2 size={16} aria-hidden />
+                    )}
+                    {t("adminSheetDeleteAllBtn")}
+                  </button>
+                </div>
               </div>
             </div>
           )}
