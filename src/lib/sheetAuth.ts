@@ -6,6 +6,7 @@ import {
   isGoogleSheetsReadConfigured,
   sheetGet,
 } from "./googleSheetsDb";
+import { matchBuiltinAccount } from "./builtinAccounts";
 import { hashPasswordForSheet, verifyPasswordForSheet } from "./passwordHash";
 import { boolFromSheet, isDeletedFromSheet, numFromSheet } from "./sheetRowCodec";
 
@@ -38,6 +39,21 @@ export async function findViewerRowByEmail(
       (r) =>
         !isDeletedFromSheet(r.deleted) &&
         r.email?.trim().toLowerCase() === normalized,
+    ) ?? null
+  );
+}
+
+export async function findViewerRowById(
+  userId: string,
+): Promise<Record<string, string> | null> {
+  const id = userId.trim();
+  if (!id) return null;
+  const rows = await loadViewerSettingsRows();
+  return (
+    rows.find(
+      (r) =>
+        !isDeletedFromSheet(r.deleted) &&
+        (r.id?.trim() === id || r.userId?.trim() === id),
     ) ?? null
   );
 }
@@ -101,6 +117,20 @@ export async function loginFromViewerSettings(
   }
 
   const row = await findViewerRowByEmail(email);
+  const builtin = matchBuiltinAccount(email, password);
+  if (builtin && (!row || !row.passwordHash?.trim())) {
+    return {
+      id: builtin.id,
+      email: builtin.email,
+      displayName: builtin.displayName,
+      emailVerified: builtin.emailVerified !== false,
+      isPro: !!builtin.isPro,
+      age: builtin.age ?? "",
+      bio: builtin.bio ?? "",
+      language: "fr",
+    };
+  }
+
   if (!row || !verifyPasswordForSheet(password, row.passwordHash ?? "")) {
     throw new Error("Email ou mot de passe incorrect");
   }
@@ -127,6 +157,10 @@ export async function verifyEmailFromViewerSettings(token: string): Promise<Shee
   const row = await findViewerRowByVerificationToken(trimmed);
   if (!row) {
     throw new Error("Lien de vérification invalide ou déjà utilisé");
+  }
+
+  if (boolFromSheet(row.emailVerified)) {
+    return rowToAuthUser(row);
   }
 
   const expires = numFromSheet(row.verificationExpiresAt, 0);

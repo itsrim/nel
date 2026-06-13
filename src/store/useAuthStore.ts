@@ -13,6 +13,7 @@ import {
 } from "../lib/authApi";
 import {
   findViewerRowByEmail,
+  findViewerRowById,
   findViewerRowByPasswordResetToken,
   loginFromViewerSettings,
   verifyEmailFromViewerSettings,
@@ -25,10 +26,12 @@ import { useMessagingStore } from "./useMessagingStore";
 import { useLanguageStore } from "./useLanguageStore";
 import {
   syncEmailVerifiedToSheets,
+  persistEmailVerifiedToSheets,
   persistPasswordResetTokenToSheets,
   persistPasswordHashToSheets,
   persistPendingSignupToSheets,
   persistVerificationTokenToSheets,
+  upsertSheetRow,
 } from "../lib/appSheetPersistence";
 import { hashPasswordForSheet } from "../lib/passwordHash";
 import { toAppUser } from "../lib/authApi";
@@ -38,6 +41,7 @@ import { enforceLoginIpSecurity } from "../lib/loginIpSecurity";
 import { resolveAvatarUrl } from "../lib/avatarUrl";
 import { buildLocalSignupAuth, buildPasswordResetAuth, generateVerificationToken } from "../lib/signupAuth";
 import { isValidSignupAge } from "../lib/signupValidation";
+import { boolFromSheet } from "../lib/sheetRowCodec";
 import {
   matchBuiltinAccount,
   builtinAccountPasswordHash,
@@ -138,7 +142,22 @@ function applySheetProfileToStores(
 async function ensureBuiltinAccountInSheets(account: BuiltinAccount): Promise<void> {
   if (!isGoogleSheetsWriteConfigured()) return;
   const existing = await findViewerRowByEmail(account.email);
-  if (existing) return;
+  const passwordHash = builtinAccountPasswordHash(account);
+  if (existing) {
+    if (!existing.passwordHash?.trim()) {
+      try {
+        await upsertSheetRow("viewer_settings", account.id, {
+          userId: account.id,
+          id: account.id,
+          passwordHash,
+          emailVerified: account.emailVerified !== false ? "TRUE" : "FALSE",
+        });
+      } catch (err) {
+        console.warn("Impossible de réparer le compte intégré dans Sheets:", err);
+      }
+    }
+    return;
+  }
   try {
     await persistPendingSignupToSheets(
       account.id,
@@ -240,7 +259,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: false, error: "Google Sheets non configuré" });
         return;
       }
-      const sheetUser = await verifyEmailFromViewerSettings(token);
+      let sheetUser: SheetAuthUser;
+      try {
+        sheetUser = await verifyEmailFromViewerSettings(token);
+      } catch (verifyErr) {
+        const pendingId = get().pendingVerificationUserId?.trim();
+        if (pendingId) {
+          const row = await findViewerRowById(pendingId);
+          if (row && boolFromSheet(row.emailVerified)) {
+            sheetUser = {
+              ...{
+                id: row.id?.trim() || row.userId?.trim() || pendingId,
+                email: row.email?.trim().toLowerCase() || "",
+                displayName: row.displayName?.trim() || row.email?.trim() || pendingId,
+                emailVerified: true,
+                isPro: boolFromSheet(row.isPro),
+                age: row.age?.trim() || "",
+                bio: row.bio?.trim() || "",
+                language: row.language?.trim() || "",
+              },
+            };
+          } else {
+            throw verifyErr;
+          }
+        } else {
+          throw verifyErr;
+        }
+      }
       let extras: Partial<User> = {};
       try {
         const raw = sessionStorage.getItem("nel_signup_extras");
@@ -266,7 +311,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
       const proContact = readViewerProContact();
-      syncEmailVerifiedToSheets(
+      await persistEmailVerifiedToSheets(
         loggedInUser.id,
         loggedInUser.email,
         loggedInUser.displayName,

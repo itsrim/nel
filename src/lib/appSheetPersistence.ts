@@ -23,6 +23,7 @@ import {
   isGoogleSheetsReadConfigured,
   isGoogleSheetsWriteConfigured,
   sheetGet,
+  sheetMutate,
   sheetPost,
   sheetPut,
   type SheetTableName,
@@ -182,7 +183,10 @@ export async function upsertSheetRow(
       await writePut();
       return;
     }
-    await writePost();
+    const postResult = await sheetMutate("post", table, { row: fullRow });
+    if (postResult.skipped) {
+      await writePut();
+    }
     markSynced(table, id);
   } catch (firstErr) {
     try {
@@ -583,25 +587,24 @@ function subscriptionPaymentToRowFields(
   };
 }
 
+/** N’inclut que les champs auth explicitement fournis (évite d’effacer passwordHash / tokens au sync profil). */
 function authFieldsToRow(auth?: ViewerSettingsAuthFields): Record<string, string> {
-  if (!auth) {
-    return {
-      passwordHash: "",
-      verificationToken: "",
-      verificationExpiresAt: "",
-      passwordResetToken: "",
-      passwordResetExpiresAt: "",
-    };
+  if (!auth) return {};
+  const row: Record<string, string> = {};
+  if (auth.passwordHash !== undefined) row.passwordHash = str(auth.passwordHash);
+  if (auth.verificationToken !== undefined) row.verificationToken = str(auth.verificationToken);
+  if (auth.verificationExpiresAt !== undefined) {
+    row.verificationExpiresAt =
+      auth.verificationExpiresAt != null ? String(auth.verificationExpiresAt) : "";
   }
-  return {
-    passwordHash: str(auth.passwordHash),
-    verificationToken: str(auth.verificationToken),
-    verificationExpiresAt:
-      auth.verificationExpiresAt != null ? String(auth.verificationExpiresAt) : "",
-    passwordResetToken: str(auth.passwordResetToken),
-    passwordResetExpiresAt:
-      auth.passwordResetExpiresAt != null ? String(auth.passwordResetExpiresAt) : "",
-  };
+  if (auth.passwordResetToken !== undefined) {
+    row.passwordResetToken = str(auth.passwordResetToken);
+  }
+  if (auth.passwordResetExpiresAt !== undefined) {
+    row.passwordResetExpiresAt =
+      auth.passwordResetExpiresAt != null ? String(auth.passwordResetExpiresAt) : "";
+  }
+  return row;
 }
 
 export function viewerSettingsToRow(
@@ -1666,6 +1669,45 @@ export function syncPasswordHashToSheets(userId: string, passwordHash: string): 
 }
 
 /** Après vérification email — sync Sheets sans dépendre du store messaging. */
+export async function persistEmailVerifiedToSheets(
+  userId: string,
+  email: string,
+  displayName: string,
+  avatarUrl: string,
+  isPro: boolean,
+  websiteUrl?: string,
+  socialUrl?: string,
+  phone?: string,
+  signupIp?: string,
+): Promise<void> {
+  await upsertSheetRow(
+    "viewer_settings",
+    userId,
+    viewerSettingsToRow(userId, {
+      email,
+      emailVerified: true,
+      verificationToken: "",
+      verificationExpiresAt: null,
+      passwordResetToken: "",
+      passwordResetExpiresAt: null,
+      avatarUrl,
+      displayName,
+      isPro,
+      websiteUrl,
+      socialUrl,
+      phone,
+      signupIp,
+      lastLoginIp: signupIp,
+      friendRequestSentProfilIds: [],
+      friendRequestRejectedProfilIds: [],
+      favoriteConversationIds: [],
+      moderationHiddenEventIds: [],
+      moderationHiddenProfilIds: [],
+    }),
+  );
+}
+
+/** @deprecated Préférer persistEmailVerifiedToSheets (await). */
 export function syncEmailVerifiedToSheets(
   userId: string,
   email: string,
@@ -1678,30 +1720,16 @@ export function syncEmailVerifiedToSheets(
   signupIp?: string,
 ): void {
   syncLater(() =>
-    upsertSheetRow(
-      "viewer_settings",
+    persistEmailVerifiedToSheets(
       userId,
-      viewerSettingsToRow(userId, {
-        email,
-        emailVerified: true,
-        verificationToken: "",
-        verificationExpiresAt: null,
-        passwordResetToken: "",
-        passwordResetExpiresAt: null,
-        avatarUrl,
-        displayName,
-        isPro,
-        websiteUrl,
-        socialUrl,
-        phone,
-        signupIp,
-        lastLoginIp: signupIp,
-        friendRequestSentProfilIds: [],
-        friendRequestRejectedProfilIds: [],
-        favoriteConversationIds: [],
-        moderationHiddenEventIds: [],
-        moderationHiddenProfilIds: [],
-      }),
+      email,
+      displayName,
+      avatarUrl,
+      isPro,
+      websiteUrl,
+      socialUrl,
+      phone,
+      signupIp,
     ),
   );
 }

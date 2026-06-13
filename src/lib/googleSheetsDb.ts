@@ -196,7 +196,7 @@ const MAX_SHEETS_GET_URL_LENGTH = 7500;
  * Apps Script Web App : les POST cross-origin échouent souvent (CORS après redirect).
  * On utilise GET + query string, supporté par doGet dans sheets-api.gs.
  */
-async function sheetMutate(
+export async function sheetMutate(
   action: "post" | "put",
   table: SheetTableName,
   payload: Record<string, unknown>,
