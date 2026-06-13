@@ -45,7 +45,7 @@ import {
   writeAdminAppInfo,
   type AdminAppInfo,
 } from "./adminAppInfo";
-import { ADMIN_USER_ID } from "./accountRoles";
+import { ADMIN_USER_ID, shouldExcludeFromPublicCatalog } from "./accountRoles";
 import { buildSuggestionCatalog } from "./suggestionCatalog";
 import { shouldSkipEmailVerificationFromSheets } from "./sheetAuth";
 
@@ -989,6 +989,7 @@ function isEligibleRegisteredMember(
 ): boolean {
   const id = row.id?.trim() || row.userId?.trim();
   if (!id || id === excludeUserId) return false;
+  if (shouldExcludeFromPublicCatalog(id, row.email)) return false;
   if (isDeletedFromSheet(row.deleted)) return false;
   const label = row.displayName?.trim() || row.email?.trim();
   if (!label) return false;

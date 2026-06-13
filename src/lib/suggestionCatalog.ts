@@ -1,5 +1,6 @@
 import type { MockProfessional } from "../data/mockProfessionals";
 import type { Friend, ProfileVisit, SuggestionProfile } from "../data/mockData";
+import { shouldExcludeFromPublicCatalog } from "./accountRoles";
 
 function usageScore(
   profilId: string,
@@ -22,7 +23,7 @@ export function buildSuggestionCatalog(
 
   for (const f of friends) {
     const id = f.profilId.trim();
-    if (!id) continue;
+    if (!id || shouldExcludeFromPublicCatalog(id)) continue;
     map.set(id, {
       id,
       pseudo: f.pseudo?.trim() || f.name.trim().split(/\s+/)[0] || id,
@@ -48,5 +49,6 @@ export function buildSuggestionCatalog(
 
   return [...map.values()]
     .sort((a, b) => b.score - a.score || a.pseudo.localeCompare(b.pseudo, "fr"))
-    .map(({ score: _score, ...profile }) => profile);
+    .map(({ score: _score, ...profile }) => profile)
+    .filter((p) => !shouldExcludeFromPublicCatalog(p.id));
 }

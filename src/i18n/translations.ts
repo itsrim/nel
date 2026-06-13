@@ -102,7 +102,7 @@ export const translations = {
     deleteAccount: "Supprimer mon compte",
 
     // Profile tabs
-    favoritesCreated: "Favoris & créées",
+    favoritesCreated: "Mes sorties",
     friends: "Amis",
     reports: "Signalements",
     history: "Passés",
@@ -134,7 +134,7 @@ export const translations = {
 
     // Empty states
     noFavoritesUpcoming:
-      "Aucune sortie en favori ou créée par vous à partir d'aujourd'hui. Les dates passées sont dans « Passés ».",
+      "Aucune sortie à venir : favoris, organisées par vous ou auxquelles vous participez. Les dates passées sont dans « Passés ».",
     noFriends: "Aucun ami pour le moment.",
     noReports: "Aucun signalement à traiter.",
     noNotifications: "Aucune notification.",
@@ -752,7 +752,7 @@ export const translations = {
     deleteAccount: "Delete my account",
 
     // Profile tabs
-    favoritesCreated: "Favorites & Created",
+    favoritesCreated: "My outings",
     friends: "Friends",
     reports: "Reports",
     history: "Past",
@@ -784,7 +784,7 @@ export const translations = {
 
     // Empty states
     noFavoritesUpcoming:
-      'No favorite or created events from today onwards. Past dates are in "Past".',
+      'No upcoming outings: favorites, events you organize, or events you joined. Past dates are in "Past".',
     noFriends: "No friends yet.",
     noReports: "No reports to handle.",
     noNotifications: "No notifications.",

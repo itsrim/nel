@@ -28,6 +28,7 @@ import {
 import { buildConversationMiniSlots } from "../lib/conversationMiniSlots";
 import { hasReachedDailyFriendRequestLimit } from "../lib/eventDateKey";
 import { hasViewerPremiumAccess } from "../lib/viewerEntitlements";
+import { shouldExcludeFromPublicCatalog } from "../lib/accountRoles";
 import "./ChatPage.css";
 
 /* ── Helpers ── */
@@ -481,7 +482,12 @@ export function ChatPage() {
   );
 
   const suggestionsVisible = useMemo(
-    () => suggestions.filter((s) => !moderationHiddenProfilIds.includes(s.id)),
+    () =>
+      suggestions.filter(
+        (s) =>
+          !moderationHiddenProfilIds.includes(s.id) &&
+          !shouldExcludeFromPublicCatalog(s.id),
+      ),
     [suggestions, moderationHiddenProfilIds],
   );
 

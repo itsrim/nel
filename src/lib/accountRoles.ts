@@ -21,6 +21,16 @@ export function isAdminAccount(
   return email != null && ADMIN_EMAILS.has(email);
 }
 
+/** Profils staff / admin exclus de l'annuaire suggestions public. */
+export function shouldExcludeFromPublicCatalog(
+  profilId: string | undefined | null,
+  email?: string | null,
+): boolean {
+  const id = profilId?.trim();
+  if (!id) return false;
+  return isAdminAccount({ id, email: email ?? undefined });
+}
+
 /** Édition des badges (profil connecté ou autre utilisateur) — compte staff + mode admin actif. */
 export function canManageProfileBadges(
   user: User | null | undefined,

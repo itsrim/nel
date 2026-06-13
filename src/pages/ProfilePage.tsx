@@ -58,6 +58,10 @@ import { SubscriptionCheckoutModal } from "../components/SubscriptionCheckoutMod
 import { SubscriptionSettingActions } from "../components/SubscriptionSettingActions";
 import { canManageProfileBadges, isAdminAccount } from "../lib/accountRoles";
 import { eventOrganizedByViewer } from "../lib/viewerEventScope";
+import {
+  effectiveViewerEventStatus,
+  viewerIsRegisteredParticipant,
+} from "../lib/eventHost";
 import { DEFAULT_AVATAR_URL, resolveAvatarUrl } from "../lib/avatarUrl";
 import type { SubscriptionPlan } from "../lib/subscriptionPayment";
 import "../components/ProContactLinks.css";
@@ -304,14 +308,23 @@ export function ProfilePage() {
     [viewerContext],
   );
 
-  /** Sorties organisées par moi — à partir d’aujourd’hui. */
-  const favoritesAndCreatedEvents = useMemo(
-    () =>
-      events.filter(
-        (e) => isMyOrganizedEvent(e) && !isEventDateBeforeToday(e.dateKey),
-      ),
-    [events, isMyOrganizedEvent],
-  );
+  /** Sorties à venir : favoris, organisées par moi ou auxquelles je participe. */
+  const myUpcomingOutings = useMemo(() => {
+    const list = events.filter((e) => {
+      if (isEventDateBeforeToday(e.dateKey)) return false;
+      if (isMyOrganizedEvent(e)) return true;
+      if (e.isFavorite) return true;
+      if (!viewerContext) return false;
+      if (viewerIsRegisteredParticipant(e, viewerContext)) return true;
+      const status = effectiveViewerEventStatus(e, viewerContext);
+      return status === "inscrit" || status === "en_attente";
+    });
+    return list.sort(
+      (a, b) =>
+        a.dateKey.localeCompare(b.dateKey) ||
+        a.timeShort.localeCompare(b.timeShort),
+    );
+  }, [events, isMyOrganizedEvent, viewerContext]);
   /** Passés : avant aujourd'hui parmi mes sorties organisées. */
   const historyEvents = useMemo(
     () =>
@@ -785,7 +798,7 @@ export function ProfilePage() {
               />
               <span>{t("favoritesCreated")}</span>
               <span className="p-tab-badge" style={{ background: "#FF4B81" }}>
-                {favoritesAndCreatedEvents.length}
+                {myUpcomingOutings.length}
               </span>
             </div>
           </button>
@@ -973,7 +986,7 @@ export function ProfilePage() {
 
           {activeTab === "favorites" && (
             <div className="favorites-list">
-              {favoritesAndCreatedEvents.map((e) => (
+              {myUpcomingOutings.map((e) => (
                 <div
                   key={e.id}
                   role="button"
@@ -994,10 +1007,17 @@ export function ProfilePage() {
                     <div className="p-event-title">{e.title}</div>
                     <div className="p-event-meta">
                       {e.dateLabel} · {e.timeShort}
-                      {e.status === "organisateur" ? (
+                      {isMyOrganizedEvent(e) ? (
                         <span className="p-event-meta-tag">
                           {" "}
                           · {t("youOrganize")}
+                        </span>
+                      ) : viewerIsRegisteredParticipant(e, viewerContext) ||
+                        effectiveViewerEventStatus(e, viewerContext) ===
+                          "inscrit" ? (
+                        <span className="p-event-meta-tag">
+                          {" "}
+                          · {t("registered")}
                         </span>
                       ) : null}
                     </div>
@@ -1014,7 +1034,7 @@ export function ProfilePage() {
                   />
                 </div>
               ))}
-              {favoritesAndCreatedEvents.length === 0 && (
+              {myUpcomingOutings.length === 0 && (
                 <div className="empty-hint">{t("noFavoritesUpcoming")}</div>
               )}
             </div>
