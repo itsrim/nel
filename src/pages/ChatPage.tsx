@@ -12,7 +12,6 @@ import {
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useAuthStore } from "../store/useAuthStore";
-import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
 import {
   isConversationAccessible,

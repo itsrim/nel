@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { MessageCircle, Calendar, User, Briefcase } from "lucide-react";
+import { MessageCircle, Calendar, User, Handbag } from "lucide-react";
 import { useNavigationStore, type TabId } from "../store/useNavigationStore";
 import { useTranslation } from "../i18n/useTranslation";
 import type { TranslationKey } from "../i18n/translations";
@@ -15,7 +15,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: "chat", labelKey: "navChat", icon: MessageCircle },
   { id: "events", labelKey: "navSortie", icon: Calendar },
-  { id: "pro", labelKey: "pro", icon: Briefcase },
+  { id: "pro", labelKey: "pro", icon: Handbag },
   { id: "profile", labelKey: "profile", icon: User },
 ];
 

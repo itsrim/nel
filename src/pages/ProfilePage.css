@@ -1049,6 +1049,47 @@
     color: #FF453A;
 }
 
+.install-guide-overlay {
+  z-index: 10100;
+}
+
+.setting-info-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.install-guide-modal {
+  max-width: 420px;
+}
+
+.install-guide-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.install-guide-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.install-guide-figure figcaption {
+  color: #8E8E93;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.install-guide-img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  display: block;
+  background: rgba(255, 255, 255, 0.04);
+}
+
 /* Switch simple */
 .switch {
     width: 44px;

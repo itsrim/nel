@@ -1,4 +1,4 @@
-export const DEFAULT_SPLASH_IMAGE = `${import.meta.env.BASE_URL}event-cover-themes/TOULOUSE.jpg`;
+export const DEFAULT_SPLASH_IMAGE = `${import.meta.env.BASE_URL}splash.jpg`;
 
 export interface AdminAppInfo {
   splashScreenEnabled: boolean;

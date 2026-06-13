@@ -93,6 +93,11 @@ export const translations = {
     myProAgenda: "Mon Agenda Professionnel",
     language: "Langue",
     betaFeatures: "Activer les fonctionnalités Bêta",
+    howToInstall: "Comment installer",
+    howToInstallTitle: "Installer l'application",
+    howToInstallIos: "Sur iPhone (Safari)",
+    howToInstallAndroid: "Sur Android",
+    infoButton: "Info",
     logout: "Se déconnecter",
     deleteAccount: "Supprimer mon compte",
 
@@ -738,6 +743,11 @@ export const translations = {
     myProAgenda: "My Professional Agenda",
     language: "Language",
     betaFeatures: "Enable Beta Features",
+    howToInstall: "How to install",
+    howToInstallTitle: "Install the app",
+    howToInstallIos: "On iPhone (Safari)",
+    howToInstallAndroid: "On Android",
+    infoButton: "Info",
     logout: "Logout",
     deleteAccount: "Delete my account",
 

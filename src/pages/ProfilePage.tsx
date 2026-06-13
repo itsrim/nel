@@ -28,7 +28,7 @@ import {
   LogOut,
   Globe,
   MapPin,
-  FlaskConical,
+  Smartphone,
   ChevronLeft,
   ChevronRight,
   Send,
@@ -236,9 +236,10 @@ export function ProfilePage() {
   }, [activeTab]);
   const [editing, setEditing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [installGuideOpen, setInstallGuideOpen] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlan | null>(null);
   const [draftBio, setDraftBio] = useState("");
-  useLockBodyScroll(settingsOpen);
+  useLockBodyScroll(settingsOpen || installGuideOpen);
   const userIsAdmin = isAdminAccount(user);
   const canEditBadges = canManageProfileBadges(user, isAdmin);
 
@@ -1501,10 +1502,23 @@ export function ProfilePage() {
               </div>
 
               <div className="setting-section">
-                <button className="setting-btn">
-                  <FlaskConical size={20} />
-                  <span>{t("betaFeatures")}</span>
-                </button>
+                <div className="setting-item">
+                  <div className="setting-icon blue">
+                    <Smartphone size={20} />
+                  </div>
+                  <div className="setting-text">
+                    <div className="setting-label">{t("howToInstall")}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="setting-subscribe-btn setting-subscribe-btn--pro setting-info-btn"
+                    onClick={() => setInstallGuideOpen(true)}
+                    aria-label={t("howToInstallTitle")}
+                  >
+                    <Info size={16} />
+                    <span>{t("infoButton")}</span>
+                  </button>
+                </div>
               </div>
 
               <div className="setting-section">
@@ -1522,6 +1536,49 @@ export function ProfilePage() {
         </div>,
         document.body,
       )}
+
+      {installGuideOpen &&
+        createPortal(
+          <div
+            className="modal-overlay install-guide-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="install-guide-title"
+            onClick={() => setInstallGuideOpen(false)}
+          >
+            <div
+              className="modal-content install-guide-modal"
+              {...{ [scrollLockSurfaceAttr]: "" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <h3 id="install-guide-title">{t("howToInstallTitle")}</h3>
+                <button type="button" onClick={() => setInstallGuideOpen(false)}>
+                  <X size={24} />
+                </button>
+              </div>
+              <div className="modal-body install-guide-body">
+                <figure className="install-guide-figure">
+                  <figcaption>{t("howToInstallIos")}</figcaption>
+                  <img
+                    src={`${import.meta.env.BASE_URL}install-on-ios.webp`}
+                    alt={t("howToInstallIos")}
+                    className="install-guide-img"
+                  />
+                </figure>
+                <figure className="install-guide-figure">
+                  <figcaption>{t("howToInstallAndroid")}</figcaption>
+                  <img
+                    src={`${import.meta.env.BASE_URL}install-on-android.webp`}
+                    alt={t("howToInstallAndroid")}
+                    className="install-guide-img"
+                  />
+                </figure>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {checkoutPlan ? (
         <SubscriptionCheckoutModal
