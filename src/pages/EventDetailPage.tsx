@@ -115,7 +115,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const waitlistPending = waitlist.some((w) => w.reason === "en_attente");
   const waitlistOverflow = waitlist.some((w) => w.reason === "overflow");
   const viewerOnWaitlist = waitlist.some(
-    (w) => w.profilId === VIEWER_KARMA_PARTICIPANT_ID,
+    (w) =>
+      w.profilId === VIEWER_KARMA_PARTICIPANT_ID ||
+      (!!user?.id && w.profilId === user.id),
   );
 
   const resolveWaitlistPhoto = (entry: (typeof waitlist)[number]) => {
@@ -125,6 +127,21 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
       if (fromFriend?.trim()) return resolveAvatarUrl(fromFriend);
     }
     return DEFAULT_AVATAR_URL;
+  };
+
+  const resolveWaitlistProfilId = (entry: (typeof waitlist)[number]) => {
+    const pid = entry.profilId?.trim();
+    if (pid && pid !== VIEWER_KARMA_PARTICIPANT_ID) return pid;
+    const name = entry.name.trim();
+    if (!name) return undefined;
+    const fromFriend = friends.find(
+      (f) => f.name === name || f.pseudo === name,
+    );
+    if (fromFriend) return fromFriend.profilId;
+    const fromSuggestion = suggestions.find(
+      (s) => s.name === name || s.pseudo === name,
+    );
+    return fromSuggestion?.id;
   };
 
   const eventConversation = useMemo(
@@ -610,45 +627,46 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             <div className="ed-waitlist-list" role="list">
               {waitlist.map((w) => {
                 const photo = resolveWaitlistPhoto(w);
+                const profileId = resolveWaitlistProfilId(w);
                 const tag =
                   w.reason === "en_attente"
                     ? t("awaitingValidationTag")
                     : t("capacityFullTag");
-                const inner = (
-                  <>
-                    <img src={photo} alt="" className="ed-waitlist-av" />
-                    <div className="ed-waitlist-texts">
-                      <span className="ed-waitlist-name">{w.name}</span>
-                      <span className="ed-waitlist-tag">{tag}</span>
-                    </div>
-                  </>
-                );
                 const showModeration =
-                  isHostOrganizer &&
+                  (isHostOrganizer || isAdmin) &&
                   w.reason === "en_attente" &&
                   !isPastEvent;
                 return (
                   <div key={w.id} className="ed-waitlist-row" role="listitem">
                     <div className="ed-waitlist-row-main">
-                      {w.profilId ? (
-                        <button
-                          type="button"
-                          className="ed-waitlist-row-inner ed-waitlist-row-inner--click"
-                          onClick={() => openDetail("profile", w.profilId!)}
-                          aria-label={`${t("viewProfileLabel")} ${w.name}`}
-                        >
-                          {inner}
-                        </button>
-                      ) : (
-                        <div className="ed-waitlist-row-inner">{inner}</div>
-                      )}
+                      <div className="ed-waitlist-row-inner">
+                        {profileId ? (
+                          <button
+                            type="button"
+                            className="ed-waitlist-av-btn"
+                            onClick={() => openDetail("profile", profileId)}
+                            aria-label={`${t("viewProfileLabel")} ${w.name}`}
+                          >
+                            <img src={photo} alt="" className="ed-waitlist-av" />
+                          </button>
+                        ) : (
+                          <img src={photo} alt="" className="ed-waitlist-av" />
+                        )}
+                        <div className="ed-waitlist-texts">
+                          <span className="ed-waitlist-name">{w.name}</span>
+                          <span className="ed-waitlist-tag">{tag}</span>
+                        </div>
+                      </div>
                     </div>
                     {showModeration ? (
                       <div className="ed-waitlist-actions">
                         <button
                           type="button"
                           className="ed-waitlist-action ed-waitlist-action--approve"
-                          onClick={() => approveWaitlistEntry(event.id, w.id)}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            approveWaitlistEntry(event.id, w.id);
+                          }}
                           aria-label={t("approveWaitlistEntry")}
                         >
                           <CheckCircle2 size={18} aria-hidden />
@@ -656,7 +674,10 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                         <button
                           type="button"
                           className="ed-waitlist-action ed-waitlist-action--reject"
-                          onClick={() => rejectWaitlistEntry(event.id, w.id)}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            rejectWaitlistEntry(event.id, w.id);
+                          }}
                           aria-label={t("rejectWaitlistEntry")}
                         >
                           <X size={18} aria-hidden />

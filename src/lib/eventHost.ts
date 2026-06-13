@@ -61,7 +61,18 @@ export function effectiveViewerEventStatus(
   if (options?.conversationMembers?.some((m) => m.isSelf)) {
     return "inscrit";
   }
+  const viewerId = viewer?.id?.trim();
   if (
+    viewerId &&
+    (event.waitlistEntries ?? []).some(
+      (w) =>
+        w.profilId === VIEWER_KARMA_PARTICIPANT_ID || w.profilId === viewerId,
+    )
+  ) {
+    return "en_attente";
+  }
+  if (
+    !viewerId &&
     (event.waitlistEntries ?? []).some(
       (w) => w.profilId === VIEWER_KARMA_PARTICIPANT_ID,
     )

@@ -20,10 +20,18 @@ export function viewerParticipatesInEvent(
   if (eventHostedByViewer(e, viewer)) return true;
   if (viewerIsRegisteredParticipant(e, viewer)) return true;
 
+  const viewerId = viewer?.id?.trim();
   const pid = VIEWER_KARMA_PARTICIPANT_ID;
   if ((e.karmaJoinPaidProfilIds ?? []).includes(pid)) return true;
   if ((e.validatedPresentProfilIds ?? []).includes(pid)) return true;
-  if ((e.waitlistEntries ?? []).some((w) => w.profilId === pid)) return true;
+  if (
+    (e.waitlistEntries ?? []).some(
+      (w) =>
+        w.profilId === pid || (!!viewerId && w.profilId === viewerId),
+    )
+  ) {
+    return true;
+  }
 
   // Legacy / session locale (statut viewer sur la fiche)
   if (e.status === "inscrit" || e.status === "en_attente") return true;

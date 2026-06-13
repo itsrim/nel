@@ -134,6 +134,14 @@ function compensateScrollAfterTabStripLayout(
   scroller.scrollTop += delta;
 }
 
+function fillNotifTemplate(
+  template: string,
+  name: string,
+  title: string,
+): string {
+  return template.replace("{name}", name).replace("{title}", title);
+}
+
 export function ProfilePage() {
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguageStore();
@@ -1351,6 +1359,56 @@ export function ProfilePage() {
                 const inviteeAv =
                   friends.find((f) => f.profilId === n.inviteeProfilId)
                     ?.imageUrl ?? "";
+                const actorName = n.inviteeName?.trim() || "Quelqu'un";
+                const eventTitle = n.eventTitle ?? "";
+
+                let notifTitle = t("invitationSent");
+                let notifBody = `${n.inviteeName} ${t("willNotify")} « ${n.eventTitle} ».`;
+
+                if (n.kind === "event_participant_joined") {
+                  notifTitle = t("notifParticipantJoinedTitle");
+                  notifBody = fillNotifTemplate(
+                    t("notifParticipantJoinedBody"),
+                    actorName,
+                    eventTitle,
+                  );
+                } else if (n.kind === "event_participant_left") {
+                  notifTitle = t("notifParticipantLeftTitle");
+                  notifBody = fillNotifTemplate(
+                    t("notifParticipantLeftBody"),
+                    actorName,
+                    eventTitle,
+                  );
+                } else if (n.kind === "event_waitlist_joined") {
+                  notifTitle = t("notifWaitlistJoinedTitle");
+                  notifBody = fillNotifTemplate(
+                    t("notifWaitlistJoinedBody"),
+                    actorName,
+                    eventTitle,
+                  );
+                } else if (n.kind === "event_waitlist_left") {
+                  notifTitle = t("notifWaitlistLeftTitle");
+                  notifBody = fillNotifTemplate(
+                    t("notifWaitlistLeftBody"),
+                    actorName,
+                    eventTitle,
+                  );
+                } else if (n.kind === "event_waitlist_accepted") {
+                  notifTitle = t("notifWaitlistAcceptedTitle");
+                  notifBody = fillNotifTemplate(
+                    t("notifWaitlistAcceptedBody"),
+                    actorName,
+                    eventTitle,
+                  );
+                } else if (n.kind === "event_waitlist_rejected") {
+                  notifTitle = t("notifWaitlistRejectedTitle");
+                  notifBody = fillNotifTemplate(
+                    t("notifWaitlistRejectedBody"),
+                    actorName,
+                    eventTitle,
+                  );
+                }
+
                 return (
                   <button
                     key={n.id}
@@ -1370,12 +1428,8 @@ export function ProfilePage() {
                       </div>
                     )}
                     <div className="notification-texts">
-                      <div className="notification-title">
-                        {t("invitationSent")}
-                      </div>
-                      <div className="notification-body">
-                        {n.inviteeName} {t("willNotify")} « {n.eventTitle} ».
-                      </div>
+                      <div className="notification-title">{notifTitle}</div>
+                      <div className="notification-body">{notifBody}</div>
                       <div className="notification-meta">{when}</div>
                     </div>
                   </button>

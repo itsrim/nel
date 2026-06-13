@@ -1520,6 +1520,15 @@ export function syncNotificationToSheets(n: AppNotification): void {
   syncLater(() => upsertSheetRow("notifications", n.id, notificationToRow(n, userId)));
 }
 
+export function syncNotificationToSheetsForUser(
+  n: AppNotification,
+  userId: string,
+): void {
+  const owner = userId?.trim();
+  if (!owner) return;
+  syncLater(() => upsertSheetRow("notifications", n.id, notificationToRow(n, owner)));
+}
+
 export function syncEventReminderToSheets(r: EventReminder): void {
   const userId = currentUserId();
   if (!userId) return;

@@ -85,7 +85,15 @@ export type WaitlistEntry = NonNullable<Event["waitlistEntries"]>[number];
 export interface AppNotification {
   id: string;
   createdAt: number;
-  kind: "event_invite_sent" | "chat_message";
+  kind:
+    | "event_invite_sent"
+    | "chat_message"
+    | "event_participant_joined"
+    | "event_participant_left"
+    | "event_waitlist_joined"
+    | "event_waitlist_left"
+    | "event_waitlist_accepted"
+    | "event_waitlist_rejected";
   eventId?: string;
   eventTitle?: string;
   inviteeName?: string;

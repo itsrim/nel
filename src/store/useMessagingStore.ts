@@ -52,6 +52,11 @@ import {
 import { hasViewerProAccess } from "../lib/viewerEntitlements";
 import { buildEventPublicUrl } from "../lib/eventPublicUrl";
 import {
+  deliverEventRosterNotifications,
+  deliverWaitlistDecisionNotification,
+  type EventRosterNotificationKind,
+} from "../lib/eventRosterNotifications";
+import {
   inviteProfileToFriend,
   resolveInviteProfile,
 } from "../lib/eventInvites";
@@ -93,23 +98,45 @@ function buildViewerWaitlistEntry(
   state: Pick<MessagingState, "viewerProfileDisplayName" | "viewerProfileAvatarUrl">,
   reason: WaitlistEntry["reason"],
 ): WaitlistEntry {
+  const viewerId = currentAuthUserId();
   return {
     id: `wl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
     name: state.viewerProfileDisplayName.trim() || "Moi",
     imageUrl: state.viewerProfileAvatarUrl,
-    profilId: VIEWER_KARMA_PARTICIPANT_ID,
+    profilId: viewerId ?? VIEWER_KARMA_PARTICIPANT_ID,
     reason,
   };
 }
 
-function viewerOnEventWaitlist(event: Event): boolean {
-  return (event.waitlistEntries ?? []).some(
-    (w) => w.profilId === VIEWER_KARMA_PARTICIPANT_ID,
+function waitlistEntryBelongsToViewer(
+  entry: WaitlistEntry,
+  viewerId: string | null,
+): boolean {
+  const pid = entry.profilId?.trim();
+  if (!pid) return false;
+  if (pid === VIEWER_KARMA_PARTICIPANT_ID) return true;
+  return !!viewerId && pid === viewerId;
+}
+
+function viewerOnEventWaitlist(event: Event, viewerId?: string | null): boolean {
+  const uid = viewerId ?? currentAuthUserId();
+  return (event.waitlistEntries ?? []).some((w) =>
+    waitlistEntryBelongsToViewer(w, uid),
   );
 }
 
-function stripViewerFromWaitlist(entries: WaitlistEntry[] | undefined): WaitlistEntry[] {
-  return (entries ?? []).filter((w) => w.profilId !== VIEWER_KARMA_PARTICIPANT_ID);
+function stripViewerFromWaitlist(
+  entries: WaitlistEntry[] | undefined,
+  viewerId?: string | null,
+): WaitlistEntry[] {
+  const uid = viewerId ?? currentAuthUserId();
+  return (entries ?? []).filter((w) => !waitlistEntryBelongsToViewer(w, uid));
+}
+
+function resolveWaitlistEntryUserId(entry: WaitlistEntry): string | null {
+  const pid = entry.profilId?.trim();
+  if (!pid || pid === VIEWER_KARMA_PARTICIPANT_ID) return currentAuthUserId();
+  return pid;
 }
 
 function refreshEventGroupConversationMembers(
@@ -647,6 +674,51 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     }
     set({ viewerKarma: next });
     syncViewerSettingsFromState(get());
+  };
+
+  const notifyEventRosterChange = (
+    event: Event,
+    kind: EventRosterNotificationKind,
+    actorUserId: string | null,
+    actorName: string,
+    actorProfilId?: string,
+  ) => {
+    deliverEventRosterNotifications({
+      event,
+      kind,
+      actorUserId,
+      actorName: actorName.trim() || "Quelqu'un",
+      actorProfilId,
+      currentUserId: currentAuthUserId(),
+      onLocal: (notifications) => {
+        set((s) => ({
+          appNotifications: [...notifications, ...s.appNotifications],
+        }));
+      },
+    });
+  };
+
+  const notifyWaitlistDecision = (
+    event: Event,
+    kind: "event_waitlist_accepted" | "event_waitlist_rejected",
+    candidateUserId: string | null,
+  ) => {
+    if (!candidateUserId?.trim()) return;
+    const organizerName = hostedByCurrentViewer(event)
+      ? get().viewerProfileDisplayName
+      : event.hostName?.trim() || "L'organisateur";
+    deliverWaitlistDecisionNotification({
+      event,
+      kind,
+      candidateUserId,
+      organizerName,
+      currentUserId: currentAuthUserId(),
+      onLocal: (notification) => {
+        set((s) => ({
+          appNotifications: [notification, ...s.appNotifications],
+        }));
+      },
+    });
   };
 
   const adjustFriendKarma = (profilId: string, delta: number) => {
@@ -1966,6 +2038,15 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         ) {
           applyViewerKarma(KARMA_JOIN_COST);
         }
+        if (wasRegistered) {
+          notifyEventRosterChange(
+            event,
+            "event_participant_left",
+            viewerId,
+            state.viewerProfileDisplayName,
+            viewerId ?? undefined,
+          );
+        }
         set((s) => ({
           events: s.events.map((e) => {
             if (e.id !== event.id) return e;
@@ -2070,6 +2151,13 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       refreshEventGroupConversationMembers(ev, set, get);
       syncEventToSheets(ev);
     }
+    notifyEventRosterChange(
+      event,
+      "event_participant_joined",
+      viewerId,
+      state.viewerProfileDisplayName,
+      viewerId ?? undefined,
+    );
   },
 
   joinWaitlist: (eventId) => {
@@ -2099,6 +2187,13 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       events: s.events.map((e) => (e.id === eventId ? next : e)),
     }));
     syncEventToSheets(next);
+    notifyEventRosterChange(
+      event,
+      "event_waitlist_joined",
+      currentAuthUserId(),
+      state.viewerProfileDisplayName,
+      currentAuthUserId() ?? undefined,
+    );
     get().showToast(
       reason === "en_attente"
         ? "Demande envoyée — en attente de validation."
@@ -2107,9 +2202,17 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
   },
 
   leaveWaitlist: (eventId) => {
+    const state = get();
+    const event = state.events.find((e) => e.id === eventId);
+    if (!event) return;
+    notifyEventRosterChange(
+      event,
+      "event_waitlist_left",
+      currentAuthUserId(),
+      state.viewerProfileDisplayName,
+      currentAuthUserId() ?? undefined,
+    );
     set((s) => {
-      const event = s.events.find((e) => e.id === eventId);
-      if (!event) return s;
       const next: Event = {
         ...event,
         waitlistEntries: stripViewerFromWaitlist(event.waitlistEntries),
@@ -2124,9 +2227,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     const state = get();
     const event = state.events.find((e) => e.id === eventId);
     if (!event) return;
-    const canManage =
-      (event.status === "organisateur" && hostedByCurrentViewer(event)) ||
-      state.isAdmin;
+    const canManage = hostedByCurrentViewer(event) || state.isAdmin;
     if (!canManage) return;
 
     const entry = (event.waitlistEntries ?? []).find((w) => w.id === entryId);
@@ -2137,9 +2238,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     }
 
     const remaining = (event.waitlistEntries ?? []).filter((w) => w.id !== entryId);
-    const isViewer = entry.profilId === VIEWER_KARMA_PARTICIPANT_ID;
     const viewerId = currentAuthUserId();
-    const participantUserId = isViewer ? viewerId : entry.profilId?.trim() || null;
+    const isViewer = waitlistEntryBelongsToViewer(entry, viewerId);
+    const participantUserId = isViewer ? viewerId : resolveWaitlistEntryUserId(entry);
 
     if (isViewer) {
       if (!hasViewerProAccess(state)) {
@@ -2170,6 +2271,14 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       if (isViewer) refreshEventGroupConversationMembers(ev, set, get);
       syncEventToSheets(ev);
     }
+    notifyEventRosterChange(
+      event,
+      "event_participant_joined",
+      participantUserId,
+      entry.name,
+      participantUserId ?? undefined,
+    );
+    notifyWaitlistDecision(event, "event_waitlist_accepted", participantUserId);
     get().showToast(`${entry.name.split(/\s+/)[0] || entry.name} accepté(e).`);
   },
 
@@ -2177,15 +2286,15 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     const state = get();
     const event = state.events.find((e) => e.id === eventId);
     if (!event) return;
-    const canManage =
-      (event.status === "organisateur" && hostedByCurrentViewer(event)) ||
-      state.isAdmin;
+    const canManage = hostedByCurrentViewer(event) || state.isAdmin;
     if (!canManage) return;
 
     const entry = (event.waitlistEntries ?? []).find((w) => w.id === entryId);
     if (!entry || entry.reason !== "en_attente") return;
 
-    const isViewer = entry.profilId === VIEWER_KARMA_PARTICIPANT_ID;
+    const viewerId = currentAuthUserId();
+    const isViewer = waitlistEntryBelongsToViewer(entry, viewerId);
+    const candidateUserId = resolveWaitlistEntryUserId(entry);
     const remaining = (event.waitlistEntries ?? []).filter((w) => w.id !== entryId);
     const next: Event = {
       ...event,
@@ -2196,6 +2305,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       events: s.events.map((e) => (e.id === eventId ? next : e)),
     }));
     syncEventToSheets(next);
+    notifyWaitlistDecision(event, "event_waitlist_rejected", candidateUserId);
     get().showToast(`Demande de ${entry.name.split(/\s+/)[0] || entry.name} refusée.`);
   },
 
@@ -2208,6 +2318,16 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     const wasRegistered = viewerId
       ? (event.registeredParticipantIds ?? []).includes(viewerId)
       : false;
+
+    if (wasRegistered) {
+      notifyEventRosterChange(
+        event,
+        "event_participant_left",
+        viewerId,
+        state.viewerProfileDisplayName,
+        viewerId ?? undefined,
+      );
+    }
 
     set((s) => ({
       events: s.events.map((e) => {
