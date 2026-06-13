@@ -11,6 +11,8 @@ export type BuiltinAccount = {
   bio?: string;
   isPro?: boolean;
   emailVerified?: boolean;
+  /** Connexion 100 % front — aucune lecture/écriture Google Sheets. */
+  frontOnly?: boolean;
 };
 
 const BUILTIN_ACCOUNTS: Record<string, BuiltinAccount> = {
@@ -26,13 +28,14 @@ const BUILTIN_ACCOUNTS: Record<string, BuiltinAccount> = {
   },
   rim: {
     email: "rim",
-    password: "1234",
+    password: "1234!!",
     displayName: "Admin",
     id: ADMIN_USER_ID,
     age: "28",
     bio: "Compte admin Hlg",
     isPro: true,
     emailVerified: true,
+    frontOnly: true,
   },
 };
 
@@ -48,6 +51,10 @@ export function matchBuiltinAccount(
 
 export function isReservedBuiltinEmail(email: string): boolean {
   return email.trim().toLowerCase() in BUILTIN_ACCOUNTS;
+}
+
+export function isFrontOnlyBuiltinAccount(account: BuiltinAccount): boolean {
+  return account.frontOnly === true;
 }
 
 export function builtinAccountPasswordHash(account: BuiltinAccount): string {

@@ -46,6 +46,7 @@ import {
   matchBuiltinAccount,
   builtinAccountPasswordHash,
   isReservedBuiltinEmail,
+  isFrontOnlyBuiltinAccount,
   type BuiltinAccount,
 } from "../lib/builtinAccounts";
 
@@ -186,7 +187,9 @@ async function completeBuiltinLogin(
   account: BuiltinAccount,
   set: (partial: Partial<AuthState>) => void,
 ): Promise<void> {
-  await ensureBuiltinAccountInSheets(account);
+  if (!isFrontOnlyBuiltinAccount(account)) {
+    await ensureBuiltinAccountInSheets(account);
+  }
 
   const normalizedEmail = account.email.trim().toLowerCase();
   const loggedInUser: User = {

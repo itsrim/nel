@@ -6,7 +6,7 @@ import {
   isGoogleSheetsReadConfigured,
   sheetGet,
 } from "./googleSheetsDb";
-import { matchBuiltinAccount } from "./builtinAccounts";
+import { isReservedBuiltinEmail, matchBuiltinAccount } from "./builtinAccounts";
 import { hashPasswordForSheet, verifyPasswordForSheet } from "./passwordHash";
 import { boolFromSheet, isDeletedFromSheet, numFromSheet } from "./sheetRowCodec";
 
@@ -114,6 +114,10 @@ export async function loginFromViewerSettings(
 ): Promise<SheetAuthUser> {
   if (!isGoogleSheetsReadConfigured()) {
     throw new Error("Google Sheets non configuré pour la connexion.");
+  }
+
+  if (isReservedBuiltinEmail(email)) {
+    throw new Error("Email ou mot de passe incorrect");
   }
 
   const row = await findViewerRowByEmail(email);
