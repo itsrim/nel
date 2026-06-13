@@ -1,5 +1,11 @@
 import type { Event } from "../data/mockData";
 import { VIEWER_KARMA_PARTICIPANT_ID } from "./karma";
+import {
+  eventHostedByViewer,
+  viewerIsRegisteredParticipant,
+  type ViewerContext,
+} from "./eventHost";
+import { useAuthStore } from "../store/useAuthStore";
 
 /** Sortie masquée de l'agenda public par l'organisateur (`isPrivate`). */
 export function eventIsBlockedByOrganizer(e: Event): boolean {
@@ -7,8 +13,12 @@ export function eventIsBlockedByOrganizer(e: Event): boolean {
 }
 
 /** Le visiteur connecté participe (inscrit, liste d'attente, karma payé, etc.). */
-export function viewerParticipatesInEvent(e: Event): boolean {
-  if (e.hostedByViewer === true) return true;
+export function viewerParticipatesInEvent(
+  e: Event,
+  viewer?: ViewerContext | null,
+): boolean {
+  if (eventHostedByViewer(e, viewer)) return true;
+  if (viewerIsRegisteredParticipant(e, viewer)) return true;
 
   const pid = VIEWER_KARMA_PARTICIPANT_ID;
   if ((e.karmaJoinPaidProfilIds ?? []).includes(pid)) return true;
@@ -34,5 +44,9 @@ export function eventIsVisibleInDiscovery(
   if (moderationHiddenEventIds?.includes(e.id)) return false;
   if (!eventIsBlockedByOrganizer(e)) return true;
   if (isAdmin) return true;
-  return viewerParticipatesInEvent(e);
+  const user = useAuthStore.getState().user;
+  const viewer: ViewerContext | null = user
+    ? { id: user.id, displayName: user.displayName }
+    : null;
+  return viewerParticipatesInEvent(e, viewer);
 }

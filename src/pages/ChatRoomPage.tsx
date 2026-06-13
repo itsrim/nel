@@ -9,8 +9,10 @@ import {
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
+import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { buildConversationMiniSlots } from "../lib/conversationMiniSlots";
+import { buildEventGroupMembers } from "../lib/eventGroupMembers";
 import { getProfessionalById } from "../store/useProsStore";
 import "./ChatRoomPage.css";
 
@@ -30,8 +32,12 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
     toggleConversationFavorite,
     getEventByConversationId,
     friends,
+    suggestions,
+    viewerProfileDisplayName,
     viewerProfileAvatarUrl,
+    ensureEventConversationRoster,
   } = useMessagingStore();
+  const user = useAuthStore((s) => s.user);
 
   const conversation = conversations.find((c) => c.id === id);
   const messages = messagesByConversation[id] || [];
@@ -39,6 +45,10 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
 
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (linkedEvent) ensureEventConversationRoster(id);
+  }, [id, linkedEvent?.id, linkedEvent?.registeredParticipantIds, ensureEventConversationRoster]);
 
   useEffect(() => {
     recordConversationOpened(id);
@@ -55,7 +65,16 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
 
   if (!conversation) return null;
 
-  const memberN = conversation.members?.length ?? 0;
+  const memberN =
+    linkedEvent && user?.id
+      ? buildEventGroupMembers(linkedEvent, {
+          viewerId: user.id,
+          viewerDisplayName: viewerProfileDisplayName,
+          viewerAvatarUrl: viewerProfileAvatarUrl,
+          friends,
+          suggestions,
+        }).length
+      : (conversation.members?.length ?? 0);
   const isGroup = conversation.type === "group";
   const headerSlots = buildConversationMiniSlots(
     conversation,
@@ -63,6 +82,11 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
     friends,
     viewerProfileAvatarUrl,
     isGroup ? (memberN <= 2 ? 2 : 4) : 1,
+    {
+      viewerId: user?.id ?? null,
+      viewerDisplayName: viewerProfileDisplayName,
+      suggestions,
+    },
   );
 
   const handleSend = () => {

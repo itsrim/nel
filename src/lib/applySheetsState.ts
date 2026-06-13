@@ -17,6 +17,10 @@ import {
   resolveMessageAccessFromStores,
   userIsAppAdmin,
 } from "./accessScope";
+import {
+  buildEventGroupMembers,
+  eventGroupMemberCount,
+} from "./eventGroupMembers";
 import { loadHistory } from "./chatPersistence";
 import { writeSubscriptionPaymentRecord } from "./subscriptionPersistence";
 import { useLanguageStore } from "../store/useLanguageStore";
@@ -246,12 +250,51 @@ function ensureParticipantConversationsInStore(): void {
   if (adminModeActive && userIsAppAdmin(user)) return;
 
   const msg = useMessagingStore.getState();
+  const viewerContext = user
+    ? { id: user.id, displayName: user.displayName }
+    : null;
   const missing = buildMissingParticipantConversations(msg.events, msg.conversations);
-  if (missing.length === 0) return;
+  if (missing.length > 0) {
+    useMessagingStore.setState({
+      conversations: [...missing, ...msg.conversations],
+    });
+  }
+  refreshLoadedEventGroupMembers(viewerContext);
+}
 
-  useMessagingStore.setState({
-    conversations: [...missing, ...msg.conversations],
+/** Met à jour le roster (organisateur + inscrits) après chargement Sheets. */
+function refreshLoadedEventGroupMembers(
+  viewerContext: { id: string; displayName?: string } | null,
+): void {
+  const viewerId = viewerContext?.id?.trim();
+  if (!viewerId) return;
+
+  const msg = useMessagingStore.getState();
+  let changed = false;
+  const conversations = msg.conversations.map((c) => {
+    const event = msg.events.find((e) => e.conversationId === c.id);
+    if (!event) return c;
+    const members = buildEventGroupMembers(event, {
+      viewerId,
+      viewerDisplayName: msg.viewerProfileDisplayName,
+      viewerAvatarUrl: msg.viewerProfileAvatarUrl,
+      friends: msg.friends,
+      suggestions: msg.suggestions,
+    });
+    const memberCount = eventGroupMemberCount(event, members);
+    if (
+      JSON.stringify(c.members) === JSON.stringify(members) &&
+      c.memberCount === memberCount
+    ) {
+      return c;
+    }
+    changed = true;
+    return { ...c, members, memberCount };
   });
+
+  if (changed) {
+    useMessagingStore.setState({ conversations });
+  }
 }
 
 /** Recharge les messages visibles (groupes membres ou tout pour admin). */

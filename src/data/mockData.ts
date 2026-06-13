@@ -60,6 +60,8 @@ export interface Event {
   organizerRatings?: Array<{ profilId: string; rating: "good" | "bad" }>;
   /** Profils ayant payé 1 karma pour participer. */
   karmaJoinPaidProfilIds?: string[];
+  /** Comptes inscrits (userId Sheets) — persistance multi-utilisateurs. */
+  registeredParticipantIds?: string[];
   /** 3 karma débités à la création (remboursables si annulation). */
   karmaOrganizePaid?: boolean;
   /** Colonne `userId` Sheets = organisateur (écriture / propriété). */

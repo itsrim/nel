@@ -66,11 +66,11 @@ function App() {
   const { activeTab, detailStack } = useNavigationStore();
   const toast = useMessagingStore((s) => s.toast);
   const conversations = useMessagingStore((s) => s.conversations);
-  const { setViewerProfileDisplayName, setViewerProfileAvatarUrl, setViewerProfileIsPro } =
+  const { setViewerProfileDisplayName, setViewerProfileAvatarUrl, setViewerProfileIsPro, clearViewerSession, resetData } =
     useMessagingStore();
-  const { resetData } = useMessagingStore();
   const { user, loadUser } = useAuthStore();
   const mainRef = useRef<HTMLElement>(null);
+  const prevAuthUserIdRef = useRef<string | null>(null);
   const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
 
   const closeQuestionnaire = useCallback(() => {
@@ -91,22 +91,33 @@ function App() {
     loadUser();
   }, [loadUser]);
 
-  // Sync auth user to messaging store profile (sans écraser l'avatar Sheets par le défaut)
+  // Changement de compte : effacer le profil du précédent utilisateur puis recharger depuis Sheets.
   useEffect(() => {
-    if (user) {
-      setViewerProfileDisplayName(user.displayName);
-      setViewerProfileIsPro(!!user.isPro);
-      const fromUser = resolveAvatarUrl(user.avatarUrl);
-      if (fromUser !== DEFAULT_AVATAR_URL) {
-        setViewerProfileAvatarUrl(fromUser);
-      }
+    if (!user?.id) {
+      prevAuthUserIdRef.current = null;
+      return;
+    }
+    const prevId = prevAuthUserIdRef.current;
+    prevAuthUserIdRef.current = user.id;
+    if (prevId && prevId !== user.id) {
+      clearViewerSession();
       resetData();
     }
+    setViewerProfileDisplayName(user.displayName);
+    setViewerProfileIsPro(!!user.isPro);
+    const fromUser = resolveAvatarUrl(user.avatarUrl);
+    if (fromUser !== DEFAULT_AVATAR_URL) {
+      setViewerProfileAvatarUrl(fromUser);
+    }
   }, [
-    user,
+    user?.id,
+    user?.displayName,
+    user?.isPro,
+    user?.avatarUrl,
     setViewerProfileDisplayName,
     setViewerProfileAvatarUrl,
     setViewerProfileIsPro,
+    clearViewerSession,
     resetData,
   ]);
 

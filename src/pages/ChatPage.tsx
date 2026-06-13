@@ -12,6 +12,7 @@ import {
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useAuthStore } from "../store/useAuthStore";
+import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
 import {
   isConversationAccessible,
@@ -69,8 +70,14 @@ function userSearchHaystack(hit: ChatUserHit): string {
 
 function FavoriteStripAvatar({ conversation }: { conversation: Conversation }) {
   const v = groupStoryVariant(conversation.id);
-  const { getEventByConversationId, friends, viewerProfileAvatarUrl } =
-    useMessagingStore();
+  const {
+    getEventByConversationId,
+    friends,
+    suggestions,
+    viewerProfileAvatarUrl,
+    viewerProfileDisplayName,
+  } = useMessagingStore();
+  const user = useAuthStore((s) => s.user);
   const linked = getEventByConversationId(conversation.id);
   const memberN = conversation.members?.length ?? 0;
   /** Comme la liste : ≤ 2 membres → deux demi-ronds côte à côte (pas une grille 2×2 qui déborde). */
@@ -82,6 +89,11 @@ function FavoriteStripAvatar({ conversation }: { conversation: Conversation }) {
     friends,
     viewerProfileAvatarUrl,
     count,
+    {
+      viewerId: user?.id ?? null,
+      viewerDisplayName: viewerProfileDisplayName,
+      suggestions,
+    },
   );
   const gradient = conversation.avatarGradient;
 
@@ -194,8 +206,14 @@ function NewGroupStripItem() {
 }
 
 function ListAvatar({ item }: { item: Conversation }) {
-  const { getEventByConversationId, friends, viewerProfileAvatarUrl } =
-    useMessagingStore();
+  const {
+    getEventByConversationId,
+    friends,
+    suggestions,
+    viewerProfileAvatarUrl,
+    viewerProfileDisplayName,
+  } = useMessagingStore();
+  const user = useAuthStore((s) => s.user);
   const linked = getEventByConversationId(item.id);
   const isGroup = item.type === "group";
   const slots = buildConversationMiniSlots(
@@ -204,6 +222,11 @@ function ListAvatar({ item }: { item: Conversation }) {
     friends,
     viewerProfileAvatarUrl,
     isGroup ? 2 : 1,
+    {
+      viewerId: user?.id ?? null,
+      viewerDisplayName: viewerProfileDisplayName,
+      suggestions,
+    },
   );
 
   return (

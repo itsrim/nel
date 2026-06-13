@@ -60,10 +60,15 @@ import {
   isEventDateBeforeToday,
   todayDateKey,
 } from "../lib/eventDateKey";
-import { eventHostedByViewer } from "../lib/eventHost";
+import { eventHostedByViewer, eventOrganizerUserId } from "../lib/eventHost";
+import {
+  buildEventGroupMembers,
+  eventGroupMemberCount,
+} from "../lib/eventGroupMembers";
 import {
   KARMA_ATTENDANCE_REWARD,
   KARMA_DEFAULT,
+  KARMA_JOIN_COST,
   KARMA_ORGANIZE_COST,
   KARMA_ORGANIZE_SUCCESS_REWARD,
   KARMA_PREMIUM_PER_MONTH,
@@ -107,29 +112,62 @@ function stripViewerFromWaitlist(entries: WaitlistEntry[] | undefined): Waitlist
   return (entries ?? []).filter((w) => w.profilId !== VIEWER_KARMA_PARTICIPANT_ID);
 }
 
-function ensureEventGroupConversation(
+function refreshEventGroupConversationMembers(
+  event: Event,
+  set: (fn: (state: MessagingState) => Partial<MessagingState>) => void,
+  get: () => MessagingState,
+  options?: { syncSheets?: boolean; markViewerAsSelf?: boolean },
+): void {
+  const state = get();
+  const cid = event.conversationId?.trim();
+  if (!cid) return;
+
+  const members = buildEventGroupMembers(event, {
+    viewerId: currentAuthUserId(),
+    viewerDisplayName: state.viewerProfileDisplayName,
+    viewerAvatarUrl: state.viewerProfileAvatarUrl,
+    friends: state.friends,
+    suggestions: state.suggestions,
+    markViewerAsSelf: options?.markViewerAsSelf,
+  });
+  const memberCount = eventGroupMemberCount(event, members);
+
+  set((s) => {
+    const existing = s.conversations.find((c) => c.id === cid);
+    if (existing) {
+      return {
+        conversations: s.conversations.map((c) =>
+          c.id === cid ? { ...c, members, memberCount } : c,
+        ),
+      };
+    }
+    const newConv: Conversation = {
+      id: cid,
+      title: event.title,
+      type: "group",
+      lastMessagePreview: "",
+      avatarGradient: ["#4a5568", "#2d3748"] as const,
+      unreadCount: 0,
+      updatedAt: Date.now(),
+      isFavorite: false,
+      members,
+      memberCount,
+    };
+    return { conversations: [newConv, ...s.conversations] };
+  });
+
+  if (options?.syncSheets !== false) {
+    const updated = get().conversations.find((c) => c.id === cid);
+    if (updated) syncConversationToSheets(updated);
+  }
+}
+
+function ensureViewerInEventGroupConversation(
   event: Event,
   set: (fn: (state: MessagingState) => Partial<MessagingState>) => void,
   get: () => MessagingState,
 ): void {
-  const convExists = get().conversations.some((c) => c.id === event.conversationId);
-  if (convExists) return;
-  const newConv: Conversation = {
-    id: event.conversationId,
-    title: event.title,
-    type: "group",
-    lastMessagePreview: "",
-    avatarGradient: ["#4a5568", "#2d3748"] as const,
-    unreadCount: 0,
-    updatedAt: Date.now(),
-    isFavorite: false,
-    members: [],
-    memberCount: event.participantCount,
-  };
-  set((state) => ({
-    conversations: [newConv, ...state.conversations],
-  }));
-  syncConversationToSheets(newConv);
+  refreshEventGroupConversationMembers(event, set, get);
 }
 
 const LS_VIEWER_AVATAR = "nel_viewer_profile_avatar_url";
@@ -319,6 +357,62 @@ function persistLocalMessages(messagesByConversation: Record<string, Message[]>)
   saveHistory(messagesByConversation, resolveMessageAccessFromStores());
 }
 
+function authViewerContext() {
+  const user = useAuthStore.getState().user;
+  return user ? { id: user.id, displayName: user.displayName } : null;
+}
+
+function hostedByCurrentViewer(event: Event): boolean {
+  return eventHostedByViewer(event, authViewerContext());
+}
+
+function currentAuthUserId(): string | null {
+  return useAuthStore.getState().user?.id?.trim() || null;
+}
+
+function withRegisteredParticipant(
+  ids: string[] | undefined,
+  userId: string | null,
+  add: boolean,
+): string[] {
+  if (!userId) return ids ?? [];
+  const set = new Set(ids ?? []);
+  if (add) set.add(userId);
+  else set.delete(userId);
+  return [...set];
+}
+
+const VIEWER_SESSION_LS_KEYS = [
+  LS_VIEWER_AVATAR,
+  LS_VIEWER_NAME,
+  LS_VIEWER_AGE,
+  LS_VIEWER_BIO,
+  LS_VIEWER_IS_PRO,
+  LS_VIEWER_CITY,
+  LS_VIEWER_PRO_WEBSITE,
+  LS_VIEWER_PRO_SOCIAL,
+  LS_VIEWER_PRO_PHONE,
+  LS_VIEWER_PRO_ADDRESS,
+  LS_VIEWER_PRO_LAT,
+  LS_VIEWER_PRO_LNG,
+  LS_VIEWER_BADGES,
+  LS_PROFILE_BADGE_SUGGESTIONS,
+  LS_VIEWER_PREMIUM,
+  LS_VIEWER_PREMIUM_EXPIRES,
+  LS_VIEWER_PRO_EXPIRES,
+  LS_VIEWER_KARMA,
+] as const;
+
+function clearViewerSessionStorage(): void {
+  try {
+    for (const key of VIEWER_SESSION_LS_KEYS) {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 function syncViewerSettingsFromState(state: MessagingState) {
   let email: string | undefined;
   let emailVerified: boolean | undefined;
@@ -502,6 +596,8 @@ interface MessagingState {
   addMemberToGroup: (conversationId: string, member: GroupMember) => void;
   removeMemberFromGroup: (conversationId: string, memberId: string) => void;
   leaveConversation: (conversationId: string) => void;
+  /** Recalcule organisateur + inscrits pour un fil sortie (affichage / Sheets). */
+  ensureEventConversationRoster: (conversationId: string) => void;
   updateConversationSettings: (
     conversationId: string,
     settings: { muteSounds?: boolean; blockNotifications?: boolean },
@@ -525,6 +621,8 @@ interface MessagingState {
   loadDemoData: () => void;
   /** Reset data to empty state (for new users) */
   resetData: () => void;
+  /** Efface le profil viewer local (changement de compte / déconnexion). */
+  clearViewerSession: () => void;
   eventReminders: EventReminder[];
   sendEventReminder: (eventId: string, participantId: string, participantName: string) => void;
   markEventReminderAsRead: (reminderId: string) => void;
@@ -574,7 +672,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     if (!shouldFinalizeOrganizerKarma(presentIds, ratings, isPast)) return event;
 
     if (isMajorityBadOrganizerRating(presentIds, ratings)) {
-      if (event.hostedByViewer || eventHostedByViewer(event)) {
+      if (hostedByCurrentViewer(event)) {
         get().showToast("Pas de bonus karma : majorité de participants insatisfaits.");
       }
       return { ...event, karmaOrganizerDenied: true };
@@ -586,7 +684,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         event.participantMax,
       )
     ) {
-      if (event.hostedByViewer || eventHostedByViewer(event)) {
+      if (hostedByCurrentViewer(event)) {
         get().showToast(
           "Pas de bonus karma : moins de la moitié des places étaient inscrites.",
         );
@@ -608,7 +706,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       return event;
     }
 
-    if (event.hostedByViewer || eventHostedByViewer(event)) {
+    if (hostedByCurrentViewer(event)) {
       applyViewerKarma(KARMA_ORGANIZE_SUCCESS_REWARD);
       get().showToast(
         `+${KARMA_ORGANIZE_SUCCESS_REWARD} karma — sortie réussie !`,
@@ -1211,7 +1309,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     if (!event) return;
     const isOrganizer =
       event.status === "organisateur" &&
-      (event.hostedByViewer || eventHostedByViewer(event));
+      hostedByCurrentViewer(event);
     if (!isOrganizer) return;
 
     const validated = new Set(event.validatedPresentProfilIds ?? []);
@@ -1236,7 +1334,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     const state = get();
     const event = state.events.find((e) => e.id === eventId);
     if (!event) return;
-    if (event.hostedByViewer || eventHostedByViewer(event)) return;
+    if (hostedByCurrentViewer(event)) return;
 
     const validated = event.validatedPresentProfilIds ?? [];
     if (!validated.includes(VIEWER_KARMA_PARTICIPANT_ID)) return;
@@ -1542,6 +1640,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     };
     set((s) => ({ events: [event, ...s.events] }));
     syncEventToSheets(event);
+    refreshEventGroupConversationMembers(event, set, get);
     return id;
   },
 
@@ -1824,6 +1923,14 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
   },
 
   removeMemberFromGroup: (conversationId, memberId) => {
+    const state = get();
+    const event = state.events.find((e) => e.conversationId === conversationId);
+    const organizerId = event ? eventOrganizerUserId(event) : undefined;
+    const target = state.conversations
+      .find((c) => c.id === conversationId)
+      ?.members.find((m) => m.id === memberId);
+    if (organizerId && target?.profilId === organizerId) return;
+
     set((state) => ({
       conversations: state.conversations.map((c) =>
         c.id === conversationId
@@ -1840,10 +1947,71 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
   },
 
   leaveConversation: (conversationId) => {
+    const state = get();
+    const event = state.events.find((e) => e.conversationId === conversationId);
+    if (event) {
+      const viewerId = currentAuthUserId();
+      const viewerIsOrganizer = hostedByCurrentViewer(event);
+
+      if (viewerId && !viewerIsOrganizer) {
+        const paidIds = event.karmaJoinPaidProfilIds ?? [];
+        const wasValidated = (event.validatedPresentProfilIds ?? []).includes(
+          VIEWER_KARMA_PARTICIPANT_ID,
+        );
+        const wasRegistered = (event.registeredParticipantIds ?? []).includes(viewerId);
+        if (
+          (wasRegistered || paidIds.includes(VIEWER_KARMA_PARTICIPANT_ID)) &&
+          !wasValidated &&
+          !hasViewerProAccess(state)
+        ) {
+          applyViewerKarma(KARMA_JOIN_COST);
+        }
+        set((s) => ({
+          events: s.events.map((e) => {
+            if (e.id !== event.id) return e;
+            const paid = (e.karmaJoinPaidProfilIds ?? []).filter(
+              (id) => id !== VIEWER_KARMA_PARTICIPANT_ID,
+            );
+            return {
+              ...e,
+              waitlistEntries: stripViewerFromWaitlist(e.waitlistEntries),
+              participantCount: Math.max(0, e.participantCount - 1),
+              karmaJoinPaidProfilIds: paid,
+              registeredParticipantIds: withRegisteredParticipant(
+                e.registeredParticipantIds,
+                viewerId,
+                false,
+              ),
+            };
+          }),
+        }));
+        const updatedEvent = get().events.find((e) => e.id === event.id);
+        if (updatedEvent) syncEventToSheets(updatedEvent);
+      }
+
+      const ev = get().events.find((e) => e.id === event.id);
+      if (ev) {
+        refreshEventGroupConversationMembers(ev, set, get, {
+          markViewerAsSelf: false,
+        });
+      }
+
+      set((s) => ({
+        conversations: s.conversations.filter((c) => c.id !== conversationId),
+      }));
+      return;
+    }
+
     syncConversationDeleteToSheets(conversationId);
     set((state) => ({
       conversations: state.conversations.filter((c) => c.id !== conversationId),
     }));
+  },
+
+  ensureEventConversationRoster: (conversationId) => {
+    const event = get().events.find((e) => e.conversationId === conversationId);
+    if (!event) return;
+    refreshEventGroupConversationMembers(event, set, get, { syncSheets: true });
   },
 
   updateConversationSettings: (conversationId, settings) => {
@@ -1859,7 +2027,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
   joinEvent: (eventId) => {
     const state = get();
     const event = state.events.find((e) => e.id === eventId);
-    if (!event || event.status === "organisateur") return;
+    if (!event || hostedByCurrentViewer(event)) return;
 
     if (event.manualApproval && event.participantCount < event.participantMax) {
       get().joinWaitlist(eventId);
@@ -1870,8 +2038,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       return;
     }
 
-    ensureEventGroupConversation(event, set, get);
+    ensureViewerInEventGroupConversation(event, set, get);
 
+    const viewerId = currentAuthUserId();
     if (!hasViewerProAccess(state)) {
       applyViewerKarma(-KARMA_JOIN_COST);
     }
@@ -1886,21 +2055,29 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         return {
           ...e,
           waitlistEntries: stripViewerFromWaitlist(e.waitlistEntries),
-          status: "inscrit" as const,
           participantCount: Math.min(e.participantMax, e.participantCount + 1),
           karmaJoinPaidProfilIds: [...paid],
+          registeredParticipantIds: withRegisteredParticipant(
+            e.registeredParticipantIds,
+            viewerId,
+            true,
+          ),
         };
       }),
     }));
     const ev = get().events.find((e) => e.id === eventId);
-    if (ev) syncEventToSheets(ev);
+    if (ev) {
+      refreshEventGroupConversationMembers(ev, set, get);
+      syncEventToSheets(ev);
+    }
   },
 
   joinWaitlist: (eventId) => {
     const state = get();
     const event = state.events.find((e) => e.id === eventId);
-    if (!event || event.status === "organisateur") return;
-    if (viewerOnEventWaitlist(event) || event.status === "inscrit") return;
+    if (!event || hostedByCurrentViewer(event)) return;
+    const conv = state.conversations.find((c) => c.id === event.conversationId);
+    if (viewerOnEventWaitlist(event) || conv?.members.some((m) => m.isSelf)) return;
 
     const reason: WaitlistEntry["reason"] =
       event.manualApproval && event.participantCount < event.participantMax
@@ -1948,8 +2125,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     const event = state.events.find((e) => e.id === eventId);
     if (!event) return;
     const canManage =
-      (event.status === "organisateur" &&
-        (event.hostedByViewer || eventHostedByViewer(event))) ||
+      (event.status === "organisateur" && hostedByCurrentViewer(event)) ||
       state.isAdmin;
     if (!canManage) return;
 
@@ -1962,9 +2138,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
     const remaining = (event.waitlistEntries ?? []).filter((w) => w.id !== entryId);
     const isViewer = entry.profilId === VIEWER_KARMA_PARTICIPANT_ID;
+    const viewerId = currentAuthUserId();
+    const participantUserId = isViewer ? viewerId : entry.profilId?.trim() || null;
 
     if (isViewer) {
-      ensureEventGroupConversation(event, set, get);
       if (!hasViewerProAccess(state)) {
         applyViewerKarma(-KARMA_JOIN_COST);
       }
@@ -1981,13 +2158,18 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           ...e,
           waitlistEntries: remaining,
           participantCount: Math.min(e.participantMax, e.participantCount + 1),
-          status: isViewer ? ("inscrit" as const) : e.status,
           karmaJoinPaidProfilIds: isViewer ? [...paid] : e.karmaJoinPaidProfilIds,
+          registeredParticipantIds: participantUserId
+            ? withRegisteredParticipant(e.registeredParticipantIds, participantUserId, true)
+            : e.registeredParticipantIds,
         };
       }),
     }));
     const ev = get().events.find((e) => e.id === eventId);
-    if (ev) syncEventToSheets(ev);
+    if (ev) {
+      if (isViewer) refreshEventGroupConversationMembers(ev, set, get);
+      syncEventToSheets(ev);
+    }
     get().showToast(`${entry.name.split(/\s+/)[0] || entry.name} accepté(e).`);
   },
 
@@ -1996,8 +2178,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     const event = state.events.find((e) => e.id === eventId);
     if (!event) return;
     const canManage =
-      (event.status === "organisateur" &&
-        (event.hostedByViewer || eventHostedByViewer(event))) ||
+      (event.status === "organisateur" && hostedByCurrentViewer(event)) ||
       state.isAdmin;
     if (!canManage) return;
 
@@ -2021,22 +2202,12 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
   leaveEvent: (eventId) => {
     const state = get();
     const event = state.events.find((e) => e.id === eventId);
-    if (event) {
-      // Remove associated conversation
-      get().leaveConversation(event.conversationId);
-    }
+    if (!event) return;
 
-    const paidIds = event?.karmaJoinPaidProfilIds ?? [];
-    const wasValidated = (event?.validatedPresentProfilIds ?? []).includes(
-      VIEWER_KARMA_PARTICIPANT_ID,
-    );
-    if (
-      paidIds.includes(VIEWER_KARMA_PARTICIPANT_ID) &&
-      !wasValidated &&
-      !hasViewerProAccess(state)
-    ) {
-      applyViewerKarma(KARMA_JOIN_COST);
-    }
+    const viewerId = currentAuthUserId();
+    const wasRegistered = viewerId
+      ? (event.registeredParticipantIds ?? []).includes(viewerId)
+      : false;
 
     set((s) => ({
       events: s.events.map((e) => {
@@ -2047,14 +2218,34 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         return {
           ...e,
           waitlistEntries: stripViewerFromWaitlist(e.waitlistEntries),
-          status: "inscrire" as const,
           participantCount: Math.max(0, e.participantCount - 1),
           karmaJoinPaidProfilIds: paid,
+          registeredParticipantIds: withRegisteredParticipant(
+            e.registeredParticipantIds,
+            viewerId,
+            false,
+          ),
         };
       }),
     }));
+
     const ev = get().events.find((e) => e.id === eventId);
-    if (ev) syncEventToSheets(ev);
+    if (ev) {
+      refreshEventGroupConversationMembers(ev, set, get, { markViewerAsSelf: false });
+      syncEventToSheets(ev);
+    }
+
+    const paidIds = event.karmaJoinPaidProfilIds ?? [];
+    const wasValidated = (event.validatedPresentProfilIds ?? []).includes(
+      VIEWER_KARMA_PARTICIPANT_ID,
+    );
+    if (
+      (wasRegistered || paidIds.includes(VIEWER_KARMA_PARTICIPANT_ID)) &&
+      !wasValidated &&
+      !hasViewerProAccess(state)
+    ) {
+      applyViewerKarma(KARMA_JOIN_COST);
+    }
   },
 
   inviteFriendToEvent: (eventId, friend) => {
@@ -2187,6 +2378,49 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       moderationHiddenEventIds: [],
       moderationHiddenProfilIds: [],
       eventReminders: [],
+    });
+  },
+
+  clearViewerSession: () => {
+    clearViewerSessionStorage();
+    clearSubscriptionPaymentRecord("premium");
+    clearSubscriptionPaymentRecord("pro");
+    set({
+      viewerProfileAvatarUrl: DEFAULT_AVATAR_URL,
+      viewerProfileDisplayName: DEFAULT_VIEWER_NAME,
+      viewerProfileAge: "",
+      viewerProfileBio: "",
+      viewerProfileIsPro: false,
+      viewerProfileCity: "",
+      viewerProWebsiteUrl: "",
+      viewerProSocialUrl: "",
+      viewerProPhone: "",
+      viewerProAddress: "",
+      viewerProLat: null,
+      viewerProLng: null,
+      viewerProfileBadges: [...DEFAULT_VIEWER_BADGES],
+      profileBadgeSuggestions: [...DEFAULT_PROFILE_BADGE_SUGGESTIONS],
+      viewerKarma: KARMA_DEFAULT,
+      nelDemoIsPremium: false,
+      viewerPremiumExpiresAt: null,
+      viewerProExpiresAt: null,
+      premiumSubscriptionPayment: {
+        paymentValidated: false,
+        months: null,
+        lastPaymentAt: null,
+        lastTransactionId: null,
+      },
+      proSubscriptionPayment: {
+        paymentValidated: false,
+        months: null,
+        lastPaymentAt: null,
+        lastTransactionId: null,
+      },
+      favoriteConversationIds: [],
+      friendRequestSentProfilIds: [],
+      friendRequestRejectedProfilIds: [],
+      friendRequestDailySentDateKey: null,
+      isAdmin: false,
     });
   },
 

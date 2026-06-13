@@ -18,6 +18,8 @@ import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useTranslation } from "../i18n/useTranslation";
 import type { Event } from "../data/mockData";
+import { useAuthStore } from "../store/useAuthStore";
+import { eventHostedByViewer } from "../lib/eventHost";
 import {
   getNelProfileImageKitUserKey,
   uploadLocalImageToImageKitEventCover,
@@ -97,12 +99,11 @@ function dateFromEvent(ev: Event): Date {
 }
 
 /** Même logique que la fiche événement : sorties dont vous êtes l’organisateur affiché comme « vous ». */
-function eventIsEditableByViewer(ev: Event): boolean {
+function eventIsEditableByViewer(ev: Event, viewerId?: string, viewerName?: string): boolean {
   if (ev.status !== "organisateur") return false;
-  return (
-    ev.hostedByViewer === true ||
-    ev.hostName === "Moi" ||
-    (ev.hostAvatar?.includes("nel-organizer") ?? false)
+  return eventHostedByViewer(
+    ev,
+    viewerId ? { id: viewerId, displayName: viewerName } : null,
   );
 }
 
@@ -114,6 +115,7 @@ export interface CreateEventPageProps {
 export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const { closeDetail, popDetails } = useNavigationStore();
   const { t } = useTranslation();
+  const { user } = useAuthStore();
   const {
     addEvent,
     updateEvent,
@@ -214,7 +216,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
       return;
     }
     const ev = getEventById(formEventId);
-    if (!ev || (!eventIsEditableByViewer(ev) && !isAdmin)) {
+    if (!ev || (!eventIsEditableByViewer(ev, user?.id, user?.displayName) && !isAdmin)) {
       window.alert("Impossible d'ouvrir cette sortie en édition.");
       closeDetail();
       return;

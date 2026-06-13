@@ -255,6 +255,7 @@ export function eventToRow(event: Event, userId: string): Record<string, string>
     karmaOrganizerDenied: boolToSheet(event.karmaOrganizerDenied),
     organizerRatingsJson: jsonToSheet(event.organizerRatings ?? []),
     karmaJoinPaidProfilIdsJson: jsonToSheet(event.karmaJoinPaidProfilIds ?? []),
+    registeredParticipantIdsJson: jsonToSheet(event.registeredParticipantIds ?? []),
     karmaOrganizePaid: boolToSheet(event.karmaOrganizePaid),
     deleted: "false",
   };
@@ -297,6 +298,7 @@ export function rowToEvent(row: Record<string, string>): Event {
     karmaOrganizerDenied: boolFromSheet(row.karmaOrganizerDenied),
     organizerRatings: jsonFromSheet(row.organizerRatingsJson, []),
     karmaJoinPaidProfilIds: jsonFromSheet(row.karmaJoinPaidProfilIdsJson, []),
+    registeredParticipantIds: jsonFromSheet(row.registeredParticipantIdsJson, []),
     karmaOrganizePaid: boolFromSheet(row.karmaOrganizePaid),
     sheetOwnerUserId: row.userId?.trim() || undefined,
   };

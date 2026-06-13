@@ -25,10 +25,13 @@ import { isEventDateBeforeToday } from "../lib/eventDateKey";
 import {
   effectiveViewerEventStatus,
   eventHostedByViewer,
+  eventOrganizerUserId,
   resolveEventHostAvatar,
   resolveEventHostIsPro,
 } from "../lib/eventHost";
+import { buildEventGroupMembers } from "../lib/eventGroupMembers";
 import { resolveEventPublicUrl } from "../lib/eventPublicUrl";
+import { resolveAvatarUrl, DEFAULT_AVATAR_URL } from "../lib/avatarUrl";
 import {
   KARMA_ATTENDANCE_REWARD,
   KARMA_JOIN_COST,
@@ -44,6 +47,13 @@ import { ReportModal } from "../components/ReportModal";
 import "./EventDetailPage.css";
 
 type ParticipantSlot =
+  | {
+      kind: "host";
+      imageUrl: string;
+      name: string;
+      profilId?: string;
+      key: string;
+    }
   | { kind: "viewer"; key: string }
   | {
       kind: "profile";
@@ -51,8 +61,7 @@ type ParticipantSlot =
       imageUrl: string;
       name: string;
       key: string;
-    }
-  | { kind: "anonymous"; seed: number; key: string };
+    };
 
 interface EventDetailPageProps {
   id: string;
@@ -110,60 +119,63 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   );
 
   const resolveWaitlistPhoto = (entry: (typeof waitlist)[number]) => {
-    if (entry.imageUrl?.trim()) return entry.imageUrl;
+    if (entry.imageUrl?.trim()) return resolveAvatarUrl(entry.imageUrl);
     if (entry.profilId) {
-      return (
-        friends.find((f) => f.profilId === entry.profilId)?.imageUrl ??
-        `https://i.pravatar.cc/100?u=${encodeURIComponent(entry.profilId)}`
-      );
+      const fromFriend = friends.find((f) => f.profilId === entry.profilId)?.imageUrl;
+      if (fromFriend?.trim()) return resolveAvatarUrl(fromFriend);
     }
-    return `https://i.pravatar.cc/100?u=${encodeURIComponent(entry.id)}`;
+    return DEFAULT_AVATAR_URL;
   };
+
+  const eventConversation = useMemo(
+    () => conversations.find((c) => c.id === event?.conversationId),
+    [conversations, event?.conversationId],
+  );
 
   const participantSlots = useMemo((): ParticipantSlot[] => {
     if (!event) return [];
-    const viewerStatus = effectiveViewerEventStatus(event, viewerContext);
-    const isInscribed =
-      viewerStatus === "inscrit" || viewerStatus === "organisateur";
+
+    const roster = buildEventGroupMembers(event, {
+      viewerId: viewerContext?.id ?? null,
+      viewerDisplayName: viewerProfileDisplayName,
+      viewerAvatarUrl: viewerProfileAvatarUrl,
+      friends,
+      suggestions,
+    });
+    const organizerId = eventOrganizerUserId(event);
     const slots: ParticipantSlot[] = [];
-    const othersLimit = Math.min(
-      Math.max(0, event.participantCount - (isInscribed ? 1 : 0)),
-      21,
-    );
-    if (isInscribed) {
-      slots.push({ kind: "viewer", key: "viewer" });
+
+    for (const m of roster) {
+      if (m.profilId && organizerId && m.profilId === organizerId) {
+        slots.push({
+          kind: "host",
+          imageUrl: resolveAvatarUrl(m.avatarUrl),
+          name: m.name,
+          profilId: m.profilId,
+          key: `host-${m.profilId}`,
+        });
+      } else if (m.isSelf) {
+        slots.push({ kind: "viewer", key: "viewer" });
+      } else if (m.profilId) {
+        slots.push({
+          kind: "profile",
+          profilId: m.profilId,
+          imageUrl: resolveAvatarUrl(m.avatarUrl),
+          name: m.name,
+          key: `m-${m.profilId}`,
+        });
+      }
     }
-    const conv = conversations.find((c) => c.id === event.conversationId);
-    const fromConv =
-      conv?.members?.filter((m) => !m.isSelf && m.profilId) ?? [];
-    let used = 0;
-    for (const m of fromConv) {
-      if (used >= othersLimit) break;
-      const friend = friends.find((f) => f.profilId === m.profilId);
-      const imageUrl =
-        friend?.imageUrl ??
-        `https://i.pravatar.cc/100?u=${encodeURIComponent(m.profilId!)}`;
-      slots.push({
-        kind: "profile",
-        profilId: m.profilId!,
-        imageUrl,
-        name: m.name,
-        key: `m-${m.profilId}`,
-      });
-      used++;
-    }
-    let anon = 0;
-    while (used < othersLimit) {
-      slots.push({
-        kind: "anonymous",
-        seed: anon + (isInscribed ? 50 : 0),
-        key: `anon-${anon}`,
-      });
-      anon++;
-      used++;
-    }
+
     return slots;
-  }, [event, conversations, friends, viewerContext]);
+  }, [
+    event,
+    friends,
+    suggestions,
+    viewerContext,
+    viewerProfileAvatarUrl,
+    viewerProfileDisplayName,
+  ]);
 
   const allAppProfiles = useMemo(
     () => listAllAppProfiles(friends, suggestions),
@@ -195,11 +207,18 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     }
   }, [event, finalizeEventOrganizerKarma]);
 
+  useEffect(() => {
+    if (!event?.conversationId) return;
+    useMessagingStore.getState().ensureEventConversationRoster(event.conversationId);
+  }, [event?.id, event?.conversationId, event?.registeredParticipantIds]);
+
   if (!event) return null;
 
   const publicShareUrl = resolveEventPublicUrl(event);
 
-  const viewerStatus = effectiveViewerEventStatus(event, viewerContext);
+  const viewerStatus = effectiveViewerEventStatus(event, viewerContext, {
+    conversationMembers: eventConversation?.members,
+  });
   const viewerHosts = eventHostedByViewer(event, viewerContext);
   const hostAvatar = resolveEventHostAvatar(event, viewerProfileAvatarUrl, viewerContext);
   const hostName = viewerHosts
@@ -480,6 +499,25 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           </div>
           <div className="ed-participants-grid">
             {participantSlots.map((slot) => {
+              if (slot.kind === "host") {
+                return (
+                  <button
+                    key={slot.key}
+                    type="button"
+                    className="ed-participant-avatar ed-participant-avatar--clickable"
+                    onClick={() => {
+                      if (slot.profilId && !eventHostedByViewer(event, viewerContext)) {
+                        openDetail("profile", slot.profilId);
+                      } else {
+                        setActiveTab("profile");
+                      }
+                    }}
+                    aria-label={`${t("viewProfileLabel")} ${slot.name}`}
+                  >
+                    <img src={slot.imageUrl} alt="" />
+                  </button>
+                );
+              }
               if (slot.kind === "viewer") {
                 return (
                   <button
@@ -532,18 +570,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                   </div>
                 );
               }
-              return (
-                <div
-                  key={slot.key}
-                  className="ed-participant-avatar"
-                  aria-hidden
-                >
-                  <img
-                    src={`https://i.pravatar.cc/100?u=p${slot.seed}`}
-                    alt=""
-                  />
-                </div>
-              );
+              return null;
             })}
             {event.participantCount < event.participantMax &&
               !isPastEvent &&

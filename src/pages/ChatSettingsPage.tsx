@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Volume2,
   VolumeX,
@@ -14,8 +14,11 @@ import {
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
+import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { resolveMemberPhotoUrl } from "../lib/conversationMiniSlots";
+import { eventOrganizerUserId } from "../lib/eventHost";
+import { buildEventGroupMembers } from "../lib/eventGroupMembers";
 import type { GroupMember } from "../data/mockData";
 import "./ChatSettingsPage.css";
 
@@ -30,23 +33,54 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
   const {
     conversations,
     friends,
+    events,
+    suggestions,
     addMemberToGroup,
     removeMemberFromGroup,
     leaveConversation,
     updateConversationSettings,
     viewerProfileAvatarUrl,
     viewerProfileDisplayName,
+    ensureEventConversationRoster,
     isAdmin,
     adminDeleteConversation,
   } = useMessagingStore();
+  const user = useAuthStore((s) => s.user);
 
   const conversation = conversations.find((c) => c.id === id);
+  const linkedEvent = events.find((e) => e.conversationId === id);
+  const organizerUserId = linkedEvent ? eventOrganizerUserId(linkedEvent) : undefined;
   const [inviteSectionOpen, setInviteSectionOpen] = useState(false);
+
+  useEffect(() => {
+    if (linkedEvent) ensureEventConversationRoster(id);
+  }, [id, linkedEvent?.id, linkedEvent?.registeredParticipantIds, ensureEventConversationRoster]);
+
+  const members = useMemo(() => {
+    if (!conversation) return [];
+    if (linkedEvent && user?.id) {
+      return buildEventGroupMembers(linkedEvent, {
+        viewerId: user.id,
+        viewerDisplayName: viewerProfileDisplayName,
+        viewerAvatarUrl: viewerProfileAvatarUrl,
+        friends,
+        suggestions,
+      });
+    }
+    return conversation.members || [];
+  }, [
+    conversation,
+    linkedEvent,
+    user?.id,
+    viewerProfileDisplayName,
+    viewerProfileAvatarUrl,
+    friends,
+    suggestions,
+  ]);
 
   if (!conversation) return null;
 
   const isGroup = conversation.type === "group";
-  const members = conversation.members || [];
 
   const muteSounds = !!conversation.muteSounds;
   const blockNotifications = !!conversation.blockNotifications;
@@ -259,7 +293,8 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
                         <button className="cs-member-icon-btn">
                           <Bell size={20} color="#8E8E93" />
                         </button>
-                        {isGroup && (
+                        {isGroup &&
+                          !(organizerUserId && m.profilId === organizerUserId) && (
                           <button
                             className="cs-member-icon-btn"
                             onClick={() => handleRemoveMember(m.id)}

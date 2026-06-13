@@ -2,7 +2,17 @@ import type { Conversation, Event } from "../data/mockData";
 import { useAuthStore } from "../store/useAuthStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { isAdminAccount } from "./accountRoles";
+import {
+  buildEventGroupMembers,
+  eventGroupMemberCount,
+} from "./eventGroupMembers";
 import { viewerParticipatesInEvent } from "./eventVisibility";
+import type { ViewerContext } from "./eventHost";
+
+function authViewerContext(): ViewerContext | null {
+  const user = useAuthStore.getState().user;
+  return user ? { id: user.id, displayName: user.displayName } : null;
+}
 
 /** `null` = accès total (mode admin actif). */
 export type ConversationAccessScope = ReadonlySet<string> | null;
@@ -30,8 +40,9 @@ export function resolveConversationAccessScope(input: {
     if (!cid) continue;
     if (viewerIsConversationMember(c)) ids.add(cid);
   }
+  const viewer = authViewerContext();
   for (const e of input.events) {
-    if (!viewerParticipatesInEvent(e)) continue;
+    if (!viewerParticipatesInEvent(e, viewer)) continue;
     const cid = e.conversationId?.trim();
     if (cid) ids.add(cid);
   }
@@ -60,10 +71,20 @@ export function buildMissingParticipantConversations(
   const existing = new Set(conversations.map((c) => c.id));
   const added: Conversation[] = [];
 
+  const viewer = authViewerContext();
+  const msg = useMessagingStore.getState();
+  const viewerId = viewer?.id?.trim() || null;
   for (const e of events) {
     const cid = e.conversationId?.trim();
-    if (!cid || existing.has(cid) || !viewerParticipatesInEvent(e)) continue;
+    if (!cid || existing.has(cid) || !viewerParticipatesInEvent(e, viewer)) continue;
     existing.add(cid);
+    const members = buildEventGroupMembers(e, {
+      viewerId,
+      viewerDisplayName: msg.viewerProfileDisplayName,
+      viewerAvatarUrl: msg.viewerProfileAvatarUrl,
+      friends: msg.friends,
+      suggestions: msg.suggestions,
+    });
     added.push({
       id: cid,
       title: e.title,
@@ -73,15 +94,8 @@ export function buildMissingParticipantConversations(
       unreadCount: 0,
       updatedAt: Date.now(),
       isFavorite: false,
-      members: [
-        {
-          id: "me",
-          name: "Moi",
-          isSelf: true,
-          avatarGradient: ["#78909C", "#546E7A"] as const,
-        },
-      ],
-      memberCount: e.participantCount,
+      members,
+      memberCount: eventGroupMemberCount(e, members),
     });
   }
 

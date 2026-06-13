@@ -808,7 +808,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     shutdownGlobalChatSync();
     setAuthToken(null);
     localStorage.removeItem(LS_USER);
-    set({ user: null, error: null, pendingVerificationEmail: null, pendingVerificationUserId: null, verificationMessage: null });
+    const msg = useMessagingStore.getState();
+    msg.clearViewerSession();
+    msg.resetData();
+    set({
+      user: null,
+      error: null,
+      pendingVerificationEmail: null,
+      pendingVerificationUserId: null,
+      verificationMessage: null,
+    });
   },
 
   setUser: (user) => {

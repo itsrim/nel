@@ -14,8 +14,8 @@ export function enrichEventsForViewer(
   viewer?: ViewerContext | null,
 ): Event[] {
   if (!viewer?.id) return events;
-  return events.map((event) => {
-    const organized = eventHostedByViewer(event, viewer);
-    return organized === event.hostedByViewer ? event : { ...event, hostedByViewer: organized };
-  });
+  return events.map((event) => ({
+    ...event,
+    hostedByViewer: eventHostedByViewer(event, viewer),
+  }));
 }
