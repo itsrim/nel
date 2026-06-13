@@ -1,5 +1,6 @@
 import CryptoJS from 'crypto-js';
 
+import { compressImageFile } from './compressImage';
 import {
   IMAGEKIT_EVENT_COVERS_FOLDER,
   IMAGEKIT_SPLASH_FOLDER,
@@ -111,10 +112,11 @@ async function postImageKitUpload(p: {
  * Avatar profil : même `fileName` + overwrite (un fichier par compte).
  */
 export async function uploadLocalImageToImageKit(options: UploadImageKitOptions): Promise<string> {
-  const mime = resolveUploadMime(options);
+  const webFile = await compressImageFile(options.webFile, 'avatar');
+  const mime = resolveUploadMime({ ...options, webFile });
   const fileName = imageKitProfileAvatarFileName(options.userKey, mime);
   return postImageKitUpload({
-    webFile: options.webFile,
+    webFile,
     fileName,
     folder: IMAGEKIT_UPLOAD_FOLDER,
     useUniqueFileName: false,
@@ -127,10 +129,11 @@ export async function uploadLocalImageToImageKit(options: UploadImageKitOptions)
  */
 /** Splash screen global (admin) — un fichier écrasé pour toute l'application. */
 export async function uploadSplashImageToImageKit(webFile: File, mimeType?: string | null): Promise<string> {
-  const mime = mimeType?.trim() || webFile.type?.trim() || 'image/jpeg';
+  const compressed = await compressImageFile(webFile, 'splash');
+  const mime = mimeType?.trim() || compressed.type?.trim() || 'image/jpeg';
   const fileName = imageKitSplashFileName(mime);
   return postImageKitUpload({
-    webFile,
+    webFile: compressed,
     fileName,
     folder: IMAGEKIT_SPLASH_FOLDER,
     useUniqueFileName: false,
@@ -141,10 +144,11 @@ export async function uploadSplashImageToImageKit(webFile: File, mimeType?: stri
 export async function uploadLocalImageToImageKitEventCover(
   options: UploadImageKitOptions,
 ): Promise<string> {
-  const mime = resolveUploadMime(options);
+  const webFile = await compressImageFile(options.webFile, 'eventCover');
+  const mime = resolveUploadMime({ ...options, webFile });
   const fileName = imageKitEventCoverFileName(options.userKey, mime);
   return postImageKitUpload({
-    webFile: options.webFile,
+    webFile,
     fileName,
     folder: IMAGEKIT_EVENT_COVERS_FOLDER,
     useUniqueFileName: false,
