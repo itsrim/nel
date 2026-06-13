@@ -133,10 +133,41 @@ function stripViewerFromWaitlist(
   return (entries ?? []).filter((w) => !waitlistEntryBelongsToViewer(w, uid));
 }
 
-function resolveWaitlistEntryUserId(entry: WaitlistEntry): string | null {
+function resolveWaitlistParticipantId(
+  entry: WaitlistEntry,
+  actingUserId: string | null,
+  friends: Friend[],
+  suggestions: SuggestionProfile[],
+): string | null {
   const pid = entry.profilId?.trim();
-  if (!pid || pid === VIEWER_KARMA_PARTICIPANT_ID) return currentAuthUserId();
-  return pid;
+  if (pid && pid !== VIEWER_KARMA_PARTICIPANT_ID) return pid;
+  if (waitlistEntryBelongsToViewer(entry, actingUserId) && actingUserId) {
+    return actingUserId;
+  }
+  const name = entry.name.trim();
+  if (name) {
+    const friend = friends.find((f) => f.name === name || f.pseudo === name);
+    if (friend?.profilId) return friend.profilId;
+    const suggestion = suggestions.find(
+      (s) => s.name === name || s.pseudo === name,
+    );
+    if (suggestion?.id) return suggestion.id;
+  }
+  return null;
+}
+
+function withRegisteredParticipantMeta(
+  meta: Event["registeredParticipantMeta"],
+  participantId: string,
+  entry: WaitlistEntry,
+): NonNullable<Event["registeredParticipantMeta"]> {
+  return {
+    ...meta,
+    [participantId]: {
+      name: entry.name?.trim() || undefined,
+      imageUrl: entry.imageUrl?.trim() || undefined,
+    },
+  };
 }
 
 function refreshEventGroupConversationMembers(
@@ -2239,8 +2270,17 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
     const remaining = (event.waitlistEntries ?? []).filter((w) => w.id !== entryId);
     const viewerId = currentAuthUserId();
+    const participantId = resolveWaitlistParticipantId(
+      entry,
+      viewerId,
+      state.friends,
+      state.suggestions,
+    );
+    if (!participantId) {
+      get().showToast("Impossible d'identifier le participant.");
+      return;
+    }
     const isViewer = waitlistEntryBelongsToViewer(entry, viewerId);
-    const participantUserId = isViewer ? viewerId : resolveWaitlistEntryUserId(entry);
 
     if (isViewer) {
       if (!hasViewerProAccess(state)) {
@@ -2260,25 +2300,32 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           waitlistEntries: remaining,
           participantCount: Math.min(e.participantMax, e.participantCount + 1),
           karmaJoinPaidProfilIds: isViewer ? [...paid] : e.karmaJoinPaidProfilIds,
-          registeredParticipantIds: participantUserId
-            ? withRegisteredParticipant(e.registeredParticipantIds, participantUserId, true)
-            : e.registeredParticipantIds,
+          registeredParticipantIds: withRegisteredParticipant(
+            e.registeredParticipantIds,
+            participantId,
+            true,
+          ),
+          registeredParticipantMeta: withRegisteredParticipantMeta(
+            e.registeredParticipantMeta,
+            participantId,
+            entry,
+          ),
         };
       }),
     }));
     const ev = get().events.find((e) => e.id === eventId);
     if (ev) {
-      if (isViewer) refreshEventGroupConversationMembers(ev, set, get);
+      refreshEventGroupConversationMembers(ev, set, get);
       syncEventToSheets(ev);
     }
     notifyEventRosterChange(
       event,
       "event_participant_joined",
-      participantUserId,
+      participantId,
       entry.name,
-      participantUserId ?? undefined,
+      participantId,
     );
-    notifyWaitlistDecision(event, "event_waitlist_accepted", participantUserId);
+    notifyWaitlistDecision(event, "event_waitlist_accepted", participantId);
     get().showToast(`${entry.name.split(/\s+/)[0] || entry.name} accepté(e).`);
   },
 
@@ -2294,7 +2341,12 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
     const viewerId = currentAuthUserId();
     const isViewer = waitlistEntryBelongsToViewer(entry, viewerId);
-    const candidateUserId = resolveWaitlistEntryUserId(entry);
+    const candidateUserId = resolveWaitlistParticipantId(
+      entry,
+      viewerId,
+      state.friends,
+      state.suggestions,
+    );
     const remaining = (event.waitlistEntries ?? []).filter((w) => w.id !== entryId);
     const next: Event = {
       ...event,

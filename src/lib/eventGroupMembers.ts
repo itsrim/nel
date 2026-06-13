@@ -10,7 +10,12 @@ function resolveProfile(
   userId: string,
   friends: Friend[],
   suggestions: SuggestionProfile[] = [],
+  meta?: { name?: string; imageUrl?: string },
 ): { name?: string; avatarUrl?: string } {
+  if (meta?.name || meta?.imageUrl) {
+    return { name: meta.name, avatarUrl: meta.imageUrl };
+  }
+
   const friend = friends.find(
     (f) => f.profilId === userId || `u-${f.profilId}` === userId,
   );
@@ -99,7 +104,12 @@ export function buildEventGroupMembers(
       markSelf &&
       ((viewerId === participantId) ||
         (isOrganizer && viewerId === organizerId));
-    const profile = resolveProfile(participantId, opts.friends, suggestions);
+    const profile = resolveProfile(
+      participantId,
+      opts.friends,
+      suggestions,
+      event.registeredParticipantMeta?.[participantId],
+    );
 
     if (isOrganizer) {
       members.push({

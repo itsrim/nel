@@ -62,6 +62,11 @@ export interface Event {
   karmaJoinPaidProfilIds?: string[];
   /** Comptes inscrits (userId Sheets) — persistance multi-utilisateurs. */
   registeredParticipantIds?: string[];
+  /** Nom / photo connus pour les inscrits absents du catalogue local. */
+  registeredParticipantMeta?: Record<
+    string,
+    { name?: string; imageUrl?: string }
+  >;
   /** 3 karma débités à la création (remboursables si annulation). */
   karmaOrganizePaid?: boolean;
   /** Colonne `userId` Sheets = organisateur (écriture / propriété). */
