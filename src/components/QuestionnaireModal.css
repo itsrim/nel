@@ -118,6 +118,13 @@
   margin-bottom: 32px;
 }
 
+.q-options-container {
+  width: 100%;
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .emoji-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -180,6 +187,7 @@
   margin-top: 40px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 16px;
   width: 100%;
   max-width: 280px;

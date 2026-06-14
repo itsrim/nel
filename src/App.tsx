@@ -155,6 +155,31 @@ function App() {
     })();
   }, [activeTab, user?.id, user?.isAdmin]);
 
+  /** Rafraîchissement profil (demandes d'ami) — secours sans Socket.IO. */
+  useEffect(() => {
+    if (
+      !user?.id ||
+      activeTab !== "profile" ||
+      !isGoogleSheetsReadConfigured() ||
+      isChatApiConfigured()
+    ) {
+      return;
+    }
+    const poll = () => {
+      void (async () => {
+        try {
+          const isAdmin = resolveSheetsAdminScope(user);
+          const loaded = await loadTabStateFromSheets("profile", user.id, isAdmin);
+          applySheetsLoadedState(loaded);
+        } catch (err) {
+          console.error("Sheets GET [profile poll] failed:", err);
+        }
+      })();
+    };
+    const intervalId = window.setInterval(poll, 15_000);
+    return () => window.clearInterval(intervalId);
+  }, [activeTab, user?.id, user?.isAdmin]);
+
   useEffect(() => {
     const openChat = [...detailStack].reverse().find((d) => d.type === "chat");
     setActiveChatConversationId(openChat?.id ?? null);

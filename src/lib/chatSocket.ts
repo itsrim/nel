@@ -1,5 +1,6 @@
 import { io, type Socket } from "socket.io-client";
 import type { PersistedMessage } from "./chatPersistence";
+import type { AppNotification, ProfileVisit } from "../data/mockData";
 import { getAuthToken } from "./authApi";
 
 import { CHAT_API_BASE, isChatApiConfigured } from "./chatConfig";
@@ -55,6 +56,21 @@ export function sendMessageRemote(message: PersistedMessage): void {
     id: message.id,
     text: message.text,
     sentAt: message.sentAt,
+  });
+}
+
+export function emitFriendRequestRemote(payload: {
+  recipientUserId: string;
+  visit: ProfileVisit;
+  notification: AppNotification;
+}): void {
+  const s = getChatSocket();
+  if (!s) return;
+
+  s.emit("friend-request:send", {
+    recipientUserId: payload.recipientUserId,
+    visit: payload.visit,
+    notification: payload.notification,
   });
 }
 

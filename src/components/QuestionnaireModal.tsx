@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { X, Check } from "lucide-react";
 import { useTranslation } from "../i18n/useTranslation";
 import "./QuestionnaireModal.css";
@@ -36,7 +36,9 @@ const BADGE_KEYS = [
   "calm",
   "nature",
   "creativity",
-];
+] as const;
+
+type BadgeKey = (typeof BADGE_KEYS)[number];
 
 export function QuestionnaireModal({
   isOpen,
@@ -48,16 +50,17 @@ export function QuestionnaireModal({
   const [selectedBadge, setSelectedBadge] = useState<string | null>(null);
   const [note, setNote] = useState("");
 
-  useEffect(() => {
-    if (!isOpen) {
-      setStep(1);
-      setSelectedEmoji(null);
-      setSelectedBadge(null);
-      setNote("");
-    }
-  }, [isOpen]);
+  const resetForm = useCallback(() => {
+    setStep(1);
+    setSelectedEmoji(null);
+    setSelectedBadge(null);
+    setNote("");
+  }, []);
 
-  // Generate random stars for the background
+  useEffect(() => {
+    if (!isOpen) resetForm();
+  }, [isOpen, resetForm]);
+
   const stars = useMemo(() => {
     return Array.from({ length: 50 }).map((_, i) => ({
       id: i,
@@ -68,20 +71,32 @@ export function QuestionnaireModal({
     }));
   }, []);
 
+  const complete = useCallback(() => {
+    onClose();
+    resetForm();
+  }, [onClose, resetForm]);
+
+  const goToStep = useCallback((next: 1 | 2 | 3) => {
+    setStep(next);
+  }, []);
+
+  const handleNext = useCallback(() => {
+    setStep((current) => {
+      if (current < 3) return (current + 1) as 2 | 3;
+      complete();
+      return 1;
+    });
+  }, [complete]);
+
+  const handleSkip = useCallback(() => {
+    setStep((current) => {
+      if (current < 3) return (current + 1) as 2 | 3;
+      complete();
+      return 1;
+    });
+  }, [complete]);
+
   if (!isOpen) return null;
-
-  const handleNext = () => {
-    if (step < 3) setStep((s) => (s + 1) as 1 | 2 | 3);
-    else {
-      // Complete
-      onClose();
-      setStep(1);
-    }
-  };
-
-  const handleSkip = () => {
-    handleNext();
-  };
 
   return (
     <div className="q-modal-overlay">
@@ -103,7 +118,12 @@ export function QuestionnaireModal({
 
       <div className="q-modal-content">
         <header className="q-header">
-          <button type="button" className="q-close-btn" onClick={onClose} aria-label={t("close")}>
+          <button
+            type="button"
+            className="q-close-btn"
+            onClick={complete}
+            aria-label={t("close")}
+          >
             <X size={18} strokeWidth={2.25} aria-hidden />
           </button>
         </header>
@@ -132,10 +152,11 @@ export function QuestionnaireModal({
                 {EMOJIS.map((e) => (
                   <button
                     key={e.key}
+                    type="button"
                     className={`emoji-btn ${selectedEmoji === e.key ? "active" : ""}`}
                     onClick={() => {
                       setSelectedEmoji(e.key);
-                      handleNext();
+                      goToStep(2);
                     }}
                   >
                     {e.emoji}
@@ -149,13 +170,14 @@ export function QuestionnaireModal({
                 {BADGE_KEYS.map((key) => (
                   <button
                     key={key}
+                    type="button"
                     className={`badge-chip ${selectedBadge === key ? "active" : ""}`}
                     onClick={() => {
                       setSelectedBadge(key);
-                      handleNext();
+                      goToStep(3);
                     }}
                   >
-                    {t(key as any)}
+                    {t(key satisfies BadgeKey)}
                   </button>
                 ))}
               </div>
@@ -173,11 +195,11 @@ export function QuestionnaireModal({
 
           <div className="q-actions">
             {step === 3 && (
-              <button className="q-primary-btn" onClick={handleNext}>
+              <button type="button" className="q-primary-btn" onClick={handleNext}>
                 {t("continue")} <Check size={22} style={{ marginLeft: 8 }} />
               </button>
             )}
-            <button className="q-skip-btn" onClick={handleSkip}>
+            <button type="button" className="q-skip-btn" onClick={handleSkip}>
               {t("skip")}
             </button>
           </div>

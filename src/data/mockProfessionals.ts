@@ -7,11 +7,10 @@ export type ProCategory =
   | "therapeute"
   | "coiffeur"
   | "herboriste"
-  | "sante"
-  | "psychique"
-  | "corps"
-  | "danse"
-  | "psychologue";
+  | "medecine-douce"
+  | "forme"
+  | "bien-etre"
+  | "danse";
 
 export interface MockProfessional extends ProContactFields {
   id: string;
@@ -54,11 +53,10 @@ export const PRO_CATEGORY_OPTIONS: { id: ProCategory; label: string }[] = [
   { id: "therapeute", label: "Thérapeute" },
   { id: "coiffeur", label: "Coiffeur·se" },
   { id: "herboriste", label: "Herboriste" },
-  { id: "sante", label: "Santé" },
-  { id: "psychique", label: "Psychique" },
-  { id: "corps", label: "Corps" },
+  { id: "medecine-douce", label: "Médecine douce" },
+  { id: "forme", label: "Forme" },
+  { id: "bien-etre", label: "Bien-être" },
   { id: "danse", label: "Danse" },
-  { id: "psychologue", label: "Psychologue" },
 ];
 
 const _MOCK_PROFESSIONALS_RAW: Omit<MockProfessional, keyof ProContactFields>[] = [
@@ -80,8 +78,8 @@ const _MOCK_PROFESSIONALS_RAW: Omit<MockProfessional, keyof ProContactFields>[] 
     id: "pro_02",
     firstName: "Marc",
     lastName: "Duval",
-    category: "psychologue",
-    categoryLabel: "Psychologue",
+    category: "therapeute",
+    categoryLabel: "Thérapeute",
     city: "Lyon 2e",
     description:
       "Psychologue clinicien TCC. Anxiété, relations, estime de soi. Consultations en cabinet et visio.",
@@ -121,8 +119,8 @@ const _MOCK_PROFESSIONALS_RAW: Omit<MockProfessional, keyof ProContactFields>[] 
     id: "pro_05",
     firstName: "Sophie",
     lastName: "Arnaud",
-    category: "sante",
-    categoryLabel: "Santé",
+    category: "bien-etre",
+    categoryLabel: "Bien-être",
     city: "Nantes",
     description:
       "Naturopathe — hygiène de vie, nutrition, jeûne intermittent encadré. Bilan vitalité et programmes personnalisés.",
@@ -134,11 +132,11 @@ const _MOCK_PROFESSIONALS_RAW: Omit<MockProfessional, keyof ProContactFields>[] 
     id: "pro_06",
     firstName: "Élise",
     lastName: "Fontaine",
-    category: "psychique",
-    categoryLabel: "Psychique",
+    category: "medecine-douce",
+    categoryLabel: "Médecine douce",
     city: "Toulouse",
     description:
-      "Médium intuitive — guidance bienveillante, lecture d'énergie, accompagnement de transitions de vie.",
+      "Praticienne en médecine douce — aromathérapie, fleurs de Bach et soins énergétiques doux pour retrouver équilibre et sérénité.",
     imageUrl: img("06"),
     mapX: 48,
     mapY: 72,
@@ -147,8 +145,8 @@ const _MOCK_PROFESSIONALS_RAW: Omit<MockProfessional, keyof ProContactFields>[] 
     id: "pro_07",
     firstName: "Thomas",
     lastName: "Girard",
-    category: "corps",
-    categoryLabel: "Corps",
+    category: "forme",
+    categoryLabel: "Forme",
     city: "Paris 18e",
     description:
       "Praticien en massage ayurvédique et fascias. Détente profonde, posture, récupération sportive.",
@@ -187,8 +185,8 @@ const _MOCK_PROFESSIONALS_RAW: Omit<MockProfessional, keyof ProContactFields>[] 
     id: "pro_10",
     firstName: "Claire",
     lastName: "Bernard",
-    category: "psychologue",
-    categoryLabel: "Psychologue",
+    category: "therapeute",
+    categoryLabel: "Thérapeute",
     city: "Strasbourg",
     description:
       "Psychologue pour adolescents et jeunes adultes. EMDR, troubles anxieux, orientation scolaire.",
@@ -214,8 +212,8 @@ const _MOCK_PROFESSIONALS_RAW: Omit<MockProfessional, keyof ProContactFields>[] 
     id: "pro_12",
     firstName: "Inès",
     lastName: "Lopez",
-    category: "corps",
-    categoryLabel: "Corps",
+    category: "forme",
+    categoryLabel: "Forme",
     city: "Nice",
     description:
       "Coach Pilates reformer et stretching fascial. Renforcement doux, mobilité, prévention des douleurs.",
@@ -254,8 +252,8 @@ const _MOCK_PROFESSIONALS_RAW: Omit<MockProfessional, keyof ProContactFields>[] 
     id: "pro_15",
     firstName: "Vincent",
     lastName: "Chevalier",
-    category: "sante",
-    categoryLabel: "Santé",
+    category: "bien-etre",
+    categoryLabel: "Bien-être",
     city: "Grenoble",
     description:
       "Praticien en respiration consciente et cohérence cardiaque. Ateliers collectifs en plein air.",
@@ -267,11 +265,11 @@ const _MOCK_PROFESSIONALS_RAW: Omit<MockProfessional, keyof ProContactFields>[] 
     id: "pro_16",
     firstName: "Morgane",
     lastName: "Silvestre",
-    category: "psychique",
-    categoryLabel: "Psychique",
+    category: "medecine-douce",
+    categoryLabel: "Médecine douce",
     city: "Annecy",
     description:
-      "Cartomancienne & oracle — lectures intuitives, rituels de nouvelle lune, accompagnement spirituel.",
+      "Réflexologue et praticienne shiatsu — détente profonde, harmonisation du corps et accompagnement bien-être naturel.",
     imageUrl: img("16"),
     mapX: 68,
     mapY: 42,

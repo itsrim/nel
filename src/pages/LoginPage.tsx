@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
-import { canSubmitSignin, isValidEmailFormat } from "../lib/loginFormValidation";
 import { matchFrontAdminLogin } from "../lib/frontAdminLogin";
+import {
+  canSubmitSignin,
+  isValidEmailFormat,
+  requiresSigninEmailFormat,
+  showsSigninEmailFormatHint,
+} from "../lib/loginFormValidation";
 import {
   getSignupFormBlockers,
   type SignupBlockerId,
@@ -190,20 +195,23 @@ export function LoginPage() {
       }
     }
 
-    if (view === "signin" && !matchFrontAdminLogin(email, password)) {
-      if (!canSubmitSignin(email, password)) {
-        if (!email.trim()) {
+    if (view === "signin") {
+      const adminLogin = matchFrontAdminLogin(email, password);
+      if (!adminLogin) {
+        if (!canSubmitSignin(email, password)) {
+          if (!email.trim()) {
+            setLocalError(t("loginEmailInvalid"));
+            return;
+          }
+          if (password.length < 6) {
+            setLocalError(t("loginPasswordTooShort"));
+            return;
+          }
+        }
+        if (requiresSigninEmailFormat(email, password) && !isValidEmailFormat(email)) {
           setLocalError(t("loginEmailInvalid"));
           return;
         }
-        if (password.length < 6) {
-          setLocalError(t("loginPasswordTooShort"));
-          return;
-        }
-      }
-      if (!isValidEmailFormat(email)) {
-        setLocalError(t("loginEmailInvalid"));
-        return;
       }
       if (!isMathCaptchaAnswerValid(captcha, captchaAnswer)) {
         setLocalError(t("loginCaptchaInvalid"));
@@ -348,12 +356,12 @@ export function LoginPage() {
           {(view === "signin" || view === "signup" || view === "forgot") && (
             <div className="login-field">
               <label htmlFor="email" className="login-label">
-                {t("loginEmail")}
+                {view === "signin" ? t("loginEmailOrId") : t("loginEmail")}
               </label>
               <input
                 id="email"
                 type="text"
-                inputMode="email"
+                inputMode={view === "signin" ? "text" : "email"}
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
@@ -371,7 +379,7 @@ export function LoginPage() {
                 aria-describedby={
                   fieldErrors.email
                     ? "login-email-error"
-                    : view === "signin"
+                    : view === "signin" && showsSigninEmailFormatHint(email)
                       ? "login-email-format-hint"
                       : undefined
                 }
@@ -381,7 +389,7 @@ export function LoginPage() {
                   {fieldErrors.email}
                 </p>
               ) : null}
-              {view === "signin" && !fieldErrors.email ? (
+              {view === "signin" && !fieldErrors.email && showsSigninEmailFormatHint(email) ? (
                 <p id="login-email-format-hint" className="login-field-hint">
                   {t("loginEmailFormatHint")}
                 </p>

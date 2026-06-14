@@ -1606,6 +1606,17 @@ export function syncNotificationToSheetsForUser(
   syncLater(() => upsertSheetRow("notifications", n.id, notificationToRow(n, owner)));
 }
 
+export function syncProfileVisitToSheetsForUser(
+  visit: ProfileVisit,
+  ownerUserId: string,
+): void {
+  const owner = ownerUserId?.trim();
+  if (!owner) return;
+  syncLater(() =>
+    upsertSheetRow("profile_visits", visit.id, visitToRow(visit, owner), "id"),
+  );
+}
+
 export function syncNotificationReadToSheets(n: AppNotification): void {
   const userId = currentUserId();
   if (!userId) return;

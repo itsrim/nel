@@ -156,6 +156,11 @@ export function ProfilePage() {
   const {
     events,
     friends,
+    profileVisits,
+    suggestions,
+    friendRequestSentProfilIds,
+    acceptFriendRequest,
+    rejectFriendRequest,
     appNotifications,
     markAllNotificationsRead,
     markNotificationRead,
@@ -215,6 +220,59 @@ export function ProfilePage() {
     if (fromPro) return true;
     return friends.some((f) => f.profilId === user.id && f.verified === true);
   }, [professionals, user?.id, friends]);
+
+  const mutualFriends = useMemo(
+    () => friends.filter((f) => f.mutualFriend === true),
+    [friends],
+  );
+
+  const incomingFriendRequests = useMemo(
+    () =>
+      profileVisits.filter(
+        (v) =>
+          v.friendRequest &&
+          !friends.some((f) => f.profilId === v.id && f.mutualFriend === true),
+      ),
+    [profileVisits, friends],
+  );
+
+  const pendingSentFriendRequests = useMemo(() => {
+    return friendRequestSentProfilIds
+      .filter(
+        (id) =>
+          !friends.some((f) => f.profilId === id && f.mutualFriend === true),
+      )
+      .map((id) => {
+        const friend = friends.find((f) => f.profilId === id);
+        const visit = profileVisits.find((v) => v.id === id);
+        const sug = suggestions.find((s) => s.id === id);
+        return {
+          id,
+          name: friend?.name ?? visit?.name ?? sug?.pseudo ?? id,
+          imageUrl:
+            friend?.imageUrl ??
+            visit?.avatarUrl ??
+            sug?.imageUrl ??
+            DEFAULT_AVATAR_URL,
+          age: friend?.age ?? visit?.age ?? sug?.age ?? null,
+          city: friend?.city ?? "",
+          eventsInCommon: friend?.eventsInCommon ?? 0,
+        };
+      });
+  }, [friendRequestSentProfilIds, friends, profileVisits, suggestions]);
+
+  const friendsTabCount = useMemo(
+    () =>
+      mutualFriends.length +
+      incomingFriendRequests.length +
+      pendingSentFriendRequests.length,
+    [
+      mutualFriends.length,
+      incomingFriendRequests.length,
+      pendingSentFriendRequests.length,
+    ],
+  );
+
   const { openDetail } = useNavigationStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const splashFileInputRef = useRef<HTMLInputElement>(null);
@@ -871,9 +929,18 @@ export function ProfilePage() {
                 color={activeTab === "friends" ? "#8B5CF6" : "#8E8E93"}
               />
               <span>{t("friends")}</span>
-              <span className="p-tab-badge p-tab-badge--muted">
-                {friends.length}
-              </span>
+              {incomingFriendRequests.length > 0 ? (
+                <span
+                  className="p-tab-badge p-tab-badge--alert"
+                  aria-label={`${incomingFriendRequests.length} ${t("friendRequestBadge")}`}
+                >
+                  {formatBadgeCount(incomingFriendRequests.length)}
+                </span>
+              ) : (
+                <span className="p-tab-badge p-tab-badge--muted">
+                  {friendsTabCount}
+                </span>
+              )}
             </div>
           </button>
           {isAdmin && (
@@ -1084,26 +1151,109 @@ export function ProfilePage() {
 
           {activeTab === "friends" && (
             <div className="friends-list">
-              {friends.map((f) => (
-                <div key={f.profilId} className="friend-card">
-                  <img src={f.imageUrl} alt={f.name} className="friend-av" />
-                  <div className="friend-info">
-                    <div className="friend-name">{f.name}</div>
-                    <div className="friend-sub">
-                      {f.age} ans · {f.city} · {f.eventsInCommon} communs
+              {incomingFriendRequests.length > 0 ? (
+                <>
+                  <h3 className="friends-section-title">
+                    {t("incomingFriendRequests")}
+                  </h3>
+                  {incomingFriendRequests.map((v) => (
+                    <div key={`in-${v.id}`} className="friend-card friend-card--request">
+                      <img
+                        src={v.avatarUrl}
+                        alt={v.name}
+                        className="friend-av"
+                      />
+                      <div className="friend-info">
+                        <div className="friend-name">{v.name}</div>
+                        <div className="friend-sub friend-sub--badge">
+                          {t("friendRequestBadge")}
+                        </div>
+                      </div>
+                      <div className="friend-request-actions">
+                        <button
+                          type="button"
+                          className="friend-request-btn friend-request-btn--accept"
+                          onClick={() => acceptFriendRequest(v.id)}
+                        >
+                          {t("acceptFriendRequest")}
+                        </button>
+                        <button
+                          type="button"
+                          className="friend-request-btn friend-request-btn--reject"
+                          onClick={() => rejectFriendRequest(v.id)}
+                        >
+                          {t("rejectFriendRequest")}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="view-btn"
-                    onClick={() => openDetail("profile", f.profilId)}
-                    aria-label={`${t("viewProfileOf")} ${f.name}`}
-                  >
-                    {t("view")}
-                  </button>
-                </div>
-              ))}
-              {friends.length === 0 && (
+                  ))}
+                </>
+              ) : null}
+
+              {pendingSentFriendRequests.length > 0 ? (
+                <>
+                  <h3 className="friends-section-title">
+                    {t("pendingFriendRequests")}
+                  </h3>
+                  {pendingSentFriendRequests.map((p) => (
+                    <div key={`out-${p.id}`} className="friend-card friend-card--pending">
+                      <img src={p.imageUrl} alt={p.name} className="friend-av" />
+                      <div className="friend-info">
+                        <div className="friend-name">{p.name}</div>
+                        <div className="friend-sub friend-sub--badge">
+                          {t("requestSent")}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="view-btn"
+                        onClick={() => openDetail("profile", p.id)}
+                        aria-label={`${t("viewProfileOf")} ${p.name}`}
+                      >
+                        {t("view")}
+                      </button>
+                    </div>
+                  ))}
+                </>
+              ) : null}
+
+              {mutualFriends.length > 0 ? (
+                <>
+                  {incomingFriendRequests.length > 0 ||
+                  pendingSentFriendRequests.length > 0 ? (
+                    <h3 className="friends-section-title">{t("friends")}</h3>
+                  ) : null}
+                  {mutualFriends.map((f) => (
+                    <div key={f.profilId} className="friend-card">
+                      <img src={f.imageUrl} alt={f.name} className="friend-av" />
+                      <div className="friend-info">
+                        <div className="friend-name">{f.name}</div>
+                        <div className="friend-sub">
+                          {f.age != null ? `${f.age} ans` : ""}
+                          {f.age != null && f.city ? " · " : ""}
+                          {f.city}
+                          {(f.age != null || f.city) && f.eventsInCommon
+                            ? " · "
+                            : ""}
+                          {f.eventsInCommon
+                            ? `${f.eventsInCommon} communs`
+                            : ""}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="view-btn"
+                        onClick={() => openDetail("profile", f.profilId)}
+                        aria-label={`${t("viewProfileOf")} ${f.name}`}
+                      >
+                        {t("view")}
+                      </button>
+                    </div>
+                  ))}
+                </>
+              ) : null}
+
+              {friendsTabCount === 0 && (
                 <div className="empty-hint">{t("noFriends")}</div>
               )}
             </div>
@@ -1385,6 +1535,52 @@ export function ProfilePage() {
                         <div className="notification-body">
                           {n.messagePreview ?? ""}
                         </div>
+                        <div className="notification-meta">{when}</div>
+                      </div>
+                    </button>
+                  );
+                }
+
+                if (n.kind === "friend_request_received") {
+                  const senderAv =
+                    friends.find((f) => f.profilId === n.inviteeProfilId)
+                      ?.imageUrl ??
+                    profileVisits.find((v) => v.id === n.inviteeProfilId)
+                      ?.avatarUrl ??
+                    suggestions.find((s) => s.id === n.inviteeProfilId)
+                      ?.imageUrl ??
+                    "";
+                  const senderName = n.senderName?.trim() || n.inviteeName?.trim() || "Quelqu'un";
+                  const notifTitle = t("notifFriendRequestTitle");
+                  const notifBody = t("notifFriendRequestBody").replace(
+                    "{name}",
+                    senderName,
+                  );
+
+                  return (
+                    <button
+                      key={n.id}
+                      type="button"
+                      className={`notification-card${n.readAt == null ? " notification-card--unread" : ""}`}
+                      onMouseDown={(ev) => ev.preventDefault()}
+                      onClick={() => {
+                        markNotificationRead(n.id);
+                        selectProfileTab("friends");
+                      }}
+                    >
+                      {senderAv ? (
+                        <img src={senderAv} alt="" className="notification-av" />
+                      ) : (
+                        <div
+                          className="notification-av notification-av--placeholder"
+                          aria-hidden
+                        >
+                          <Users size={22} color="#8E8E93" />
+                        </div>
+                      )}
+                      <div className="notification-texts">
+                        <div className="notification-title">{notifTitle}</div>
+                        <div className="notification-body">{notifBody}</div>
                         <div className="notification-meta">{when}</div>
                       </div>
                     </button>

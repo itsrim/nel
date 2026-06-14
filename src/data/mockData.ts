@@ -98,7 +98,8 @@ export interface AppNotification {
     | "event_waitlist_joined"
     | "event_waitlist_left"
     | "event_waitlist_accepted"
-    | "event_waitlist_rejected";
+    | "event_waitlist_rejected"
+    | "friend_request_received";
   eventId?: string;
   eventTitle?: string;
   inviteeName?: string;

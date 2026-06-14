@@ -76,6 +76,55 @@ export function registerChatSocket(io: Server) {
       void socket.leave(roomName(conversationId));
     });
 
+    socket.on(
+      "friend-request:send",
+      (payload: {
+        recipientUserId?: string;
+        visit?: {
+          id?: string;
+          name?: string;
+          age?: number;
+          avatarUrl?: string;
+          lastVisitAt?: number;
+          friendRequest?: boolean;
+        };
+        notification?: {
+          id?: string;
+          createdAt?: number;
+          kind?: string;
+          inviteeProfilId?: string;
+          inviteeName?: string;
+          senderName?: string;
+        };
+      }) => {
+        const recipientUserId = payload?.recipientUserId?.trim();
+        const visit = payload?.visit;
+        const notification = payload?.notification;
+        if (!recipientUserId || recipientUserId === user.id) return;
+        if (!visit?.id || visit.id !== user.id) return;
+        if (!notification?.id || notification.kind !== "friend_request_received") return;
+
+        io.to(userRoom(recipientUserId)).emit("friend-request:new", {
+          visit: {
+            id: visit.id,
+            name: visit.name?.trim() || user.displayName,
+            age: typeof visit.age === "number" ? visit.age : 25,
+            avatarUrl: visit.avatarUrl?.trim() || "",
+            lastVisitAt: visit.lastVisitAt ?? Date.now(),
+            friendRequest: true,
+          },
+          notification: {
+            id: notification.id,
+            createdAt: notification.createdAt ?? Date.now(),
+            kind: "friend_request_received",
+            inviteeProfilId: visit.id,
+            inviteeName: notification.inviteeName?.trim() || user.displayName,
+            senderName: notification.senderName?.trim() || user.displayName,
+          },
+        });
+      },
+    );
+
     socket.on("message:send", async (payload: PostMessageBody & { conversationId?: string }) => {
       const conversationId = payload?.conversationId?.trim();
       if (!conversationId) {

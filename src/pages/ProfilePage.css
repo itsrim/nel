@@ -932,6 +932,52 @@
     margin-top: 2px;
 }
 
+.friend-sub--badge {
+    color: #C084FC;
+    font-weight: 600;
+}
+
+.friends-section-title {
+    color: #8E8E93;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 8px 0 12px;
+}
+
+.friend-card--request {
+    flex-wrap: wrap;
+}
+
+.friend-request-actions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    margin-top: 4px;
+    padding-left: 62px;
+}
+
+.friend-request-btn {
+    flex: 1;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.friend-request-btn--accept {
+    background: linear-gradient(135deg, #6B21A8, #8B5CF6);
+    color: #fff;
+}
+
+.friend-request-btn--reject {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
 .view-btn {
     background: linear-gradient(135deg, #6B21A8, #8B5CF6);
     border: none;

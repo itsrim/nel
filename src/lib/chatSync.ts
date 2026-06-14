@@ -1,4 +1,5 @@
 import type { Message } from "../data/mockData";
+import type { AppNotification, ProfileVisit } from "../data/mockData";
 import { useAuthStore } from "../store/useAuthStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { resolveMessageAccessFromStores } from "./accessScope";
@@ -92,6 +93,28 @@ function applyMessages(conversationId: string, merged: Message[], incomingMessag
   );
 }
 
+function applyIncomingFriendRequest(
+  visit: ProfileVisit,
+  notif: AppNotification,
+): void {
+  useMessagingStore.setState((s) => {
+    const idx = s.profileVisits.findIndex((v) => v.id === visit.id);
+    const profileVisits =
+      idx >= 0
+        ? s.profileVisits.map((v, i) =>
+            i === idx ? { ...v, ...visit, friendRequest: true } : v,
+          )
+        : [visit, ...s.profileVisits];
+    const already = s.appNotifications.some((n) => n.id === notif.id);
+    const appNotifications = already
+      ? s.appNotifications
+      : [notif, ...s.appNotifications];
+    return { profileVisits, appNotifications };
+  });
+  const name = notif.senderName?.trim() || visit.name;
+  useMessagingStore.getState().showToast(`Demande d'ami de ${name}`);
+}
+
 function ensureSocketListeners(): void {
   const socket = getChatSocket();
   if (!socket || listenersAttached) return;
@@ -156,6 +179,23 @@ function ensureSocketListeners(): void {
   socket.on("chat:error", (payload: { error?: string }) => {
     console.error("Chat socket error:", payload?.error ?? "unknown");
   });
+
+  socket.on(
+    "friend-request:new",
+    (payload: {
+      visit?: ProfileVisit;
+      notification?: AppNotification;
+    }) => {
+      const visit = payload?.visit;
+      const notification = payload?.notification;
+      if (!visit?.id || !notification?.id) return;
+      if (notification.kind !== "friend_request_received") return;
+      applyIncomingFriendRequest(
+        { ...visit, friendRequest: true },
+        notification,
+      );
+    },
+  );
 
   socket.on("connect", () => {
     const ids = useMessagingStore.getState().conversations.map((c) => c.id);

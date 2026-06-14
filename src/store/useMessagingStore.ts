@@ -13,7 +13,7 @@ import {
   type WaitlistEntry,
 } from "../data/mockData";
 import { isChatApiConfigured } from "../lib/chatConfig";
-import { sendMessageRemote } from "../lib/chatSocket";
+import { emitFriendRequestRemote, sendMessageRemote } from "../lib/chatSocket";
 import { useLanguageStore } from "./useLanguageStore";
 import { resolveMessageAccessFromStores } from "../lib/accessScope";
 import { saveHistory, type PersistedMessage } from "../lib/chatPersistence";
@@ -28,6 +28,8 @@ import {
   syncFriendToSheets,
   syncNotificationToSheets,
   syncNotificationReadToSheets,
+  syncNotificationToSheetsForUser,
+  syncProfileVisitToSheetsForUser,
   syncProfileDeleteToSheets,
   syncReportDeleteToSheets,
   syncReportToSheets,
@@ -607,6 +609,10 @@ interface MessagingState {
   friendRequestDailySentDateKey: string | null;
   /** Envoie une demande d’ami si pas déjà ami, pas refusée et pas déjà envoyée. */
   sendFriendRequest: (profilId: string) => void;
+  /** Accepte une demande d’ami reçue (visite profil). */
+  acceptFriendRequest: (profilId: string) => void;
+  /** Refuse une demande d’ami reçue. */
+  rejectFriendRequest: (profilId: string) => void;
   /** Démo : plus d’ami mutuel — masque Message / retire l’accès DM privé côté UI. */
   removeMutualFriend: (profilId: string) => void;
   /** Fil Profil → Notifications (invitations sorties, etc.). */
@@ -1490,12 +1496,127 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       get().showToast("Vous ne pouvez envoyer qu’une demande d’ami par jour.");
       return;
     }
+    const incoming = get().profileVisits.find(
+      (v) => v.id === id && v.friendRequest,
+    );
+    if (incoming) {
+      get().acceptFriendRequest(id);
+      return;
+    }
+
+    const sender = useAuthStore.getState().user;
+    const senderId = sender?.id?.trim() ?? "";
+    if (senderId && senderId !== id) {
+      const senderName =
+        get().viewerProfileDisplayName.trim() ||
+        sender?.displayName?.trim() ||
+        "Quelqu'un";
+      const senderFirstName = senderName.split(/\s+/)[0] || senderName;
+      const ageParsed = parseInt(get().viewerProfileAge, 10);
+      const visit: ProfileVisit = {
+        id: senderId,
+        name: senderFirstName,
+        age: Number.isFinite(ageParsed)
+          ? ageParsed
+          : parseInt(sender?.age ?? "", 10) || 25,
+        avatarUrl: resolveAvatarUrl(
+          get().viewerProfileAvatarUrl || sender?.avatarUrl,
+        ),
+        lastVisitAt: Date.now(),
+        friendRequest: true,
+      };
+      const notif: AppNotification = {
+        id: `n_fr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        createdAt: Date.now(),
+        kind: "friend_request_received",
+        inviteeProfilId: senderId,
+        inviteeName: senderName,
+        senderName,
+      };
+      syncProfileVisitToSheetsForUser(visit, id);
+      syncNotificationToSheetsForUser(notif, id);
+      emitFriendRequestRemote({
+        recipientUserId: id,
+        visit,
+        notification: notif,
+      });
+    }
+
     set({
       friendRequestSentProfilIds: [...friendRequestSentProfilIds, id],
       friendRequestDailySentDateKey: todayDateKey(),
     });
     syncViewerSettingsFromState(get());
     get().showToast("Demande d’ami envoyée.");
+  },
+  acceptFriendRequest: (profilId) => {
+    const id = profilId.trim();
+    if (!id) return;
+    const { friends } = get();
+    if (friends.find((f) => f.profilId === id)?.mutualFriend === true) return;
+
+    set((state) => {
+      const visit = state.profileVisits.find((v) => v.id === id);
+      const sug = state.suggestions.find((s) => s.id === id);
+      const existing = state.friends.find((f) => f.profilId === id);
+      const label = visit?.name ?? sug?.pseudo ?? existing?.name ?? id;
+      const imageUrl =
+        visit?.avatarUrl ?? sug?.imageUrl ?? existing?.imageUrl ?? "";
+      const age = visit?.age ?? sug?.age ?? existing?.age ?? null;
+
+      let nextFriends: Friend[];
+      if (existing) {
+        nextFriends = state.friends.map((f) =>
+          f.profilId === id ? { ...f, mutualFriend: true } : f,
+        );
+      } else {
+        nextFriends = [
+          ...state.friends,
+          {
+            profilId: id,
+            name: label,
+            pseudo: label,
+            age,
+            city: existing?.city ?? "",
+            imageUrl,
+            eventsInCommon: existing?.eventsInCommon ?? 0,
+            mainChatConversationId: existing?.mainChatConversationId ?? "",
+            mutualFriend: true,
+          },
+        ];
+      }
+
+      return {
+        friends: nextFriends,
+        profileVisits: state.profileVisits.map((v) =>
+          v.id === id ? { ...v, friendRequest: false } : v,
+        ),
+        friendRequestSentProfilIds: state.friendRequestSentProfilIds.filter(
+          (pid) => pid !== id,
+        ),
+      };
+    });
+
+    const updated = get().friends.find((f) => f.profilId === id);
+    if (updated) syncFriendToSheets(updated);
+    syncViewerSettingsFromState(get());
+    get().showToast("Demande acceptée.");
+  },
+  rejectFriendRequest: (profilId) => {
+    const id = profilId.trim();
+    if (!id) return;
+    set((state) => ({
+      profileVisits: state.profileVisits.map((v) =>
+        v.id === id ? { ...v, friendRequest: false } : v,
+      ),
+      friendRequestRejectedProfilIds: state.friendRequestRejectedProfilIds.includes(
+        id,
+      )
+        ? state.friendRequestRejectedProfilIds
+        : [...state.friendRequestRejectedProfilIds, id],
+    }));
+    syncViewerSettingsFromState(get());
+    get().showToast("Demande refusée.");
   },
   removeMutualFriend: (profilId) => {
     const id = profilId.trim();

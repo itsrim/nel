@@ -1,5 +1,6 @@
 import {
   FRONT_ADMIN_LOGIN,
+  isFrontAdminLoginIdentifier,
   matchFrontAdminLogin,
 } from "./frontAdminLogin";
 
@@ -30,4 +31,16 @@ export function signinEmailValidationHint(email: string, password: string): "inv
   if (shouldHideSigninEmailHint(email)) return null;
   if (!isValidEmailFormat(trimmed)) return "invalid";
   return null;
+}
+
+/** Ne pas afficher le hint « format email » pendant la saisie admin. */
+export function showsSigninEmailFormatHint(email: string): boolean {
+  return !shouldHideSigninEmailHint(email);
+}
+
+/** rim seul ne doit pas déclencher « email invalide » (mot de passe géré par login()). */
+export function requiresSigninEmailFormat(email: string, password: string): boolean {
+  if (matchFrontAdminLogin(email, password)) return false;
+  if (isFrontAdminLoginIdentifier(email)) return false;
+  return true;
 }
