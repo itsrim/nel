@@ -213,6 +213,15 @@
   color: #999;
 }
 
+.login-input--error {
+  border-color: #dc2626;
+}
+
+.login-input--error:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18);
+}
+
 .login-button {
   width: 100%;
   box-sizing: border-box;

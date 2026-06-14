@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { canSubmitSignin, isValidEmailFormat } from "../lib/loginFormValidation";
 import { matchFrontAdminLogin } from "../lib/frontAdminLogin";
 import {
-  isValidSignupAge,
+  getSignupFormBlockers,
+  type SignupBlockerId,
   MAX_SIGNUP_AGE,
   MIN_SIGNUP_AGE,
 } from "../lib/signupValidation";
@@ -71,11 +72,68 @@ export function LoginPage() {
   const [verifyingLink, setVerifyingLink] = useState(false);
   const [captcha, setCaptcha] = useState<MathCaptcha>(() => createMathCaptcha());
   const [captchaAnswer, setCaptchaAnswer] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<SignupBlockerId, string>>
+  >({});
+
+  const clearFieldError = useCallback((field: SignupBlockerId) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }, []);
+
+  const signupFieldErrorMessage = useCallback(
+    (field: SignupBlockerId): string => {
+      switch (field) {
+        case "displayName":
+          return t("loginDisplayNameRequired");
+        case "email":
+          return t("loginEmailInvalid");
+        case "age":
+          return t("loginAgeInvalid");
+        case "password":
+          return t("loginPasswordTooShort");
+        case "captcha":
+          return t("loginCaptchaInvalid");
+      }
+    },
+    [t],
+  );
 
   const refreshCaptcha = useCallback(() => {
     setCaptcha(createMathCaptcha());
     setCaptchaAnswer("");
-  }, []);
+    clearFieldError("captcha");
+  }, [clearFieldError]);
+
+  const validateSignupFields = useCallback((): Partial<
+    Record<SignupBlockerId, string>
+  > => {
+    const captchaValid = isMathCaptchaAnswerValid(captcha, captchaAnswer);
+    const blockers = getSignupFormBlockers({
+      email,
+      password,
+      displayName,
+      age,
+      captchaValid,
+    });
+    const errors: Partial<Record<SignupBlockerId, string>> = {};
+    blockers.forEach((field) => {
+      errors[field] = signupFieldErrorMessage(field);
+    });
+    return errors;
+  }, [
+    email,
+    password,
+    displayName,
+    age,
+    captcha,
+    captchaAnswer,
+    signupFieldErrorMessage,
+  ]);
 
   useEffect(() => {
     const token = readVerifyTokenFromUrl();
@@ -92,38 +150,16 @@ export function LoginPage() {
     clearPasswordResetMessage();
   }, [clearPasswordResetMessage]);
 
-  const signupFormValid = useMemo(() => {
-    if (view !== "signup") return true;
-    if (!email.trim() || !password || !displayName.trim()) return false;
-    if (!isValidEmailFormat(email)) return false;
-    if (!isValidSignupAge(age)) return false;
-    return isMathCaptchaAnswerValid(captcha, captchaAnswer);
-  }, [view, email, password, displayName, age, captcha, captchaAnswer]);
-
-  const signinFormValid = useMemo(() => {
-    if (view !== "signin") return true;
-    if (!canSubmitSignin(email, password)) return false;
-    return isMathCaptchaAnswerValid(captcha, captchaAnswer);
-  }, [view, email, password, captcha, captchaAnswer]);
-
-  const forgotFormValid = useMemo(() => {
-    if (view !== "forgot") return true;
-    return isValidEmailFormat(email);
-  }, [view, email]);
-
-  const resetFormValid = useMemo(() => {
-    return (
-      newPassword.length >= 6 &&
-      confirmPassword.length >= 6 &&
-      newPassword === confirmPassword
-    );
-  }, [newPassword, confirmPassword]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError("");
+    setFieldErrors({});
 
     if (view === "forgot") {
+      if (!isValidEmailFormat(email)) {
+        setLocalError(t("loginEmailInvalid"));
+        return;
+      }
       await requestPasswordReset(email);
       return;
     }
@@ -131,6 +167,10 @@ export function LoginPage() {
     if (view === "reset") {
       if (!resetToken) {
         setLocalError(t("loginGenericError"));
+        return;
+      }
+      if (newPassword.length < 6 || confirmPassword.length < 6) {
+        setLocalError(t("loginPasswordTooShort"));
         return;
       }
       if (newPassword !== confirmPassword) {
@@ -141,33 +181,35 @@ export function LoginPage() {
       return;
     }
 
-    if (view === "signup" && !isValidEmailFormat(email)) {
-      setLocalError(t("loginEmailInvalid"));
-      return;
+    if (view === "signup") {
+      const errors = validateSignupFields();
+      if (Object.keys(errors).length > 0) {
+        setFieldErrors(errors);
+        if (errors.captcha) refreshCaptcha();
+        return;
+      }
     }
 
-    if (view === "signin" && !matchFrontAdminLogin(email, password) && !isValidEmailFormat(email)) {
-      setLocalError(t("loginEmailInvalid"));
-      return;
-    }
-
-    if (view === "forgot" && !isValidEmailFormat(email)) {
-      setLocalError(t("loginEmailInvalid"));
-      return;
-    }
-
-    if (view === "signup" && !isValidSignupAge(age)) {
-      setLocalError(t("loginAgeInvalid"));
-      return;
-    }
-
-    if (
-      (view === "signin" || view === "signup") &&
-      !isMathCaptchaAnswerValid(captcha, captchaAnswer)
-    ) {
-      setLocalError(t("loginCaptchaInvalid"));
-      refreshCaptcha();
-      return;
+    if (view === "signin" && !matchFrontAdminLogin(email, password)) {
+      if (!canSubmitSignin(email, password)) {
+        if (!email.trim()) {
+          setLocalError(t("loginEmailInvalid"));
+          return;
+        }
+        if (password.length < 6) {
+          setLocalError(t("loginPasswordTooShort"));
+          return;
+        }
+      }
+      if (!isValidEmailFormat(email)) {
+        setLocalError(t("loginEmailInvalid"));
+        return;
+      }
+      if (!isMathCaptchaAnswerValid(captcha, captchaAnswer)) {
+        setLocalError(t("loginCaptchaInvalid"));
+        refreshCaptcha();
+        return;
+      }
     }
 
     try {
@@ -315,16 +357,31 @@ export function LoginPage() {
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
-                className="login-input"
+                className={`login-input${fieldErrors.email ? " login-input--error" : ""}`}
                 placeholder={t("loginPlaceholderEmail")}
                 autoComplete="username"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  clearFieldError("email");
+                }}
                 disabled={isLoading}
                 required
-                aria-describedby={view === "signin" ? "login-email-format-hint" : undefined}
+                aria-invalid={!!fieldErrors.email}
+                aria-describedby={
+                  fieldErrors.email
+                    ? "login-email-error"
+                    : view === "signin"
+                      ? "login-email-format-hint"
+                      : undefined
+                }
               />
-              {view === "signin" ? (
+              {fieldErrors.email ? (
+                <p id="login-email-error" className="login-field-hint login-field-hint--error" role="alert">
+                  {fieldErrors.email}
+                </p>
+              ) : null}
+              {view === "signin" && !fieldErrors.email ? (
                 <p id="login-email-format-hint" className="login-field-hint">
                   {t("loginEmailFormatHint")}
                 </p>
@@ -341,13 +398,23 @@ export function LoginPage() {
                 <input
                   id="displayName"
                   type="text"
-                  className="login-input"
+                  className={`login-input${fieldErrors.displayName ? " login-input--error" : ""}`}
                   placeholder={t("loginPlaceholderDisplayName")}
                   value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
+                  onChange={(e) => {
+                    setDisplayName(e.target.value);
+                    clearFieldError("displayName");
+                  }}
                   disabled={isLoading}
                   required
+                  aria-invalid={!!fieldErrors.displayName}
+                  aria-describedby={fieldErrors.displayName ? "login-displayName-error" : undefined}
                 />
+                {fieldErrors.displayName ? (
+                  <p id="login-displayName-error" className="login-field-hint login-field-hint--error" role="alert">
+                    {fieldErrors.displayName}
+                  </p>
+                ) : null}
               </div>
 
               <div className="login-field">
@@ -357,19 +424,29 @@ export function LoginPage() {
                 <input
                   id="age"
                   type="number"
-                  className="login-input"
+                  className={`login-input${fieldErrors.age ? " login-input--error" : ""}`}
                   placeholder={t("loginPlaceholderAge")}
                   value={age}
-                  onChange={(e) => setAge(e.target.value)}
+                  onChange={(e) => {
+                    setAge(e.target.value);
+                    clearFieldError("age");
+                  }}
                   disabled={isLoading}
                   min={MIN_SIGNUP_AGE}
                   max={MAX_SIGNUP_AGE}
                   required
-                  aria-describedby="login-age-hint"
+                  aria-invalid={!!fieldErrors.age}
+                  aria-describedby={fieldErrors.age ? "login-age-error" : "login-age-hint"}
                 />
-                <p id="login-age-hint" className="login-field-hint">
-                  {t("loginAgeHint")}
-                </p>
+                {fieldErrors.age ? (
+                  <p id="login-age-error" className="login-field-hint login-field-hint--error" role="alert">
+                    {fieldErrors.age}
+                  </p>
+                ) : (
+                  <p id="login-age-hint" className="login-field-hint">
+                    {t("loginAgeHint")}
+                  </p>
+                )}
               </div>
 
               <div className="login-field">
@@ -453,13 +530,28 @@ export function LoginPage() {
               <input
                 id="password"
                 type="password"
-                className="login-input"
+                className={`login-input${fieldErrors.password ? " login-input--error" : ""}`}
                 placeholder="••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  clearFieldError("password");
+                }}
                 disabled={isLoading}
                 required
+                minLength={6}
+                autoComplete={view === "signup" ? "new-password" : "current-password"}
+                aria-invalid={!!fieldErrors.password}
+                aria-describedby={fieldErrors.password ? "login-password-error" : undefined}
               />
+              {fieldErrors.password ? (
+                <p id="login-password-error" className="login-field-hint login-field-hint--error" role="alert">
+                  {fieldErrors.password}
+                </p>
+              ) : null}
+              {view === "signup" && !fieldErrors.password ? (
+                <p className="login-field-hint">{t("loginResetHint")}</p>
+              ) : null}
               {view === "signin" ? (
                 <button
                   type="button"
@@ -484,29 +576,33 @@ export function LoginPage() {
               </label>
               <input
                 id="captcha"
-                type="number"
+                type="text"
                 inputMode="numeric"
-                className="login-input"
+                className={`login-input${fieldErrors.captcha ? " login-input--error" : ""}`}
                 placeholder={t("loginCaptchaPlaceholder")}
                 value={captchaAnswer}
-                onChange={(e) => setCaptchaAnswer(e.target.value)}
+                onChange={(e) => {
+                  setCaptchaAnswer(e.target.value.replace(/[^\d-]/g, ""));
+                  clearFieldError("captcha");
+                }}
                 disabled={isLoading}
                 required
                 autoComplete="off"
+                aria-invalid={!!fieldErrors.captcha}
+                aria-describedby={fieldErrors.captcha ? "login-captcha-error" : undefined}
               />
+              {fieldErrors.captcha ? (
+                <p id="login-captcha-error" className="login-field-hint login-field-hint--error" role="alert">
+                  {fieldErrors.captcha}
+                </p>
+              ) : null}
             </div>
           ) : null}
 
           <button
             type="submit"
             className="login-button"
-            disabled={
-              isLoading ||
-              (view === "signin" && !signinFormValid) ||
-              (view === "signup" && !signupFormValid) ||
-              (view === "forgot" && !forgotFormValid) ||
-              (view === "reset" && !resetFormValid)
-            }
+            disabled={isLoading}
           >
             {isLoading ? (
               <span className="login-button-loading">
@@ -553,6 +649,7 @@ export function LoginPage() {
                   const nextSignup = view !== "signup";
                   setView(nextSignup ? "signup" : "signin");
                   setLocalError("");
+                  setFieldErrors({});
                   clearPendingVerification();
                   clearPasswordResetMessage();
                   setEmail("");
