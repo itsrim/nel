@@ -106,13 +106,65 @@
 
 .ftb-item--active .ftb-icon {
   color: #0a0a0a;
+}
+
+.ftb-item--active .ftb-icon-anchor {
   animation: ftb-icon-pop 0.36s cubic-bezier(0.34, 1.35, 0.64, 1) both;
 }
 
 .ftb-icon {
   flex-shrink: 0;
   color: currentColor;
+  display: block;
   transition: transform 0.28s ease;
+}
+
+.ftb-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ftb-icon-anchor {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.ftb-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  transform: translate(45%, -45%);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(44, 44, 48, 0.94);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ftb-badge--chat {
+  background: #ff3b30;
+}
+
+.ftb-badge--profile {
+  background: #8b5cf6;
+}
+
+.ftb-item--active .ftb-badge {
+  border-color: #fde047;
 }
 
 .ftb-label {
@@ -140,7 +192,7 @@
   .ftb-item {
     transition-duration: 0.01ms;
   }
-  .ftb-item--active .ftb-icon,
+  .ftb-item--active .ftb-icon-anchor,
   .ftb-label {
     animation: none;
   }

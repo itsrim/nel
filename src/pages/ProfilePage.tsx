@@ -69,6 +69,7 @@ import { isEventDateBeforeToday, parseDateKeyLocal, todayDateKey, toDateKey } fr
 import { geocodeProAddress, isPlausibleProAddress } from "../lib/proGeocode";
 import { scrollLockSurfaceAttr, useLockBodyScroll } from "../lib/useLockBodyScroll";
 import { hasViewerProAccess } from "../lib/viewerEntitlements";
+import { countUnreadNotifications } from "../lib/navBadges";
 import "./ProfilePage.css";
 
 type TabId =
@@ -150,6 +151,8 @@ export function ProfilePage() {
     events,
     friends,
     appNotifications,
+    markAllNotificationsRead,
+    markNotificationRead,
     toggleEventFavorite,
     isAdmin,
     setIsAdmin,
@@ -219,9 +222,12 @@ export function ProfilePage() {
       if (next === "reports") {
         markAllAdminReportsRead();
       }
+      if (next === "notifications") {
+        markAllNotificationsRead();
+      }
       setActiveTab(next);
     },
-    [activeTab, markAllAdminReportsRead],
+    [activeTab, markAllAdminReportsRead, markAllNotificationsRead],
   );
 
   useLayoutEffect(() => {
@@ -403,6 +409,11 @@ export function ProfilePage() {
 
   const sortedNotifications = useMemo(
     () => [...appNotifications].sort((a, b) => b.createdAt - a.createdAt),
+    [appNotifications],
+  );
+
+  const unreadNotificationsCount = useMemo(
+    () => countUnreadNotifications(appNotifications),
     [appNotifications],
   );
 
@@ -779,6 +790,27 @@ export function ProfilePage() {
               e.preventDefault();
           }}
         >
+          <button
+            type="button"
+            className={`p-tab ${activeTab === "notifications" ? "p-tab--active" : ""}`}
+            onClick={() => selectProfileTab("notifications")}
+          >
+            <div className="p-tab-inner">
+              <Bell
+                size={18}
+                color={activeTab === "notifications" ? "#8B5CF6" : "#8E8E93"}
+              />
+              <span>{t("notifications")}</span>
+              {unreadNotificationsCount > 0 ? (
+                <span
+                  className="p-tab-badge p-tab-badge--notifications"
+                  aria-label={`${unreadNotificationsCount} ${t("unreadCount")}`}
+                >
+                  {formatBadgeCount(unreadNotificationsCount)}
+                </span>
+              ) : null}
+            </div>
+          </button>
           {viewerProAccess && (
             <button
               type="button"
@@ -805,7 +837,7 @@ export function ProfilePage() {
                 color={activeTab === "favorites" ? "#FF4B81" : "#8E8E93"}
               />
               <span>{t("favoritesCreated")}</span>
-              <span className="p-tab-badge" style={{ background: "#FF4B81" }}>
+              <span className="p-tab-badge p-tab-badge--muted">
                 {myUpcomingOutings.length}
               </span>
             </div>
@@ -821,7 +853,7 @@ export function ProfilePage() {
                 color={activeTab === "friends" ? "#8B5CF6" : "#8E8E93"}
               />
               <span>{t("friends")}</span>
-              <span className="p-tab-badge" style={{ background: "#8B5CF6" }}>
+              <span className="p-tab-badge p-tab-badge--muted">
                 {friends.length}
               </span>
             </div>
@@ -875,24 +907,8 @@ export function ProfilePage() {
                 color={activeTab === "history" ? "#6B7280" : "#8E8E93"}
               />
               <span>{t("history")}</span>
-              <span className="p-tab-badge" style={{ background: "#6B7280" }}>
+              <span className="p-tab-badge p-tab-badge--muted">
                 {historyEvents.length}
-              </span>
-            </div>
-          </button>
-          <button
-            type="button"
-            className={`p-tab ${activeTab === "notifications" ? "p-tab--active" : ""}`}
-            onClick={() => selectProfileTab("notifications")}
-          >
-            <div className="p-tab-inner">
-              <Bell
-                size={18}
-                color={activeTab === "notifications" ? "#5AC8FA" : "#8E8E93"}
-              />
-              <span>{t("notifications")}</span>
-              <span className="p-tab-badge" style={{ background: "#5AC8FA" }}>
-                {appNotifications.length}
               </span>
             </div>
           </button>
@@ -1331,11 +1347,12 @@ export function ProfilePage() {
                     <button
                       key={n.id}
                       type="button"
-                      className="notification-card"
+                      className={`notification-card${n.readAt == null ? " notification-card--unread" : ""}`}
                       onMouseDown={(ev) => ev.preventDefault()}
-                      onClick={() =>
-                        n.conversationId && openDetail("chat", n.conversationId)
-                      }
+                      onClick={() => {
+                        markNotificationRead(n.id);
+                        if (n.conversationId) openDetail("chat", n.conversationId);
+                      }}
                     >
                       <div
                         className="notification-av notification-av--placeholder"
@@ -1413,9 +1430,12 @@ export function ProfilePage() {
                   <button
                     key={n.id}
                     type="button"
-                    className="notification-card"
+                    className={`notification-card${n.readAt == null ? " notification-card--unread" : ""}`}
                     onMouseDown={(ev) => ev.preventDefault()}
-                    onClick={() => n.eventId && openDetail("event", n.eventId)}
+                    onClick={() => {
+                      markNotificationRead(n.id);
+                      if (n.eventId) openDetail("event", n.eventId);
+                    }}
                   >
                     {inviteeAv ? (
                       <img src={inviteeAv} alt="" className="notification-av" />

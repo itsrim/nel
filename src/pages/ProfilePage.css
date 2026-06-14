@@ -521,6 +521,14 @@
   font-size: 10px !important;
 }
 
+.p-tab-badge--muted {
+  background: #6b7280;
+}
+
+.p-tab-badge--notifications {
+  background: #8b5cf6;
+}
+
 /* ── Calendrier Pro (onglet Profil) ── */
 .profile-calendar {
   padding-top: 4px;
@@ -838,6 +846,11 @@
   padding: 12px;
   margin-bottom: 10px;
   cursor: pointer;
+}
+
+.notification-card--unread {
+  box-shadow: inset 3px 0 0 #8b5cf6;
+  background: rgba(139, 92, 246, 0.08);
 }
 
 .notification-card:focus-visible {

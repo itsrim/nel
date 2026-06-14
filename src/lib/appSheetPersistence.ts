@@ -706,11 +706,13 @@ export function notificationToRow(n: AppNotification, userId: string): Record<st
     conversationId: n.conversationId ?? "",
     senderName: n.senderName ?? "",
     messagePreview: n.messagePreview ?? "",
+    readAt: n.readAt != null ? String(n.readAt) : "",
     deleted: "false",
   };
 }
 
 export function rowToNotification(row: Record<string, string>): AppNotification {
+  const readRaw = row.readAt?.trim();
   return {
     id: row.id,
     createdAt: numFromSheet(row.createdAt, Date.now()),
@@ -722,6 +724,7 @@ export function rowToNotification(row: Record<string, string>): AppNotification 
     conversationId: row.conversationId?.trim() || undefined,
     senderName: row.senderName?.trim() || undefined,
     messagePreview: row.messagePreview?.trim() || undefined,
+    readAt: readRaw ? numFromSheet(row.readAt, 0) : undefined,
   };
 }
 
@@ -1531,6 +1534,12 @@ export function syncNotificationToSheetsForUser(
   const owner = userId?.trim();
   if (!owner) return;
   syncLater(() => upsertSheetRow("notifications", n.id, notificationToRow(n, owner)));
+}
+
+export function syncNotificationReadToSheets(n: AppNotification): void {
+  const userId = currentUserId();
+  if (!userId) return;
+  syncLater(() => upsertSheetRow("notifications", n.id, notificationToRow(n, userId)));
 }
 
 export function syncEventReminderToSheets(r: EventReminder): void {

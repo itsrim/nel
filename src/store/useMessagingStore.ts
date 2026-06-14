@@ -27,6 +27,7 @@ import {
   syncEventToSheets,
   syncFriendToSheets,
   syncNotificationToSheets,
+  syncNotificationReadToSheets,
   syncProfileDeleteToSheets,
   syncReportDeleteToSheets,
   syncReportToSheets,
@@ -610,6 +611,8 @@ interface MessagingState {
   removeMutualFriend: (profilId: string) => void;
   /** Fil Profil → Notifications (invitations sorties, etc.). */
   appNotifications: AppNotification[];
+  markNotificationRead: (notificationId: string) => void;
+  markAllNotificationsRead: () => void;
   /** File admin : signalements profils / sorties (onglet Signalements). */
   adminReports: AdminReportEntry[];
   submitAdminReport: (input: {
@@ -1509,6 +1512,34 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     get().showToast("Retiré de vos amis.");
   },
   appNotifications: [],
+  markNotificationRead: (notificationId) => {
+    const id = notificationId.trim();
+    if (!id) return;
+    set((s) => {
+      const current = s.appNotifications.find((n) => n.id === id);
+      if (!current || current.readAt != null) return s;
+      const updated: AppNotification = { ...current, readAt: Date.now() };
+      syncNotificationReadToSheets(updated);
+      return {
+        appNotifications: s.appNotifications.map((n) =>
+          n.id === id ? updated : n,
+        ),
+      };
+    });
+  },
+  markAllNotificationsRead: () =>
+    set((s) => {
+      const now = Date.now();
+      let changed = false;
+      const appNotifications = s.appNotifications.map((n) => {
+        if (n.readAt != null) return n;
+        changed = true;
+        const updated = { ...n, readAt: now };
+        syncNotificationReadToSheets(updated);
+        return updated;
+      });
+      return changed ? { appNotifications } : s;
+    }),
   adminReports: [],
   submitAdminReport: ({ kind, subjectId, subjectLabel, explanation }) => {
     const id = `rep_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;

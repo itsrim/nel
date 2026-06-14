@@ -106,6 +106,8 @@ export interface AppNotification {
   conversationId?: string;
   senderName?: string;
   messagePreview?: string;
+  /** Lu dans l’onglet Profil → Notifications. */
+  readAt?: number;
 }
 
 /** Signalement utilisateur → file admin (onglet Profil — démo). */

@@ -1,30 +1,59 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MessageCircle, Calendar, User, Handbag } from "lucide-react";
 import { useNavigationStore, type TabId } from "../store/useNavigationStore";
 import { useTranslation } from "../i18n/useTranslation";
 import type { TranslationKey } from "../i18n/translations";
+import { useMessagingStore } from "../store/useMessagingStore";
+import { useAuthStore } from "../store/useAuthStore";
+import { formatBadgeCount } from "../data/mockData";
+import {
+  countUnreadChatMessages,
+  countUnreadNotifications,
+} from "../lib/navBadges";
 import "./BottomNavigation.css";
 
 interface NavItem {
   id: TabId;
   labelKey: TranslationKey;
   icon: React.ComponentType<{ size?: number; className?: string }>;
+  badge?: "chat" | "profile";
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: "chat", labelKey: "navChat", icon: MessageCircle },
+  { id: "chat", labelKey: "navChat", icon: MessageCircle, badge: "chat" },
   { id: "events", labelKey: "navSortie", icon: Calendar },
   { id: "pro", labelKey: "pro", icon: Handbag },
-  { id: "profile", labelKey: "profile", icon: User },
+  { id: "profile", labelKey: "profile", icon: User, badge: "profile" },
 ];
 
 export function BottomNavigation() {
   const { activeTab, setActiveTab } = useNavigationStore();
   const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
+  const conversations = useMessagingStore((s) => s.conversations);
+  const events = useMessagingStore((s) => s.events);
+  const appNotifications = useMessagingStore((s) => s.appNotifications);
+  const isAdmin = useMessagingStore((s) => s.isAdmin);
   const innerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [indicator, setIndicator] = useState({ left: 0, width: 0 });
+
+  const unreadChatCount = useMemo(
+    () =>
+      countUnreadChatMessages({
+        adminModeActive: isAdmin,
+        user,
+        conversations,
+        events,
+      }),
+    [isAdmin, user, conversations, events],
+  );
+
+  const unreadNotificationCount = useMemo(
+    () => countUnreadNotifications(appNotifications),
+    [appNotifications],
+  );
 
   const activeIndex = NAV_ITEMS.findIndex((item) => item.id === activeTab);
 
@@ -68,6 +97,12 @@ export function BottomNavigation() {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
           const label = t(item.labelKey);
+          const badgeCount =
+            item.badge === "chat"
+              ? unreadChatCount
+              : item.badge === "profile"
+                ? unreadNotificationCount
+                : 0;
 
           return (
             <button
@@ -78,10 +113,26 @@ export function BottomNavigation() {
               type="button"
               className={`ftb-item ${isActive ? "ftb-item--active" : ""}`}
               onClick={() => setActiveTab(item.id)}
-              aria-label={label}
+              aria-label={
+                badgeCount > 0
+                  ? `${label}, ${badgeCount} ${t("unreadCount")}`
+                  : label
+              }
               aria-current={isActive ? "page" : undefined}
             >
-              <Icon size={isActive ? 22 : 20} className="ftb-icon" />
+              <span className="ftb-icon-wrap">
+                <span className="ftb-icon-anchor">
+                  <Icon size={isActive ? 22 : 20} className="ftb-icon" />
+                  {badgeCount > 0 ? (
+                    <span
+                      className={`ftb-badge ftb-badge--${item.badge}`}
+                      aria-hidden
+                    >
+                      {formatBadgeCount(badgeCount)}
+                    </span>
+                  ) : null}
+                </span>
+              </span>
               {isActive ? <span className="ftb-label">{label}</span> : null}
             </button>
           );
