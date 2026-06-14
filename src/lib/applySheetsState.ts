@@ -239,6 +239,31 @@ function ensureDerivedCatalogInStore(
     if (built.length > 0) patch.suggestions = built;
   }
 
+  if (
+    msg.profileVisits.length === 0 &&
+    msg.friendRequestSentProfilIds.length === 0 &&
+    !msg.friends.some((f) => f.mutualFriend === true) &&
+    msg.friendRequestRejectedProfilIds.length === 0
+  ) {
+    void import("../data/mockData").then((m) => {
+      const current = useMessagingStore.getState();
+      if (current.profileVisits.length > 0) return;
+      useMessagingStore.setState({
+        profileVisits: m.MOCK_VISITS,
+        friends:
+          current.friends.length > 0
+            ? current.friends
+            : m.MOCK_FRIENDS.filter((f) => f.mutualFriend === true),
+        friendRequestRejectedProfilIds:
+          current.friendRequestRejectedProfilIds.length > 0
+            ? current.friendRequestRejectedProfilIds
+            : ["u050", "u051", "u052"],
+        suggestions:
+          current.suggestions.length > 0 ? current.suggestions : m.MOCK_SUGGESTIONS,
+      });
+    });
+  }
+
   if (Object.keys(patch).length > 0) {
     useMessagingStore.setState(patch);
   }

@@ -115,6 +115,99 @@ function applyIncomingFriendRequest(
   useMessagingStore.getState().showToast(`Demande d'ami de ${name}`);
 }
 
+function applyFriendRequestAccepted(notif: AppNotification): void {
+  const accepterId = notif.inviteeProfilId?.trim();
+  if (!accepterId) return;
+  const accepterName = notif.senderName?.trim() || notif.inviteeName?.trim() || "Quelqu'un";
+
+  useMessagingStore.setState((s) => {
+    const visit = s.profileVisits.find((v) => v.id === accepterId);
+    const sug = s.suggestions.find((x) => x.id === accepterId);
+    const existing = s.friends.find((f) => f.profilId === accepterId);
+    const label = visit?.name ?? sug?.pseudo ?? existing?.name ?? accepterName;
+    const imageUrl =
+      visit?.avatarUrl ?? sug?.imageUrl ?? existing?.imageUrl ?? "";
+    const age = visit?.age ?? sug?.age ?? existing?.age ?? null;
+
+    let nextFriends = s.friends;
+    if (existing) {
+      nextFriends = s.friends.map((f) =>
+        f.profilId === accepterId ? { ...f, mutualFriend: true } : f,
+      );
+    } else {
+      nextFriends = [
+        ...s.friends,
+        {
+          profilId: accepterId,
+          name: label,
+          pseudo: label,
+          age,
+          city: "",
+          imageUrl,
+          eventsInCommon: 0,
+          mainChatConversationId: "",
+          mutualFriend: true,
+        },
+      ];
+    }
+
+    const already = s.appNotifications.some((n) => n.id === notif.id);
+    return {
+      friends: nextFriends,
+      friendRequestSentProfilIds: s.friendRequestSentProfilIds.filter(
+        (pid) => pid !== accepterId,
+      ),
+      appNotifications: already ? s.appNotifications : [notif, ...s.appNotifications],
+    };
+  });
+  useMessagingStore.getState().showToast(`${accepterName} a accepté votre demande d'ami.`);
+}
+
+function applyFriendRequestRejected(notif: AppNotification): void {
+  const rejectorId = notif.inviteeProfilId?.trim();
+  if (!rejectorId) return;
+  const rejectorName = notif.senderName?.trim() || notif.inviteeName?.trim() || "Quelqu'un";
+
+  useMessagingStore.setState((s) => {
+    const already = s.appNotifications.some((n) => n.id === notif.id);
+    const rejected = s.friendRequestRejectedProfilIds.includes(rejectorId)
+      ? s.friendRequestRejectedProfilIds
+      : [...s.friendRequestRejectedProfilIds, rejectorId];
+    return {
+      friendRequestSentProfilIds: s.friendRequestSentProfilIds.filter(
+        (pid) => pid !== rejectorId,
+      ),
+      friendRequestRejectedProfilIds: rejected,
+      appNotifications: already ? s.appNotifications : [notif, ...s.appNotifications],
+    };
+  });
+  useMessagingStore.getState().showToast(`${rejectorName} a refusé votre demande d'ami.`);
+}
+
+function applyEventInvite(notif: AppNotification): void {
+  useMessagingStore.setState((s) => {
+    const already = s.appNotifications.some((n) => n.id === notif.id);
+    const appNotifications = already
+      ? s.appNotifications
+      : [notif, ...s.appNotifications];
+    const eventId = notif.eventId?.trim();
+    const viewerId = useAuthStore.getState().user?.id?.trim();
+    const events =
+      eventId && viewerId
+        ? s.events.map((e) => {
+            if (e.id !== eventId) return e;
+            const invited = new Set(e.invitedProfilIds ?? []);
+            invited.add(viewerId);
+            return { ...e, invitedProfilIds: [...invited] };
+          })
+        : s.events;
+    return { appNotifications, events };
+  });
+  const host = notif.senderName?.trim() || "Quelqu'un";
+  const title = notif.eventTitle?.trim() || "un évènement";
+  useMessagingStore.getState().showToast(`${host} vous invite à « ${title} ».`);
+}
+
 function ensureSocketListeners(): void {
   const socket = getChatSocket();
   if (!socket || listenersAttached) return;
@@ -194,6 +287,33 @@ function ensureSocketListeners(): void {
         { ...visit, friendRequest: true },
         notification,
       );
+    },
+  );
+
+  socket.on(
+    "friend-request:accepted",
+    (payload: { notification?: AppNotification }) => {
+      const notification = payload?.notification;
+      if (!notification?.id || notification.kind !== "friend_request_accepted") return;
+      applyFriendRequestAccepted(notification);
+    },
+  );
+
+  socket.on(
+    "friend-request:rejected",
+    (payload: { notification?: AppNotification }) => {
+      const notification = payload?.notification;
+      if (!notification?.id || notification.kind !== "friend_request_rejected") return;
+      applyFriendRequestRejected(notification);
+    },
+  );
+
+  socket.on(
+    "event-invite:new",
+    (payload: { notification?: AppNotification }) => {
+      const notification = payload?.notification;
+      if (!notification?.id || notification.kind !== "event_invite_received") return;
+      applyEventInvite(notification);
     },
   );
 

@@ -74,6 +74,34 @@ export function emitFriendRequestRemote(payload: {
   });
 }
 
+export function emitFriendRequestRespondRemote(payload: {
+  recipientUserId: string;
+  action: "accepted" | "rejected";
+  notification: AppNotification;
+}): void {
+  const s = getChatSocket();
+  if (!s) return;
+
+  s.emit("friend-request:respond", {
+    recipientUserId: payload.recipientUserId,
+    action: payload.action,
+    notification: payload.notification,
+  });
+}
+
+export function emitEventInviteRemote(payload: {
+  recipientUserId: string;
+  notification: AppNotification;
+}): void {
+  const s = getChatSocket();
+  if (!s) return;
+
+  s.emit("event-invite:send", {
+    recipientUserId: payload.recipientUserId,
+    notification: payload.notification,
+  });
+}
+
 export async function checkChatApiHealth(): Promise<boolean> {
   if (!isChatApiConfigured()) return false;
   try {

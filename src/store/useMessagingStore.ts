@@ -13,7 +13,12 @@ import {
   type WaitlistEntry,
 } from "../data/mockData";
 import { isChatApiConfigured } from "../lib/chatConfig";
-import { emitFriendRequestRemote, sendMessageRemote } from "../lib/chatSocket";
+import {
+  emitEventInviteRemote,
+  emitFriendRequestRemote,
+  emitFriendRequestRespondRemote,
+  sendMessageRemote,
+} from "../lib/chatSocket";
 import { useLanguageStore } from "./useLanguageStore";
 import { resolveMessageAccessFromStores } from "../lib/accessScope";
 import { saveHistory, type PersistedMessage } from "../lib/chatPersistence";
@@ -1601,6 +1606,29 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     if (updated) syncFriendToSheets(updated);
     syncViewerSettingsFromState(get());
     get().showToast("Demande acceptée.");
+
+    const accepter = useAuthStore.getState().user;
+    const accepterId = accepter?.id?.trim() ?? "";
+    if (accepterId && accepterId !== id) {
+      const accepterName =
+        get().viewerProfileDisplayName.trim() ||
+        accepter?.displayName?.trim() ||
+        "Quelqu'un";
+      const notif: AppNotification = {
+        id: `n_fra_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        createdAt: Date.now(),
+        kind: "friend_request_accepted",
+        inviteeProfilId: accepterId,
+        inviteeName: accepterName,
+        senderName: accepterName,
+      };
+      syncNotificationToSheetsForUser(notif, id);
+      emitFriendRequestRespondRemote({
+        recipientUserId: id,
+        action: "accepted",
+        notification: notif,
+      });
+    }
   },
   rejectFriendRequest: (profilId) => {
     const id = profilId.trim();
@@ -1617,6 +1645,29 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     }));
     syncViewerSettingsFromState(get());
     get().showToast("Demande refusée.");
+
+    const rejector = useAuthStore.getState().user;
+    const rejectorId = rejector?.id?.trim() ?? "";
+    if (rejectorId && rejectorId !== id) {
+      const rejectorName =
+        get().viewerProfileDisplayName.trim() ||
+        rejector?.displayName?.trim() ||
+        "Quelqu'un";
+      const notif: AppNotification = {
+        id: `n_frr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        createdAt: Date.now(),
+        kind: "friend_request_rejected",
+        inviteeProfilId: rejectorId,
+        inviteeName: rejectorName,
+        senderName: rejectorName,
+      };
+      syncNotificationToSheetsForUser(notif, id);
+      emitFriendRequestRespondRemote({
+        recipientUserId: id,
+        action: "rejected",
+        notification: notif,
+      });
+    }
   },
   removeMutualFriend: (profilId) => {
     const id = profilId.trim();
@@ -2588,7 +2639,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     const firstName = friend.name.trim().split(/\s+/)[0] || friend.name;
     const systemText = `${hostName} a invité ${firstName} — une notification lui a été envoyée pour « ${event.title} ».`;
 
-    const notif: AppNotification = {
+    const organizerNotif: AppNotification = {
       id: `n_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
       createdAt: Date.now(),
       kind: "event_invite_sent",
@@ -2596,6 +2647,18 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       eventTitle: event.title,
       inviteeName: friend.name,
       inviteeProfilId: friend.profilId,
+      readAt: Date.now(),
+    };
+
+    const inviteeNotif: AppNotification = {
+      id: `n_ei_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: Date.now(),
+      kind: "event_invite_received",
+      eventId: event.id,
+      eventTitle: event.title,
+      inviteeProfilId: friend.profilId,
+      inviteeName: friend.name,
+      senderName: hostName,
     };
 
     const msg: Message = {
@@ -2621,10 +2684,15 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         invitedProfilIds: [...(event.invitedProfilIds ?? []), friend.profilId],
       };
       syncEventToSheets(nextEvent);
-      syncNotificationToSheets(notif);
+      syncNotificationToSheets(organizerNotif);
+      syncNotificationToSheetsForUser(inviteeNotif, friend.profilId);
+      emitEventInviteRemote({
+        recipientUserId: friend.profilId,
+        notification: inviteeNotif,
+      });
       return {
         events: s.events.map((e) => (e.id === eventId ? nextEvent : e)),
-        appNotifications: [notif, ...s.appNotifications],
+        appNotifications: [organizerNotif, ...s.appNotifications],
         messagesByConversation: nextMsgs,
         conversations: s.conversations.map((c) =>
           c.id === event.conversationId
@@ -2681,6 +2749,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         messagesByConversation: m.MOCK_MESSAGES,
         friends: m.MOCK_FRIENDS,
         suggestions: m.MOCK_SUGGESTIONS,
+        profileVisits: m.MOCK_VISITS,
         friendRequestRejectedProfilIds: ["u050", "u051", "u052"],
       });
     });

@@ -499,6 +499,12 @@ export const translations = {
     friendRequestDeclined: "Demande refusée.",
     notifFriendRequestTitle: "Demande d'ami",
     notifFriendRequestBody: "{name} souhaite vous ajouter en ami.",
+    notifFriendRequestAcceptedTitle: "Demande acceptée",
+    notifFriendRequestAcceptedBody: "{name} a accepté votre demande d'ami.",
+    notifFriendRequestRejectedTitle: "Demande refusée",
+    notifFriendRequestRejectedBody: "{name} a refusé votre demande d'ami.",
+    notifEventInviteReceivedTitle: "Invitation à un évènement",
+    notifEventInviteReceivedBody: "{name} vous invite à « {event} ».",
 
     // ProfilePage organization
     youOrganize: "Vous organisez",
@@ -1174,6 +1180,12 @@ export const translations = {
     friendRequestDeclined: "Request declined.",
     notifFriendRequestTitle: "Friend request",
     notifFriendRequestBody: "{name} wants to add you as a friend.",
+    notifFriendRequestAcceptedTitle: "Request accepted",
+    notifFriendRequestAcceptedBody: "{name} accepted your friend request.",
+    notifFriendRequestRejectedTitle: "Request declined",
+    notifFriendRequestRejectedBody: "{name} declined your friend request.",
+    notifEventInviteReceivedTitle: "Event invitation",
+    notifEventInviteReceivedBody: "{name} invited you to « {event} ».",
 
     // ProfilePage organization
     youOrganize: "You organize",

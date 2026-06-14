@@ -8,8 +8,8 @@ import { useMessagingStore } from "../store/useMessagingStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatBadgeCount } from "../data/mockData";
 import {
+  countProfileNavBadge,
   countUnreadChatMessages,
-  countUnreadNotifications,
 } from "../lib/navBadges";
 import "./BottomNavigation.css";
 
@@ -34,6 +34,8 @@ export function BottomNavigation() {
   const conversations = useMessagingStore((s) => s.conversations);
   const events = useMessagingStore((s) => s.events);
   const appNotifications = useMessagingStore((s) => s.appNotifications);
+  const profileVisits = useMessagingStore((s) => s.profileVisits);
+  const friends = useMessagingStore((s) => s.friends);
   const isAdmin = useMessagingStore((s) => s.isAdmin);
   const innerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -50,9 +52,14 @@ export function BottomNavigation() {
     [isAdmin, user, conversations, events],
   );
 
-  const unreadNotificationCount = useMemo(
-    () => countUnreadNotifications(appNotifications),
-    [appNotifications],
+  const profileBadgeCount = useMemo(
+    () =>
+      countProfileNavBadge({
+        appNotifications,
+        profileVisits,
+        friends,
+      }),
+    [appNotifications, profileVisits, friends],
   );
 
   const activeIndex = NAV_ITEMS.findIndex((item) => item.id === activeTab);
@@ -99,7 +106,7 @@ export function BottomNavigation() {
           const label = t(item.labelKey);
           const showChatBadge = item.badge === "chat" && unreadChatCount > 0;
           const showProfileBadge =
-            item.badge === "profile" && unreadNotificationCount > 0;
+            item.badge === "profile" && profileBadgeCount > 0;
           const ariaLabel =
             showProfileBadge || showChatBadge
               ? `${label}, ${t("unreadCount")}`
@@ -127,7 +134,7 @@ export function BottomNavigation() {
                   ) : null}
                   {showProfileBadge ? (
                     <span className="ftb-badge ftb-badge--profile" aria-hidden>
-                      {formatBadgeCount(unreadNotificationCount)}
+                      {formatBadgeCount(profileBadgeCount)}
                     </span>
                   ) : null}
                 </span>

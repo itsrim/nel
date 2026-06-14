@@ -978,6 +978,118 @@
     color: #fff;
 }
 
+/* Friends tab — même cartes que Visites (Chat) */
+.friends-network-list {
+    padding: 0 4px;
+}
+
+.friends-network-list .visit-card {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    background: #121212;
+    border-radius: 16px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.friends-network-list .visit-card--friends:focus-visible {
+    outline: 2px solid #8B5CF6;
+    outline-offset: 2px;
+}
+
+.friends-network-list .visit-avatar-wrap {
+    position: relative;
+    width: 58px;
+    height: 58px;
+    flex-shrink: 0;
+}
+
+.friends-network-list .visit-avatar {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #1c1c1e;
+}
+
+.friends-network-list .visit-friend-badge {
+    position: absolute;
+    left: -4px;
+    top: -4px;
+    max-width: 92px;
+    padding: 3px 6px;
+    border-radius: 8px;
+    background: #FF4081;
+    border: 2px solid #121212;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+}
+
+.friends-network-list .visit-card-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.friends-network-list .visit-name-age {
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.friends-network-list .visit-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.friends-network-list .visit-time {
+    color: #8E8E93;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.friends-network-list .visit-like-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #6B21A8, #8B5CF6);
+    padding: 10px 16px;
+    border-radius: 22px;
+    border: none;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.friends-network-list .visit-like-btn--sent {
+    background: #3a3a3c;
+    opacity: 0.92;
+}
+
+.friends-network-list .visit-like-btn--friend {
+    background: #2c4a3e;
+}
+
+.friends-network-list .visit-like-btn--rejected {
+    background: #3a3428;
+}
+
+.friends-network-list .friend-network-incoming-actions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    margin-top: 4px;
+    padding-left: 70px;
+}
+
 .view-btn {
     background: linear-gradient(135deg, #6B21A8, #8B5CF6);
     border: none;

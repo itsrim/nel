@@ -1,4 +1,10 @@
-import type { AppNotification, Conversation, Event } from "../data/mockData";
+import type {
+  AppNotification,
+  Conversation,
+  Event,
+  Friend,
+  ProfileVisit,
+} from "../data/mockData";
 import {
   isConversationAccessible,
   resolveConversationAccessScope,
@@ -9,6 +15,25 @@ export function countUnreadNotifications(
   notifications: readonly AppNotification[],
 ): number {
   return notifications.filter((n) => n.readAt == null).length;
+}
+
+/** Pastille Profil (barre du bas) : notifs non lues + demandes reçues sans doublon. */
+export function countProfileNavBadge(input: {
+  appNotifications: readonly AppNotification[];
+  profileVisits: readonly ProfileVisit[];
+  friends: readonly Friend[];
+}): number {
+  const unread = countUnreadNotifications(input.appNotifications);
+  const incomingRequests = input.profileVisits.filter(
+    (v) =>
+      v.friendRequest &&
+      !input.friends.some((f) => f.profilId === v.id && f.mutualFriend === true),
+  ).length;
+  const unreadFriendRequestNotifs = input.appNotifications.filter(
+    (n) => n.kind === "friend_request_received" && n.readAt == null,
+  ).length;
+  const extraIncoming = Math.max(0, incomingRequests - unreadFriendRequestNotifs);
+  return unread + extraIncoming;
 }
 
 export function countUnreadChatMessages(input: {

@@ -125,6 +125,88 @@ export function registerChatSocket(io: Server) {
       },
     );
 
+    socket.on(
+      "friend-request:respond",
+      (payload: {
+        recipientUserId?: string;
+        action?: string;
+        notification?: {
+          id?: string;
+          createdAt?: number;
+          kind?: string;
+          inviteeProfilId?: string;
+          inviteeName?: string;
+          senderName?: string;
+        };
+      }) => {
+        const recipientUserId = payload?.recipientUserId?.trim();
+        const action = payload?.action?.trim();
+        const notification = payload?.notification;
+        if (!recipientUserId || recipientUserId === user.id) return;
+        if (action !== "accepted" && action !== "rejected") return;
+        if (!notification?.id) return;
+
+        const expectedKind =
+          action === "accepted"
+            ? "friend_request_accepted"
+            : "friend_request_rejected";
+        if (notification.kind !== expectedKind) return;
+        if (notification.inviteeProfilId?.trim() !== user.id) return;
+
+        const eventName =
+          action === "accepted" ? "friend-request:accepted" : "friend-request:rejected";
+
+        io.to(userRoom(recipientUserId)).emit(eventName, {
+          notification: {
+            id: notification.id,
+            createdAt: notification.createdAt ?? Date.now(),
+            kind: expectedKind,
+            inviteeProfilId: user.id,
+            inviteeName:
+              notification.inviteeName?.trim() || user.displayName,
+            senderName: notification.senderName?.trim() || user.displayName,
+          },
+        });
+      },
+    );
+
+    socket.on(
+      "event-invite:send",
+      (payload: {
+        recipientUserId?: string;
+        notification?: {
+          id?: string;
+          createdAt?: number;
+          kind?: string;
+          eventId?: string;
+          eventTitle?: string;
+          inviteeProfilId?: string;
+          inviteeName?: string;
+          senderName?: string;
+        };
+      }) => {
+        const recipientUserId = payload?.recipientUserId?.trim();
+        const notification = payload?.notification;
+        if (!recipientUserId || recipientUserId === user.id) return;
+        if (!notification?.id || notification.kind !== "event_invite_received") return;
+        if (notification.inviteeProfilId?.trim() !== recipientUserId) return;
+        if (!notification.eventId?.trim()) return;
+
+        io.to(userRoom(recipientUserId)).emit("event-invite:new", {
+          notification: {
+            id: notification.id,
+            createdAt: notification.createdAt ?? Date.now(),
+            kind: "event_invite_received",
+            eventId: notification.eventId.trim(),
+            eventTitle: notification.eventTitle?.trim() || "",
+            inviteeProfilId: recipientUserId,
+            inviteeName: notification.inviteeName?.trim() || "",
+            senderName: notification.senderName?.trim() || user.displayName,
+          },
+        });
+      },
+    );
+
     socket.on("message:send", async (payload: PostMessageBody & { conversationId?: string }) => {
       const conversationId = payload?.conversationId?.trim();
       if (!conversationId) {
