@@ -1,0 +1,326 @@
+/* Overrides mode clair — complète les variables définies dans App.css */
+
+[data-theme="light"] .sub-tab--active {
+  border-bottom-color: var(--tab-active-underline);
+}
+
+[data-theme="light"] .sub-tab--active .sub-tab-label,
+[data-theme="light"] .conv-name,
+[data-theme="light"] .conv-preview,
+[data-theme="light"] .conv-time,
+[data-theme="light"] .cr-title,
+[data-theme="light"] .cr-back-btn,
+[data-theme="light"] .cr-icon-btn,
+[data-theme="light"] .cr-text,
+[data-theme="light"] .cr-author,
+[data-theme="light"] .p-tab--active .p-tab-inner span,
+[data-theme="light"] .profile-field-label,
+[data-theme="light"] .profile-field-value,
+[data-theme="light"] .profile-email-value,
+[data-theme="light"] .notification-title,
+[data-theme="light"] .notification-body,
+[data-theme="light"] .events-section-title,
+[data-theme="light"] .events-top5-title,
+[data-theme="light"] .events-empty,
+[data-theme="light"] .ed-title,
+[data-theme="light"] .ed-section-title,
+[data-theme="light"] .ed-meta-text,
+[data-theme="light"] .ed-participant-name,
+[data-theme="light"] .pros-title,
+[data-theme="light"] .pros-card-name,
+[data-theme="light"] .pros-card-desc,
+[data-theme="light"] .op-name,
+[data-theme="light"] .op-stat-value,
+[data-theme="light"] .op-stat-label,
+[data-theme="light"] .visit-name-age,
+[data-theme="light"] .chat-user-search-name,
+[data-theme="light"] .modal-header h3,
+[data-theme="light"] .setting-label,
+[data-theme="light"] .cs-header-kicker,
+[data-theme="light"] .cs-toggle-label,
+[data-theme="light"] .cs-member-name {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .sub-tab-label,
+[data-theme="light"] .conv-sub,
+[data-theme="light"] .cr-subtitle,
+[data-theme="light"] .p-tab-inner span,
+[data-theme="light"] .notification-meta,
+[data-theme="light"] .visit-time,
+[data-theme="light"] .chat-user-search-sub,
+[data-theme="light"] .setting-sub,
+[data-theme="light"] .profile-email-field,
+[data-theme="light"] .cs-section-title,
+[data-theme="light"] .cs-member-role {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .p-tab--active {
+  border-bottom-color: var(--tab-active-underline);
+}
+
+[data-theme="light"] .conv-row-inner,
+[data-theme="light"] .visit-card,
+[data-theme="light"] .notification-card,
+[data-theme="light"] .profile-cal-day,
+[data-theme="light"] .profile-event-card,
+[data-theme="light"] .modal-content,
+[data-theme="light"] .setting-item,
+[data-theme="light"] .profile-email-readonly,
+[data-theme="light"] .ed-participant-row,
+[data-theme="light"] .ed-waitlist-row,
+[data-theme="light"] .pros-card-body,
+[data-theme="light"] .chat-user-search-row,
+[data-theme="light"] .premium-banner {
+  background: var(--surface-card);
+}
+
+[data-theme="light"] .cr-header,
+[data-theme="light"] .cr-input-bar,
+[data-theme="light"] .cs-panel {
+  background-color: var(--surface-elevated);
+  border-color: var(--border-subtle);
+}
+
+[data-theme="light"] .cr-header {
+  border-bottom-color: var(--border-subtle);
+}
+
+[data-theme="light"] .other .cr-bubble {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .cs-toggle-row,
+[data-theme="light"] .cs-member-row {
+  border-bottom-color: var(--border-subtle);
+}
+
+[data-theme="light"] .ed-footer,
+[data-theme="light"] .ed-content {
+  background-color: var(--bg-primary);
+}
+
+[data-theme="light"] .ed-footer {
+  border-top-color: var(--border-subtle);
+}
+
+[data-theme="light"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] .nel-toast {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: var(--text-primary);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] * {
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+[data-theme="light"] *::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+}
+
+/* ── EventCard ── */
+[data-theme="light"] .ecard {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+}
+
+[data-theme="light"] .ecard-title,
+[data-theme="light"] .ecard-body {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .ecard-meta {
+  color: var(--text-secondary);
+}
+
+/* ── Bottom navigation ── */
+[data-theme="light"] .floating-tab-bar-inner {
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(251, 191, 36, 0.35) inset,
+    0 0 18px rgba(251, 191, 36, 0.2);
+}
+
+[data-theme="light"] .ftb-item:not(.ftb-item--active) {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .ftb-item:hover:not(.ftb-item--active) {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .ftb-badge {
+  border-color: rgba(255, 255, 255, 0.96);
+}
+
+/* ── Chat room input ── */
+[data-theme="light"] .cr-input-bar {
+  background-color: var(--bg-primary);
+  border-top-color: var(--border-subtle);
+}
+
+[data-theme="light"] .cr-input,
+[data-theme="light"] .cr-attach-btn,
+[data-theme="light"] .cr-send-btn {
+  background: var(--surface-elevated);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .cr-input::placeholder {
+  color: var(--text-secondary);
+}
+
+/* ── Event detail ── */
+[data-theme="light"] .ed-info-card,
+[data-theme="light"] .ed-participant-placeholder,
+[data-theme="light"] .ed-chat-btn,
+[data-theme="light"] .ed-join-btn {
+  background-color: var(--surface-elevated);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .ed-info-label,
+[data-theme="light"] .ed-count-pair,
+[data-theme="light"] .ed-price-amount,
+[data-theme="light"] .ed-join-btn-label {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .ed-info-sub,
+[data-theme="light"] .ed-count,
+[data-theme="light"] .ed-price-label,
+[data-theme="light"] .ed-past-hint {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .ed-join-btn-karma {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .ed-footer {
+  background-color: var(--bg-secondary);
+}
+
+[data-theme="light"] button.ed-participant-placeholder--invite {
+  border-color: rgba(251, 191, 36, 0.65);
+}
+
+/* ── Report modal ── */
+[data-theme="light"] .rm-panel {
+  background: var(--surface-card);
+  border-color: var(--border-subtle);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .rm-title,
+[data-theme="light"] .rm-label {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .rm-hint,
+[data-theme="light"] .rm-required {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .rm-textarea {
+  background: var(--surface-elevated);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .rm-textarea::placeholder {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .rm-btn--ghost {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+
+/* ── Profile ── */
+[data-theme="light"] .bio-card,
+[data-theme="light"] .stats-row,
+[data-theme="light"] .p-event-row {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+}
+
+[data-theme="light"] .profile-tabs {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .bio-text,
+[data-theme="light"] .stat-num,
+[data-theme="light"] .p-event-title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .member-since,
+[data-theme="light"] .stat-label,
+[data-theme="light"] .p-event-meta,
+[data-theme="light"] .pro-contact-edit-label,
+[data-theme="light"] .profile-email-readonly {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .profile-email-readonly,
+[data-theme="light"] .bio-textarea {
+  background: var(--surface-elevated);
+}
+
+[data-theme="light"] .bio-divider {
+  background: var(--border-subtle);
+}
+
+[data-theme="light"] .empty-hint {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .admin-report-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+}
+
+[data-theme="light"] .admin-report-main:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .ed-description {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .pro-contact-link {
+  background: var(--surface-elevated);
+  border-color: var(--border-subtle);
+}
+
+[data-theme="light"] .pro-contact-input {
+  background: var(--surface-elevated);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .pro-contact-section-title,
+[data-theme="light"] .pro-profile-detail-row--muted,
+[data-theme="light"] .pro-profile-detail-empty {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .pro-verify-admin {
+  background: var(--surface-elevated);
+  border-color: var(--border-subtle);
+}
+
+[data-theme="light"] .pro-verify-admin-hint {
+  color: var(--text-secondary);
+}

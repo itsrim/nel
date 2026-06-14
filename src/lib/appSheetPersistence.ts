@@ -523,7 +523,7 @@ function rowToProfessional(row: Record<string, string>): MockProfessional {
     mapY,
     lat: str(row.lat) ? numFromSheet(row.lat) : undefined,
     lng: str(row.lng) ? numFromSheet(row.lng) : undefined,
-    verified: row.verified != null ? boolFromSheet(row.verified) : undefined,
+    verified: row.verified != null ? boolFromSheet(row.verified) : false,
     websiteUrl: str(row.websiteUrl) || undefined,
     socialUrl: str(row.socialUrl) || undefined,
     phone: str(row.phone) || undefined,

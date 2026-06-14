@@ -44,7 +44,7 @@ export function buildViewerProfessional(input: {
     mapY: 50,
     lat: input.lat,
     lng: input.lng,
-    verified: true,
+    verified: false,
     websiteUrl: input.websiteUrl.trim() || undefined,
     socialUrl: input.socialUrl.trim() || undefined,
     phone: input.phone.trim() || undefined,

@@ -37,6 +37,8 @@ export const translations = {
     cardCvcInvalid: "Code CVC invalide.",
     adminMode: "Mode Admin",
     adminModeSub: "Accès aux outils de modération",
+    darkMode: "Mode sombre",
+    darkModeSub: "Interface sombre (activé par défaut)",
     adminInfoTab: "Info",
     adminInfoSkipEmailLabel: "Inscription sans vérification email",
     adminInfoSkipEmailSub:
@@ -131,6 +133,8 @@ export const translations = {
     cancel: "Annuler",
     save: "Enregistrer",
     verified: "Profil vérifié",
+    adminProVerifiedTitle: "Vérification Pro",
+    adminProVerifiedSub: "Activé manuellement par un admin — pastille visible sur l’annuaire Pro.",
 
     // Empty states
     noFavoritesUpcoming:
@@ -700,6 +704,8 @@ export const translations = {
     cardCvcInvalid: "Invalid CVC code.",
     adminMode: "Admin Mode",
     adminModeSub: "Access to moderation tools",
+    darkMode: "Dark mode",
+    darkModeSub: "Dark interface (default)",
     adminInfoTab: "Info",
     adminInfoSkipEmailLabel: "Sign up without email verification",
     adminInfoSkipEmailSub:
@@ -794,6 +800,8 @@ export const translations = {
     cancel: "Cancel",
     save: "Save",
     verified: "Verified profile",
+    adminProVerifiedTitle: "Pro verification",
+    adminProVerifiedSub: "Manually enabled by an admin — badge shown in the Pro directory.",
 
     // Empty states
     noFavoritesUpcoming:

@@ -1,12 +1,33 @@
+[data-theme="dark"],
 :root {
   --bg-primary: #000000;
   --bg-secondary: #0a0a0a;
   --text-primary: #ffffff;
-  --text-secondary: #8E8E93;
-  --accent-gold: #FFD60A;
-  --accent-pink: #FF4081;
-  --accent-purple: #8B5CF6;
+  --text-secondary: #8e8e93;
+  --surface-card: #1c1c1e;
+  --surface-elevated: #2c2c2e;
+  --surface-muted: #141414;
+  --border-subtle: #3a3a3c;
+  --tab-active-underline: #ffffff;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.1);
+  --accent-gold: #ffd60a;
+  --accent-pink: #ff4081;
+  --accent-purple: #8b5cf6;
   --tab-bar-bg: rgba(25, 30, 25, 0.95);
+}
+
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f2f2f7;
+  --text-primary: #000000;
+  --text-secondary: #6e6e73;
+  --surface-card: #ffffff;
+  --surface-elevated: #f2f2f7;
+  --surface-muted: #e5e5ea;
+  --border-subtle: #d1d1d6;
+  --tab-active-underline: #000000;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+  --tab-bar-bg: rgba(255, 255, 255, 0.94);
 }
 
 .app {
@@ -24,7 +45,8 @@
   -webkit-overflow-scrolling: touch;
 }
 
-.app.dark {
+.app.dark,
+.app.light {
   background-color: var(--bg-primary);
   color: var(--text-primary);
 }

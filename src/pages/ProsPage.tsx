@@ -90,6 +90,7 @@ export function ProsPage() {
   const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
 
   const professionalsWithViewer = useMemo(() => {
+    const storedViewer = professionals.find((p) => p.id === VIEWER_PRO_ID);
     const viewerPro = viewerProAccess
       ? buildViewerProfessional({
           displayName: viewerProfileDisplayName,
@@ -104,8 +105,11 @@ export function ProsPage() {
         })
       : null;
     if (!viewerPro) return professionals;
+    const mergedViewer = storedViewer
+      ? { ...viewerPro, ...storedViewer, verified: storedViewer.verified === true }
+      : { ...viewerPro, verified: false };
     return [
-      viewerPro,
+      mergedViewer,
       ...professionals.filter((p) => p.id !== VIEWER_PRO_ID),
     ];
   }, [

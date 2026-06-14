@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   AlertTriangle,
   Award,
@@ -14,7 +14,8 @@ import { ReportModal } from "../components/ReportModal";
 import { ProProfileDetails } from "../components/ProProfileDetails";
 import { useTranslation } from "../i18n/useTranslation";
 import { proDemoStats, proFullName } from "../data/mockProfessionals";
-import { getProfessionalById } from "../store/useProsStore";
+import { getProfessionalById, useProsStore } from "../store/useProsStore";
+import { adminSetProfessionalVerified } from "../lib/proVerification";
 import "./OtherProfilePage.css";
 import "./ProProfilePage.css";
 import "../components/ProContactLinks.css";
@@ -26,10 +27,45 @@ interface ProProfilePageProps {
 export function ProProfilePage({ id }: ProProfilePageProps) {
   const { t } = useTranslation();
   const { openDetail, setActiveTab, closeDetail } = useNavigationStore();
-  const { openOrCreateDmConversation } = useMessagingStore();
+  const { openOrCreateDmConversation, isAdmin } = useMessagingStore();
+  const professionals = useProsStore((s) => s.professionals);
+  const {
+    viewerProfileDisplayName,
+    viewerProfileAvatarUrl,
+    viewerProfileCity,
+    viewerProAddress,
+    viewerProLat,
+    viewerProLng,
+    viewerProWebsiteUrl,
+    viewerProSocialUrl,
+    viewerProPhone,
+  } = useMessagingStore();
   const [reportOpen, setReportOpen] = useState(false);
 
-  const pro = getProfessionalById(id);
+  const pro = useMemo(
+    () => getProfessionalById(id),
+    [
+      id,
+      professionals,
+      viewerProfileDisplayName,
+      viewerProfileAvatarUrl,
+      viewerProfileCity,
+      viewerProAddress,
+      viewerProLat,
+      viewerProLng,
+      viewerProWebsiteUrl,
+      viewerProSocialUrl,
+      viewerProPhone,
+    ],
+  );
+
+  const handleAdminVerifiedToggle = useCallback(
+    (verified: boolean) => {
+      if (!pro) return;
+      adminSetProfessionalVerified(pro, verified);
+    },
+    [pro],
+  );
   if (!pro) return null;
 
   const stats = proDemoStats(pro.id);
@@ -142,6 +178,23 @@ export function ProProfilePage({ id }: ProProfilePageProps) {
           <MessageCircle size={20} aria-hidden />
           {t("proContactButton")}
         </button>
+
+        {isAdmin ? (
+          <div className="pro-verify-admin">
+            <h2 className="op-section-title">{t("adminProVerifiedTitle")}</h2>
+            <label className="op-admin-check pro-verify-admin-check">
+              <input
+                type="checkbox"
+                className="switch"
+                checked={!!pro.verified}
+                onChange={(e) => handleAdminVerifiedToggle(e.target.checked)}
+                aria-label={t("verified")}
+              />
+              <span>{t("verified")}</span>
+            </label>
+            <p className="pro-verify-admin-hint">{t("adminProVerifiedSub")}</p>
+          </div>
+        ) : null}
       </div>
 
       <ReportModal

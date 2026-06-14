@@ -37,10 +37,12 @@ import {
   Info,
   RefreshCw,
   Mail,
+  Moon,
 } from "lucide-react";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useLanguageStore } from "../store/useLanguageStore";
+import { useThemeStore } from "../store/useThemeStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
 import {
@@ -70,6 +72,8 @@ import { geocodeProAddress, isPlausibleProAddress } from "../lib/proGeocode";
 import { scrollLockSurfaceAttr, useLockBodyScroll } from "../lib/useLockBodyScroll";
 import { hasViewerProAccess } from "../lib/viewerEntitlements";
 import { countUnreadNotifications } from "../lib/navBadges";
+import { VIEWER_PRO_ID } from "../lib/proLocation";
+import { useProsStore } from "../store/useProsStore";
 import "./ProfilePage.css";
 
 type TabId =
@@ -146,6 +150,8 @@ function fillNotifTemplate(
 export function ProfilePage() {
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguageStore();
+  const isDarkMode = useThemeStore((s) => s.isDarkMode);
+  const setDarkMode = useThemeStore((s) => s.setDarkMode);
   const { logout, user, setUser } = useAuthStore();
   const {
     events,
@@ -199,6 +205,16 @@ export function ProfilePage() {
     conversations,
   } = useMessagingStore();
   const viewerProAccess = useMessagingStore(hasViewerProAccess);
+  const professionals = useProsStore((s) => s.professionals);
+  const viewerProfileVerified = useMemo(() => {
+    if (!user?.id) return false;
+    const fromPro = professionals.some(
+      (p) =>
+        (p.id === VIEWER_PRO_ID || p.id === user.id) && p.verified === true,
+    );
+    if (fromPro) return true;
+    return friends.some((f) => f.profilId === user.id && f.verified === true);
+  }, [professionals, user?.id, friends]);
   const { openDetail } = useNavigationStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const splashFileInputRef = useRef<HTMLInputElement>(null);
@@ -581,10 +597,12 @@ export function ProfilePage() {
             </div>
           )}
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-            <div className="verified-badge">
-              <ShieldCheck size={16} color="#22C55E" />
-              <span>{t("verified")}</span>
-            </div>
+            {viewerProfileVerified ? (
+              <div className="verified-badge">
+                <ShieldCheck size={16} color="#22C55E" />
+                <span>{t("verified")}</span>
+              </div>
+            ) : null}
             {viewerProAccess && (
               <div className="pro-badge">
                 <Award size={16} color="#FFD60A" />
@@ -1571,6 +1589,22 @@ export function ProfilePage() {
                   />
                 </div>
                 ) : null}
+                <div className="setting-item">
+                  <div className="setting-icon blue">
+                    <Moon size={20} />
+                  </div>
+                  <div className="setting-text">
+                    <div className="setting-label">{t("darkMode")}</div>
+                    <div className="setting-sub">{t("darkModeSub")}</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={isDarkMode}
+                    onChange={(e) => setDarkMode(e.target.checked)}
+                    className="switch"
+                    aria-label={t("darkMode")}
+                  />
+                </div>
                 <div className="setting-item">
                   <div className="setting-icon blue">
                     <Globe size={20} />

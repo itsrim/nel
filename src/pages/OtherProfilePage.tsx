@@ -23,6 +23,7 @@ import { ReportModal } from '../components/ReportModal';
 import { ProProfileDetails } from '../components/ProProfileDetails';
 import { ProfileKarmaBadge } from '../components/ProfileKarmaBadge';
 import { KARMA_DEFAULT } from '../lib/karma';
+import { syncProfessionalVerifiedFromProfile } from '../lib/proVerification';
 import { canManageProfileBadges } from '../lib/accountRoles';
 import { useAuthStore } from '../store/useAuthStore';
 import { hasReachedDailyFriendRequestLimit } from '../lib/eventDateKey';
@@ -239,6 +240,9 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
         friends: Number.isFinite(friendsNum) ? friendsNum : 0,
       },
     });
+    if (adminDraft.isPro) {
+      syncProfessionalVerifiedFromProfile(id, adminDraft.verified);
+    }
     setAdminEditing(false);
   }, [adminDraft, id, updateProfile]);
 

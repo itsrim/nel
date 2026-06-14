@@ -17,8 +17,8 @@ body,
 body {
   margin: 0;
   padding: 0;
-  background-color: #000000;
-  color: #ffffff;
+  background-color: var(--bg-primary, #000000);
+  color: var(--text-primary, #ffffff);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

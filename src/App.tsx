@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useEffect, useState, useCallback } from "react";
+import { useThemeStore } from "./store/useThemeStore";
 import {
   useNavigationStore,
   type DetailState,
@@ -63,6 +64,7 @@ function renderDetailContent(detail: DetailState) {
 }
 
 function App() {
+  const isDarkMode = useThemeStore((s) => s.isDarkMode);
   const { activeTab, detailStack } = useNavigationStore();
   const toast = useMessagingStore((s) => s.toast);
   const conversations = useMessagingStore((s) => s.conversations);
@@ -227,7 +229,7 @@ function App() {
   };
 
   return (
-    <div className="app dark">
+    <div className={`app ${isDarkMode ? "dark" : "light"}`}>
       <main ref={mainRef} className="app-content">
         {renderTab()}
         {renderDetailStack()}
