@@ -97,12 +97,13 @@ export function BottomNavigation() {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
           const label = t(item.labelKey);
-          const badgeCount =
-            item.badge === "chat"
-              ? unreadChatCount
-              : item.badge === "profile"
-                ? unreadNotificationCount
-                : 0;
+          const showChatBadge = item.badge === "chat" && unreadChatCount > 0;
+          const showProfileBadge =
+            item.badge === "profile" && unreadNotificationCount > 0;
+          const ariaLabel =
+            showProfileBadge || showChatBadge
+              ? `${label}, ${t("unreadCount")}`
+              : label;
 
           return (
             <button
@@ -113,22 +114,20 @@ export function BottomNavigation() {
               type="button"
               className={`ftb-item ${isActive ? "ftb-item--active" : ""}`}
               onClick={() => setActiveTab(item.id)}
-              aria-label={
-                badgeCount > 0
-                  ? `${label}, ${badgeCount} ${t("unreadCount")}`
-                  : label
-              }
+              aria-label={ariaLabel}
               aria-current={isActive ? "page" : undefined}
             >
               <span className="ftb-icon-wrap">
                 <span className="ftb-icon-anchor">
                   <Icon size={isActive ? 22 : 20} className="ftb-icon" />
-                  {badgeCount > 0 ? (
-                    <span
-                      className={`ftb-badge ftb-badge--${item.badge}`}
-                      aria-hidden
-                    >
-                      {formatBadgeCount(badgeCount)}
+                  {showChatBadge ? (
+                    <span className="ftb-badge ftb-badge--chat" aria-hidden>
+                      {formatBadgeCount(unreadChatCount)}
+                    </span>
+                  ) : null}
+                  {showProfileBadge ? (
+                    <span className="ftb-badge ftb-badge--profile" aria-hidden>
+                      {formatBadgeCount(unreadNotificationCount)}
                     </span>
                   ) : null}
                 </span>

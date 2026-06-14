@@ -365,6 +365,21 @@
   flex-shrink: 0;
 }
 
+.chat-user-search-avatar--group {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+.chat-user-search-avatar--group .list-avatar-wrap,
+.chat-user-search-avatar--group .list-avatar {
+  width: 48px;
+  height: 48px;
+}
+
 .chat-user-search-text {
   flex: 1;
   min-width: 0;

@@ -24,6 +24,7 @@ import {
   formatVisitTimeAgo,
   formatBadgeCount,
   type Conversation,
+  type Event,
 } from "../data/mockData";
 import { buildConversationMiniSlots } from "../lib/conversationMiniSlots";
 import { hasReachedDailyFriendRequestLimit } from "../lib/eventDateKey";
@@ -53,19 +54,38 @@ function groupStoryVariant(id: string): 0 | 1 | 2 {
 
 type SubTab = "suggestions" | "messages" | "visites";
 
-type ChatUserHit = {
-  id: string;
-  label: string;
-  subtitle: string;
-  avatarUrl: string;
-};
+type ChatSearchHit =
+  | {
+      kind: "user";
+      id: string;
+      label: string;
+      subtitle: string;
+      avatarUrl: string;
+    }
+  | {
+      kind: "group";
+      id: string;
+      conversationId: string;
+      label: string;
+      subtitle: string;
+      conversation: Conversation;
+    };
 
 function foldSearch(s: string): string {
   return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
-function userSearchHaystack(hit: ChatUserHit): string {
+function userSearchHaystack(hit: Extract<ChatSearchHit, { kind: "user" }>): string {
   return foldSearch(`${hit.label} ${hit.subtitle}`);
+}
+
+function groupSearchHaystack(
+  conversation: Conversation,
+  linkedEvent?: Event,
+): string {
+  return foldSearch(
+    `${conversation.title} ${conversation.lastMessagePreview} ${linkedEvent?.title ?? ""} ${linkedEvent?.location ?? ""}`,
+  );
 }
 
 function FavoriteStripAvatar({ conversation }: { conversation: Conversation }) {
@@ -360,6 +380,7 @@ export function ChatPage() {
     moderationHiddenProfilIds,
     showToast,
     isAdmin: adminModeActive,
+    getEventByConversationId,
   } = useMessagingStore();
   const viewerPremiumAccess = useMessagingStore(hasViewerPremiumAccess);
   const [sub, setSub] = useState<SubTab>("messages");
@@ -509,10 +530,11 @@ export function ChatPage() {
     [profileVisitsVisible],
   );
 
-  const searchableUsers = useMemo(() => {
-    const map = new Map<string, ChatUserHit>();
+  const searchableUsers = useMemo((): Extract<ChatSearchHit, { kind: "user" }>[] => {
+    const map = new Map<string, Extract<ChatSearchHit, { kind: "user" }>>();
     for (const f of friends) {
       map.set(f.profilId, {
+        kind: "user",
         id: f.profilId,
         label: f.pseudo || f.name,
         subtitle: f.city,
@@ -522,6 +544,7 @@ export function ChatPage() {
     for (const s of suggestionsVisible) {
       if (!map.has(s.id)) {
         map.set(s.id, {
+          kind: "user",
           id: s.id,
           label: s.pseudo,
           subtitle: `${s.age} ans`,
@@ -532,6 +555,7 @@ export function ChatPage() {
     for (const v of profileVisitsVisible) {
       if (!map.has(v.id)) {
         map.set(v.id, {
+          kind: "user",
           id: v.id,
           label: v.name,
           subtitle: `${v.age} ans`,
@@ -544,11 +568,36 @@ export function ChatPage() {
     );
   }, [friends, suggestionsVisible, profileVisitsVisible]);
 
-  const userSearchResults = useMemo(() => {
+  const searchableGroups = useMemo((): Extract<ChatSearchHit, { kind: "group" }>[] => {
+    return accessibleConversations
+      .filter((c) => c.type === "group")
+      .map((c) => ({
+        kind: "group" as const,
+        id: `group-${c.id}`,
+        conversationId: c.id,
+        label: c.title,
+        subtitle: c.lastMessagePreview?.trim() || t("chatSearchGroupTag"),
+        conversation: c,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+  }, [accessibleConversations, t]);
+
+  const userSearchResults = useMemo((): ChatSearchHit[] => {
     const q = foldSearch(userSearchQuery.trim());
     if (!q) return [];
-    return searchableUsers.filter((u) => userSearchHaystack(u).includes(q));
-  }, [searchableUsers, userSearchQuery]);
+    const users = searchableUsers.filter((u) => userSearchHaystack(u).includes(q));
+    const groups = searchableGroups.filter((g) =>
+      groupSearchHaystack(g.conversation, getEventByConversationId(g.conversationId)).includes(q),
+    );
+    return [...users, ...groups].sort((a, b) =>
+      a.label.localeCompare(b.label, "fr"),
+    );
+  }, [
+    searchableUsers,
+    searchableGroups,
+    userSearchQuery,
+    getEventByConversationId,
+  ]);
 
   const handleSearchToggle = useCallback(() => {
     if (!viewerPremiumAccess) {
@@ -664,20 +713,30 @@ export function ChatPage() {
             ) : userSearchResults.length === 0 ? (
               <p className="chat-user-search-hint">{t("chatUserSearchNoResults")}</p>
             ) : (
-              userSearchResults.map((u) => (
+              userSearchResults.map((hit) => (
                 <button
-                  key={u.id}
+                  key={hit.id}
                   type="button"
                   className="chat-user-search-row"
                   onClick={() => {
                     closeUserSearch();
-                    openDetail("profile", u.id);
+                    if (hit.kind === "user") {
+                      openDetail("profile", hit.id);
+                      return;
+                    }
+                    openDetail("chat", hit.conversationId);
                   }}
                 >
-                  <img src={u.avatarUrl} alt="" className="chat-user-search-avatar" />
+                  {hit.kind === "user" ? (
+                    <img src={hit.avatarUrl} alt="" className="chat-user-search-avatar" />
+                  ) : (
+                    <div className="chat-user-search-avatar chat-user-search-avatar--group">
+                      <ListAvatar item={hit.conversation} />
+                    </div>
+                  )}
                   <div className="chat-user-search-text">
-                    <span className="chat-user-search-name">{u.label}</span>
-                    <span className="chat-user-search-sub">{u.subtitle}</span>
+                    <span className="chat-user-search-name">{hit.label}</span>
+                    <span className="chat-user-search-sub">{hit.subtitle}</span>
                   </div>
                 </button>
               ))

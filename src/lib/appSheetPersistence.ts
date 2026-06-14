@@ -92,6 +92,67 @@ function rowsForUser(rows: Record<string, string>[], userId: string): Record<str
   return rows.filter((r) => r.userId === userId && !isDeletedFromSheet(r.deleted));
 }
 
+/** Conserve readAt du cache local si le GET Sheets ne l’a pas encore (sync en cours ou colonne absente). */
+function mergeReadAtRowsFromCache(
+  fresh: Record<string, string>[],
+  cached: Record<string, string>[],
+): Record<string, string>[] {
+  if (cached.length === 0) return fresh;
+  const cacheById = new Map(cached.map((r) => [r.id, r]));
+  return fresh.map((row) => {
+    const cachedRow = cacheById.get(row.id);
+    if (!cachedRow) return row;
+    const freshRead = row.readAt?.trim() ?? "";
+    const cachedRead = cachedRow.readAt?.trim() ?? "";
+    if (!cachedRead) return row;
+    if (!freshRead) return { ...row, readAt: cachedRead };
+    const merged = Math.max(numFromSheet(freshRead, 0), numFromSheet(cachedRead, 0));
+    return merged > 0 ? { ...row, readAt: String(merged) } : row;
+  });
+}
+
+function mergeNotifications(
+  base: AppNotification[],
+  remote: AppNotification[],
+): AppNotification[] {
+  if (remote.length === 0) return base;
+  const map = new Map(base.map((n) => [n.id, n]));
+  remote.forEach((remoteN) => {
+    const prev = map.get(remoteN.id);
+    if (!prev) {
+      map.set(remoteN.id, remoteN);
+      return;
+    }
+    const readAt =
+      prev.readAt != null && remoteN.readAt != null
+        ? Math.max(prev.readAt, remoteN.readAt)
+        : prev.readAt ?? remoteN.readAt;
+    map.set(remoteN.id, { ...remoteN, readAt });
+  });
+  return [...map.values()];
+}
+
+function mergeEventReminders(
+  base: EventReminder[],
+  remote: EventReminder[],
+): EventReminder[] {
+  if (remote.length === 0) return base;
+  const map = new Map(base.map((r) => [r.id, r]));
+  remote.forEach((remoteR) => {
+    const prev = map.get(remoteR.id);
+    if (!prev) {
+      map.set(remoteR.id, remoteR);
+      return;
+    }
+    const readAt =
+      prev.readAt != null && remoteR.readAt != null
+        ? Math.max(prev.readAt, remoteR.readAt)
+        : prev.readAt ?? remoteR.readAt;
+    map.set(remoteR.id, { ...remoteR, readAt });
+  });
+  return [...map.values()];
+}
+
 /** Catalogue partagé (ex. `events`) : toutes les lignes actives, pas filtrées par userId. */
 async function readSharedCatalogTable(
   table: SheetTableName,
@@ -133,10 +194,14 @@ function patchSharedCatalogCache(
 }
 
 async function readTable(table: SheetTableName, userId: string): Promise<Record<string, string>[]> {
+  const cached = loadLocalCache(table, userId);
   if (isGoogleSheetsReadConfigured()) {
     try {
       const rows = await sheetGet<Record<string, string>>(table);
-      const mine = rowsForUser(rows, userId);
+      let mine = rowsForUser(rows, userId);
+      if (table === "notifications" || table === "event_reminders") {
+        mine = mergeReadAtRowsFromCache(mine, cached);
+      }
       saveLocalCache(table, userId, mine);
       mine.forEach((r) => {
         const id = r.id ?? r.profilId ?? r.userId;
@@ -147,7 +212,6 @@ async function readTable(table: SheetTableName, userId: string): Promise<Record<
       console.error(`Sheets read [${table}] failed, fallback cache:`, err);
     }
   }
-  const cached = loadLocalCache(table, userId);
   cached.forEach((r) => {
     const id = r.id ?? r.profilId ?? r.userId;
     if (id) markSynced(table, id);
@@ -1354,13 +1418,19 @@ export function mergeLoadedAppState(
     patch.profileVisits = mergeById(current.profileVisits, loaded.profileVisits);
   }
   if (loaded.appNotifications.length > 0) {
-    patch.appNotifications = mergeById(current.appNotifications, loaded.appNotifications);
+    patch.appNotifications = mergeNotifications(
+      current.appNotifications,
+      loaded.appNotifications,
+    );
   }
   if (loaded.adminReports.length > 0) {
     patch.adminReports = mergeById(current.adminReports, loaded.adminReports);
   }
   if (loaded.eventReminders.length > 0) {
-    patch.eventReminders = mergeById(current.eventReminders, loaded.eventReminders);
+    patch.eventReminders = mergeEventReminders(
+      current.eventReminders,
+      loaded.eventReminders,
+    );
   }
 
     if (loaded.adminAppInfo) {
