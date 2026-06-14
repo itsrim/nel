@@ -7,7 +7,11 @@ import { useTranslation } from "../i18n/useTranslation";
 import { ProsMapView } from "../components/ProsMapView";
 import { mapCenterForCity } from "../lib/proCoordinates";
 import { buildViewerProfessional, VIEWER_PRO_ID } from "../lib/proLocation";
-import { hasViewerProAccess } from "../lib/viewerEntitlements";
+import {
+  filterPublicProfessionals,
+  shouldShowViewerInProsDirectory,
+} from "../lib/proDirectory";
+import { useAuthStore } from "../store/useAuthStore";
 import {
   PRO_CATEGORY_OPTIONS,
   proFullName,
@@ -79,7 +83,16 @@ export function ProsPage() {
     viewerProSocialUrl,
     viewerProPhone,
   } = useMessagingStore();
-  const viewerProAccess = useMessagingStore(hasViewerProAccess);
+  const user = useAuthStore((s) => s.user);
+  const viewerProAccess = useMessagingStore((s) =>
+    shouldShowViewerInProsDirectory(user, {
+      isAdmin: s.isAdmin,
+      nelDemoIsPremium: s.nelDemoIsPremium,
+      viewerPremiumExpiresAt: s.viewerPremiumExpiresAt,
+      viewerProfileIsPro: s.viewerProfileIsPro,
+      viewerProExpiresAt: s.viewerProExpiresAt,
+    }),
+  );
   const mapCenter = useMemo(
     () => mapCenterForCity(viewerProfileCity),
     [viewerProfileCity],
@@ -90,7 +103,8 @@ export function ProsPage() {
   const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
 
   const professionalsWithViewer = useMemo(() => {
-    const storedViewer = professionals.find((p) => p.id === VIEWER_PRO_ID);
+    const publicPros = filterPublicProfessionals(professionals);
+    const storedViewer = publicPros.find((p) => p.id === VIEWER_PRO_ID);
     const viewerPro = viewerProAccess
       ? buildViewerProfessional({
           displayName: viewerProfileDisplayName,
@@ -104,13 +118,13 @@ export function ProsPage() {
           phone: viewerProPhone,
         })
       : null;
-    if (!viewerPro) return professionals;
+    if (!viewerPro) return publicPros;
     const mergedViewer = storedViewer
       ? { ...viewerPro, ...storedViewer, verified: storedViewer.verified === true }
       : { ...viewerPro, verified: false };
     return [
       mergedViewer,
-      ...professionals.filter((p) => p.id !== VIEWER_PRO_ID),
+      ...publicPros.filter((p) => p.id !== VIEWER_PRO_ID),
     ];
   }, [
     professionals,

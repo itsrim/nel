@@ -58,6 +58,14 @@ function previewMergedProfessionals(
   return [...map.values()];
 }
 
+function ensureProfessionalsCatalogInStore(): void {
+  if (useProsStore.getState().professionals.length > 0) return;
+  void import("../data/mockProfessionals").then((m) => {
+    if (useProsStore.getState().professionals.length > 0) return;
+    useProsStore.getState().hydrateProfessionals(m.MOCK_PROFESSIONALS);
+  });
+}
+
 export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
   const authUser = useAuthStore.getState().user;
   const viewerContext = authUser
@@ -70,12 +78,15 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
     if (!dataEqual(currentPros, nextPros)) {
       useProsStore.getState().hydrateProfessionals(loaded.professionals);
     }
+  } else {
+    ensureProfessionalsCatalogInStore();
   }
 
   const msgStore = useMessagingStore.getState();
 
   if (!loaded.hasRemoteData) {
     ensureDerivedCatalogInStore(viewerContext);
+    ensureProfessionalsCatalogInStore();
     return;
   }
 
@@ -100,6 +111,7 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
   if (Object.keys(changed).length === 0) {
     ensureParticipantConversationsInStore();
     ensureDerivedCatalogInStore(viewerContext);
+    ensureProfessionalsCatalogInStore();
     return;
   }
 
@@ -214,6 +226,7 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
 
   ensureParticipantConversationsInStore();
   ensureDerivedCatalogInStore(viewerContext);
+  ensureProfessionalsCatalogInStore();
 }
 
 /** Suggestions dérivées des profils Sheets, des inscrits viewer_settings ou des pros. */
