@@ -2772,6 +2772,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       messagesByConversation: {},
       friends: [],
       suggestions: [],
+      profileVisits: [],
       favoriteConversationIds: [],
       friendRequestSentProfilIds: [],
       friendRequestRejectedProfilIds: [],

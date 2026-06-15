@@ -667,6 +667,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           if (isChatApiConfigured()) {
             await trySetSessionToken(loggedInUser);
           }
+          useMessagingStore.getState().resetData();
           localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
           if (loggedInUser.isAdmin) {
             useMessagingStore.getState().setIsAdmin(true);
@@ -784,6 +785,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       localStorage.setItem(LS_USER, JSON.stringify(newUser));
+      useMessagingStore.getState().resetData();
       syncEmailVerifiedToSheets(
         newUser.id,
         newUser.email,
