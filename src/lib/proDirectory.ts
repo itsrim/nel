@@ -1,4 +1,5 @@
 import type { MockProfessional } from "../data/mockProfessionals";
+import { resolveProCategoryFields } from "./proCategory";
 import { isAdminAccount, shouldExcludeFromPublicCatalog } from "./accountRoles";
 import { resolveAvatarUrl } from "./avatarUrl";
 import { proCoordinates } from "./proCoordinates";
@@ -62,6 +63,8 @@ export function viewerSettingsRowToProfessional(
   const firstName = parts[0] ?? name;
   const lastName = parts.slice(1).join(" ");
   const city = row.city?.trim() || "France";
+  const { category, categoryLabel } = resolveProCategoryFields(row.proCategory);
+  const bio = row.bio?.trim();
 
   const partial: Omit<MockProfessional, "lat" | "lng"> & {
     lat?: number;
@@ -70,11 +73,11 @@ export function viewerSettingsRowToProfessional(
     id,
     firstName,
     lastName,
-    category: "therapeute",
-    categoryLabel: "Professionnel",
+    category,
+    categoryLabel,
     city,
     address: row.proAddress?.trim() || undefined,
-    description: row.bio?.trim() || "Professionnel référencé sur Hlg.",
+    description: bio || categoryLabel,
     imageUrl: resolveAvatarUrl(row.avatarUrl),
     mapX: 50,
     mapY: 50,
@@ -111,16 +114,22 @@ export function mergeProfessionalsCatalog(
   for (const pro of fromProfessionalsTable) {
     if (isAdminAccount({ id: pro.id })) continue;
     const prev = map.get(pro.id);
-    map.set(
-      pro.id,
-      prev
-        ? {
-            ...prev,
-            ...pro,
-            verified: pro.verified === true ? true : prev.verified,
-          }
-        : pro,
-    );
+    if (!prev) {
+      map.set(pro.id, pro);
+      continue;
+    }
+    const genericLabel = pro.categoryLabel.trim().toLowerCase() === "professionnel";
+    const genericDesc =
+      pro.description.trim() === "Professionnel référencé sur Hlg.";
+    map.set(pro.id, {
+      ...prev,
+      ...pro,
+      category: genericLabel ? prev.category : pro.category,
+      categoryLabel: genericLabel ? prev.categoryLabel : pro.categoryLabel,
+      description:
+        genericDesc && prev.description.trim() ? prev.description : pro.description,
+      verified: pro.verified === true ? true : prev.verified,
+    });
   }
 
   return filterPublicProfessionals([...map.values()]);

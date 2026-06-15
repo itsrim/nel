@@ -10,6 +10,7 @@ import {
   MapPin,
   Pencil,
   ShieldCheck,
+  Tag,
   Trash2,
   Users,
   X,
@@ -40,6 +41,7 @@ import {
   findDefaultCoverThemeByImageUrl,
   type DefaultEventCoverTheme,
 } from "../constants/defaultEventCoverThemes";
+import { formatEventPriceLabel, parseEventPriceState } from "../lib/eventPricing";
 import "./CreateEventPage.css";
 
 const MAX_TITLE_LEN = 50;
@@ -201,6 +203,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const [isPrivate, setIsPrivate] = useState(false);
   const [manualApproval, setManualApproval] = useState(false);
   const [markAsBeta, setMarkAsBeta] = useState(false);
+  const [isFreeEvent, setIsFreeEvent] = useState(true);
+  const [priceAmount, setPriceAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   /** En édition : ne pas descendre sous le nombre de participants déjà inscrits. */
@@ -213,6 +217,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
       setParticipantFloor(EVENT_PARTICIPANT_MIN_MAX);
       setMaxParticipants(String(participantMaxCap));
       setIsPrivate(false);
+      setIsFreeEvent(true);
+      setPriceAmount("");
       return;
     }
     const ev = getEventById(formEventId);
@@ -231,6 +237,9 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     setIsPrivate(ev.isPrivate ?? false);
     setManualApproval(ev.manualApproval ?? false);
     setMarkAsBeta(ev.isBeta ?? false);
+    const priceState = parseEventPriceState(ev.priceLabel ?? ev.price);
+    setIsFreeEvent(priceState.isFree);
+    setPriceAmount(priceState.amount);
     setParticipantFloor(
       Math.max(EVENT_PARTICIPANT_MIN_MAX, ev.participantCount),
     );
@@ -383,6 +392,12 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
       return;
     }
 
+    const priceLabel = formatEventPriceLabel(isFreeEvent, priceAmount);
+    if (!priceLabel) {
+      reportSubmitError(t("createEventErrorPrice"));
+      return;
+    }
+
     setSubmitting(true);
     try {
       const cappedMax = Math.min(maxParsed, participantMaxCap);
@@ -416,6 +431,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           isPrivate,
           manualApproval,
           isBeta: beta,
+          priceLabel,
         });
       } else {
         const groupTitle = `${titleTrim} — ${dateLabel.split(" ")[0]}`;
@@ -427,7 +443,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           location: locationTrim,
           notes: notesVal,
           timeShort: timeShortVal,
-          priceLabel: "Gratuit",
+          priceLabel,
           imageUri: imageUri ?? undefined,
           participantMax: cappedMax,
           dateKey,
@@ -467,6 +483,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     isPrivate,
     manualApproval,
     markAsBeta,
+    isFreeEvent,
+    priceAmount,
     isAdmin,
     isEditMode,
     formEventId,
@@ -685,6 +703,47 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="ce-card">
+          <div className="ce-inline-label-row">
+            <Tag size={18} color="#fff" aria-hidden />
+            <span className="ce-inline-label">{t("eventPriceLabel")}</span>
+          </div>
+          <div className="ce-price-toggle" role="group" aria-label={t("eventPriceLabel")}>
+            <button
+              type="button"
+              className={`ce-price-toggle-btn${isFreeEvent ? " ce-price-toggle-btn--active" : ""}`}
+              onClick={() => setIsFreeEvent(true)}
+              aria-pressed={isFreeEvent}
+            >
+              {t("eventPriceFree")}
+            </button>
+            <button
+              type="button"
+              className={`ce-price-toggle-btn${!isFreeEvent ? " ce-price-toggle-btn--active" : ""}`}
+              onClick={() => setIsFreeEvent(false)}
+              aria-pressed={!isFreeEvent}
+            >
+              {t("eventPricePaid")}
+            </button>
+          </div>
+          {!isFreeEvent ? (
+            <div className="ce-price-input-wrap">
+              <input
+                className="ce-price-input"
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                value={priceAmount}
+                onChange={(e) => setPriceAmount(e.target.value)}
+                placeholder={t("eventPricePlaceholder")}
+                aria-label={t("eventPricePlaceholder")}
+              />
+              <span className="ce-price-currency">€</span>
+            </div>
+          ) : null}
         </div>
 
         <div className="ce-card-section">

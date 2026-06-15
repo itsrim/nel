@@ -429,6 +429,61 @@
   padding: 0 4px;
 }
 
+.ce-price-toggle {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ce-price-toggle-btn {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1c1c1e;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ce-price-toggle-btn--active {
+  border-color: rgba(155, 93, 229, 0.65);
+  background: rgba(107, 33, 168, 0.35);
+}
+
+.ce-price-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ce-price-input {
+  flex: 1;
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1c1c1e;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  padding: 0 14px;
+  box-sizing: border-box;
+}
+
+.ce-price-input:focus {
+  outline: none;
+  border-color: rgba(155, 93, 229, 0.55);
+  box-shadow: 0 0 0 2px rgba(155, 93, 229, 0.22);
+}
+
+.ce-price-currency {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 17px;
+  font-weight: 700;
+}
+
 .ce-stepper-btn {
   border: none;
   background: transparent;

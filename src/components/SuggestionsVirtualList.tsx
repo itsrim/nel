@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { Heart, HeartCrack, UserPlus } from "lucide-react";
 import type { SuggestionProfile } from "../data/mockData";
 import { formatSuggestionCaption } from "../data/mockData";
 import { useTranslation } from "../i18n/useTranslation";
 import {
+  buildMasonryColumns,
+  SUGGESTION_MASONRY_COLUMNS,
   SUGGESTION_PAGE_SIZE,
-  SUGGESTION_ROW_HEIGHT,
 } from "../lib/suggestionListing";
 import "./SuggestionsVirtualList.css";
 
@@ -25,7 +25,7 @@ type SuggestionsVirtualListProps = {
   onFriendRequest: (e: React.MouseEvent, id: string) => void;
 };
 
-function SuggestionListRow({
+function SuggestionPhotoCard({
   item,
   onOpenProfile,
   isMutualFriend,
@@ -50,27 +50,28 @@ function SuggestionListRow({
   const rejected = hasRejectedFriendRequest(item.id);
 
   return (
-    <div className="suggestion-list-row">
+    <div className="suggestion-card">
       <button
         type="button"
-        className="suggestion-list-main"
+        className="suggestion-img-press"
         onClick={() => onOpenProfile(item.id)}
         aria-label={formatSuggestionCaption(item.pseudo, item.age)}
       >
         <img
           src={item.imageUrl}
           alt=""
-          className="suggestion-list-avatar"
+          className="suggestion-img"
+          style={{ aspectRatio: item.aspectRatio }}
           loading="lazy"
         />
-        <div className="suggestion-list-body">
-          <span className="suggestion-list-name">{item.pseudo}</span>
-          <span className="suggestion-list-age">{item.age}</span>
-        </div>
+        <div className="suggestion-img-fade" aria-hidden />
+        <span className="suggestion-caption">
+          {formatSuggestionCaption(item.pseudo, item.age)}
+        </span>
       </button>
       <button
         type="button"
-        className={`suggestion-list-add-btn${sent ? " suggestion-list-add-btn--sent" : ""}${mutual ? " suggestion-list-add-btn--friend" : ""}${rejected ? " suggestion-list-add-btn--rejected" : ""}${dailyFriendRequestLimitReached && !sent ? " suggestion-list-add-btn--daily-limit" : ""}`}
+        className={`suggestion-add-friend-btn${sent ? " suggestion-add-friend-btn--sent" : ""}${mutual ? " suggestion-add-friend-btn--friend" : ""}${rejected ? " suggestion-add-friend-btn--rejected" : ""}${dailyFriendRequestLimitReached && !sent ? " suggestion-add-friend-btn--daily-limit" : ""}`}
         disabled={isFriendRequestBlocked(item.id)}
         onClick={(e) => onFriendRequest(e, item.id)}
         aria-label={
@@ -86,11 +87,11 @@ function SuggestionListRow({
         }
       >
         {mutual ? (
-          <Heart size={20} color="#FF4081" fill="#FF4081" aria-hidden />
+          <Heart size={22} color="#FF4081" fill="#FF4081" aria-hidden />
         ) : rejected ? (
-          <HeartCrack size={20} color="#FF9F0A" aria-hidden />
+          <HeartCrack size={22} color="#FF9F0A" aria-hidden />
         ) : (
-          <UserPlus size={20} color="#fff" aria-hidden />
+          <UserPlus size={22} color="#fff" aria-hidden />
         )}
       </button>
     </div>
@@ -123,6 +124,11 @@ export function SuggestionsVirtualList({
     [suggestions, loadedCount],
   );
 
+  const suggestionColumns = useMemo(
+    () => buildMasonryColumns(pagedSuggestions, SUGGESTION_MASONRY_COLUMNS),
+    [pagedSuggestions],
+  );
+
   const hasMore = loadedCount < suggestions.length;
 
   useEffect(() => {
@@ -145,63 +151,38 @@ export function SuggestionsVirtualList({
     return () => observer.disconnect();
   }, [scrollRef, hasMore, suggestions.length, pagedSuggestions.length]);
 
-  const virtualizer = useVirtualizer({
-    count: pagedSuggestions.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => SUGGESTION_ROW_HEIGHT,
-    overscan: 8,
-  });
-
   if (suggestions.length === 0) {
     return <p className="suggestions-empty">{emptyMessage}</p>;
   }
 
-  const tailHeight = hasMore ? 72 : 0;
-  const totalHeight = virtualizer.getTotalSize() + tailHeight;
-
   return (
-    <div className="suggestions-virtual" style={{ height: totalHeight }}>
-      {virtualizer.getVirtualItems().map((virtualRow) => {
-        const item = pagedSuggestions[virtualRow.index];
-        return (
-          <div
-            key={item.id}
-            data-index={virtualRow.index}
-            ref={virtualizer.measureElement}
-            className="suggestions-virtual-row"
-            style={{ transform: `translateY(${virtualRow.start}px)` }}
-          >
-            <SuggestionListRow
-              item={item}
-              onOpenProfile={onOpenProfile}
-              isMutualFriend={isMutualFriend}
-              hasSentFriendRequest={hasSentFriendRequest}
-              hasRejectedFriendRequest={hasRejectedFriendRequest}
-              dailyFriendRequestLimitReached={dailyFriendRequestLimitReached}
-              isFriendRequestBlocked={isFriendRequestBlocked}
-              onFriendRequest={onFriendRequest}
-            />
+    <>
+      <div className="suggestions-masonry">
+        {suggestionColumns.map((col, ci) => (
+          <div key={ci} className="suggestion-col">
+            {col.map((item) => (
+              <SuggestionPhotoCard
+                key={item.id}
+                item={item}
+                onOpenProfile={onOpenProfile}
+                isMutualFriend={isMutualFriend}
+                hasSentFriendRequest={hasSentFriendRequest}
+                hasRejectedFriendRequest={hasRejectedFriendRequest}
+                dailyFriendRequestLimitReached={dailyFriendRequestLimitReached}
+                isFriendRequestBlocked={isFriendRequestBlocked}
+                onFriendRequest={onFriendRequest}
+              />
+            ))}
           </div>
-        );
-      })}
+        ))}
+      </div>
 
-      {hasMore && (
-        <div
-          ref={loadMoreSentinelRef}
-          className="suggestions-load-sentinel"
-          style={{ transform: `translateY(${virtualizer.getTotalSize()}px)` }}
-          aria-hidden
-        />
-      )}
-
-      {hasMore && (
-        <p
-          className="suggestions-loading-more"
-          style={{ transform: `translateY(${virtualizer.getTotalSize() + 8}px)` }}
-        >
-          {loadingMoreLabel}
-        </p>
-      )}
-    </div>
+      {hasMore ? (
+        <>
+          <div ref={loadMoreSentinelRef} className="suggestions-load-sentinel" aria-hidden />
+          <p className="suggestions-loading-more">{loadingMoreLabel}</p>
+        </>
+      ) : null}
+    </>
   );
 }

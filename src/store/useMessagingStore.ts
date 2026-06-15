@@ -39,7 +39,10 @@ import {
   syncReportDeleteToSheets,
   syncReportToSheets,
   persistAppConfigToSheets,
+  syncProfessionalToSheets,
 } from "../lib/appSheetPersistence";
+import { viewerSettingsRowToProfessional } from "../lib/proDirectory";
+import { DEFAULT_PRO_CATEGORY, isProCategory, type ProCategory } from "../lib/proCategory";
 import {
   DEFAULT_PROFILE_BADGE_SUGGESTIONS,
   DEFAULT_VIEWER_BADGES,
@@ -248,6 +251,7 @@ const LS_VIEWER_PRO_PHONE = "nel_viewer_pro_phone";
 const LS_VIEWER_PRO_ADDRESS = "nel_viewer_pro_address";
 const LS_VIEWER_PRO_LAT = "nel_viewer_pro_lat";
 const LS_VIEWER_PRO_LNG = "nel_viewer_pro_lng";
+const LS_VIEWER_PRO_CATEGORY = "nel_viewer_pro_category";
 const LS_VIEWER_BADGES = "nel_viewer_profile_badges";
 const LS_PROFILE_BADGE_SUGGESTIONS = "nel_profile_badge_suggestions";
 const LS_VIEWER_PREMIUM = "nel_viewer_premium";
@@ -394,6 +398,7 @@ export type UpdateEventInput = {
   isPrivate?: boolean;
   manualApproval?: boolean;
   isBeta?: boolean;
+  priceLabel?: string;
 };
 
 export type AdminProfilePatch = {
@@ -461,6 +466,7 @@ const VIEWER_SESSION_LS_KEYS = [
   LS_VIEWER_PRO_ADDRESS,
   LS_VIEWER_PRO_LAT,
   LS_VIEWER_PRO_LNG,
+  LS_VIEWER_PRO_CATEGORY,
   LS_VIEWER_BADGES,
   LS_PROFILE_BADGE_SUGGESTIONS,
   LS_VIEWER_PREMIUM,
@@ -515,6 +521,7 @@ function syncViewerSettingsFromState(state: MessagingState) {
     viewerProAddress: state.viewerProAddress,
     viewerProLat: state.viewerProLat,
     viewerProLng: state.viewerProLng,
+    viewerProCategory: state.viewerProCategory,
     viewerKarma: state.viewerKarma,
     friendRequestSentProfilIds: state.friendRequestSentProfilIds,
     friendRequestRejectedProfilIds: state.friendRequestRejectedProfilIds,
@@ -588,6 +595,8 @@ interface MessagingState {
   setViewerProPhone: (phone: string) => void;
   viewerProAddress: string;
   setViewerProAddress: (address: string) => void;
+  viewerProCategory: ProCategory;
+  setViewerProCategory: (category: ProCategory) => void;
   viewerProLat: number | null;
   viewerProLng: number | null;
   setViewerProLocation: (address: string, lat: number, lng: number) => void;
@@ -911,6 +920,29 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         viewerProExpiresAt: expiresAt,
         proSubscriptionPayment: paymentRecord,
       });
+      const authUser = useAuthStore.getState().user;
+      if (authUser?.id) {
+        const next = get();
+        const pro = viewerSettingsRowToProfessional({
+          id: authUser.id,
+          displayName: next.viewerProfileDisplayName,
+          email: authUser.email ?? "",
+          avatarUrl: next.viewerProfileAvatarUrl,
+          city: next.viewerProfileCity,
+          bio: next.viewerProfileBio,
+          proAddress: next.viewerProAddress,
+          proLat: next.viewerProLat != null ? String(next.viewerProLat) : "",
+          proLng: next.viewerProLng != null ? String(next.viewerProLng) : "",
+          websiteUrl: next.viewerProWebsiteUrl,
+          socialUrl: next.viewerProSocialUrl,
+          phone: next.viewerProPhone,
+          emailVerified: authUser.emailVerified ? "true" : "false",
+          isPro: "true",
+          proCategory: next.viewerProCategory,
+          bio: next.viewerProfileBio,
+        });
+        if (pro) syncProfessionalToSheets(pro);
+      }
     }
     syncViewerSettingsFromState(get());
   },
@@ -1399,6 +1431,44 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     }
     set({ viewerProAddress: address });
     syncViewerSettingsFromState(get());
+  },
+
+  viewerProCategory: (() => {
+    if (typeof window === "undefined") return DEFAULT_PRO_CATEGORY;
+    const raw = localStorage.getItem(LS_VIEWER_PRO_CATEGORY)?.trim();
+    return isProCategory(raw ?? "") ? raw : DEFAULT_PRO_CATEGORY;
+  })(),
+  setViewerProCategory: (category) => {
+    const next = isProCategory(category) ? category : DEFAULT_PRO_CATEGORY;
+    try {
+      localStorage.setItem(LS_VIEWER_PRO_CATEGORY, next);
+    } catch {
+      /* ignore */
+    }
+    set({ viewerProCategory: next });
+    syncViewerSettingsFromState(get());
+    const authUser = useAuthStore.getState().user;
+    if (authUser?.id && hasViewerProAccess(get())) {
+      const state = get();
+      const pro = viewerSettingsRowToProfessional({
+        id: authUser.id,
+        displayName: state.viewerProfileDisplayName,
+        email: authUser.email ?? "",
+        avatarUrl: state.viewerProfileAvatarUrl,
+        city: state.viewerProfileCity,
+        bio: state.viewerProfileBio,
+        proAddress: state.viewerProAddress,
+        proLat: state.viewerProLat != null ? String(state.viewerProLat) : "",
+        proLng: state.viewerProLng != null ? String(state.viewerProLng) : "",
+        websiteUrl: state.viewerProWebsiteUrl,
+        socialUrl: state.viewerProSocialUrl,
+        phone: state.viewerProPhone,
+        emailVerified: authUser.emailVerified ? "true" : "false",
+        isPro: "true",
+        proCategory: next,
+      });
+      if (pro) syncProfessionalToSheets(pro);
+    }
   },
 
   viewerProLat: readViewerCoord(LS_VIEWER_PRO_LAT),
@@ -1981,6 +2051,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         isPrivate: input.isPrivate === true,
         manualApproval: input.manualApproval,
         isBeta: input.isBeta === true,
+        ...(input.priceLabel != null
+          ? { priceLabel: input.priceLabel, price: input.priceLabel }
+          : {}),
       };
       const convTitle = `${next.title} — ${next.dateLabel.split(" ")[0]}`;
       const conversations = state.conversations.map((c) =>
@@ -2800,6 +2873,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       viewerProSocialUrl: "",
       viewerProPhone: "",
       viewerProAddress: "",
+      viewerProCategory: DEFAULT_PRO_CATEGORY,
       viewerProLat: null,
       viewerProLng: null,
       viewerProfileBadges: [...DEFAULT_VIEWER_BADGES],

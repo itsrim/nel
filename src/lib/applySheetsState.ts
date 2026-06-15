@@ -161,6 +161,9 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
       changed.viewerProLng,
     );
   }
+  if ("viewerProCategory" in changed && changed.viewerProCategory != null) {
+    msg.setViewerProCategory(changed.viewerProCategory);
+  }
   if ("viewerKarma" in changed && changed.viewerKarma != null) {
     try {
       localStorage.setItem("nel_viewer_karma", String(changed.viewerKarma));

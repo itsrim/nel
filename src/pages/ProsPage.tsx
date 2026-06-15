@@ -82,6 +82,8 @@ export function ProsPage() {
     viewerProWebsiteUrl,
     viewerProSocialUrl,
     viewerProPhone,
+    viewerProCategory,
+    viewerProfileBio,
   } = useMessagingStore();
   const user = useAuthStore((s) => s.user);
   const viewerProAccess = useMessagingStore((s) =>
@@ -104,31 +106,48 @@ export function ProsPage() {
 
   const professionalsWithViewer = useMemo(() => {
     const publicPros = filterPublicProfessionals(professionals);
-    const storedViewer = publicPros.find((p) => p.id === VIEWER_PRO_ID);
+    const viewerUserId = user?.id?.trim();
+    const storedViewer = publicPros.find(
+      (p) =>
+        p.id === VIEWER_PRO_ID || (viewerUserId != null && p.id === viewerUserId),
+    );
+    const [fallbackLat, fallbackLng] = mapCenterForCity(viewerProfileCity);
     const viewerPro = viewerProAccess
       ? buildViewerProfessional({
           displayName: viewerProfileDisplayName,
           avatarUrl: viewerProfileAvatarUrl,
           city: viewerProfileCity,
           address: viewerProAddress,
-          lat: viewerProLat,
-          lng: viewerProLng,
+          lat: viewerProLat ?? fallbackLat,
+          lng: viewerProLng ?? fallbackLng,
           websiteUrl: viewerProWebsiteUrl,
           socialUrl: viewerProSocialUrl,
           phone: viewerProPhone,
+          proCategory: viewerProCategory,
+          bio: viewerProfileBio,
         })
       : null;
     if (!viewerPro) return publicPros;
     const mergedViewer = storedViewer
-      ? { ...viewerPro, ...storedViewer, verified: storedViewer.verified === true }
+      ? {
+          ...viewerPro,
+          ...storedViewer,
+          category: viewerPro.category,
+          categoryLabel: viewerPro.categoryLabel,
+          description: viewerPro.description || storedViewer.description,
+          verified: storedViewer.verified === true,
+        }
       : { ...viewerPro, verified: false };
     return [
       mergedViewer,
-      ...publicPros.filter((p) => p.id !== VIEWER_PRO_ID),
+      ...publicPros.filter(
+        (p) => p.id !== VIEWER_PRO_ID && p.id !== viewerUserId,
+      ),
     ];
   }, [
     professionals,
     viewerProAccess,
+    user?.id,
     viewerProfileDisplayName,
     viewerProfileAvatarUrl,
     viewerProfileCity,
@@ -138,6 +157,8 @@ export function ProsPage() {
     viewerProWebsiteUrl,
     viewerProSocialUrl,
     viewerProPhone,
+    viewerProCategory,
+    viewerProfileBio,
   ]);
 
   const filtered = useMemo(() => {

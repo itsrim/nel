@@ -41,6 +41,8 @@ import {
   RefreshCw,
   Mail,
   Moon,
+  Briefcase,
+  Tags,
 } from "lucide-react";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useNavigationStore } from "../store/useNavigationStore";
@@ -81,6 +83,7 @@ import {
   countIncomingFriendRequests,
 } from "../lib/friendsTabNetwork";
 import { VIEWER_PRO_ID } from "../lib/proLocation";
+import { PRO_CATEGORY_OPTIONS, resolveProCategoryFields } from "../lib/proCategory";
 import { useProsStore } from "../store/useProsStore";
 import "./ProfilePage.css";
 
@@ -205,6 +208,8 @@ export function ProfilePage() {
     viewerProAddress,
     setViewerProAddress,
     setViewerProLocation,
+    viewerProCategory,
+    setViewerProCategory,
     viewerProfileBadges,
     setViewerProfileBadges,
     profileBadgeSuggestions,
@@ -329,6 +334,11 @@ export function ProfilePage() {
   }, [viewerProfileAvatarUrl]);
   const [geocodingAddress, setGeocodingAddress] = useState(false);
   const [draftProAddress, setDraftProAddress] = useState("");
+
+  const viewerProCategoryLabel = useMemo(
+    () => resolveProCategoryFields(viewerProCategory).categoryLabel,
+    [viewerProCategory],
+  );
 
   const handleSaveProfile = async () => {
     if (viewerProAccess && draftProAddress.trim()) {
@@ -677,8 +687,16 @@ export function ProfilePage() {
             </div>
           ) : null}
           {!editing ? (
-            <p className="bio-text">{viewerProfileBio || "—"}</p>
-          ) : (
+            <>
+              {viewerProAccess ? (
+                <label className="pro-contact-edit-label">
+                  <Briefcase size={16} aria-hidden />
+                  <span>{t("proJobLabel")}</span>
+                </label>
+              ) : null}
+              <p className="bio-text">{viewerProfileBio || "—"}</p>
+            </>
+          ) : viewerProAccess ? null : (
             <textarea
               value={draftBio}
               onChange={(e) => setDraftBio(e.target.value)}
@@ -698,7 +716,15 @@ export function ProfilePage() {
             </div>
           ) : null}
           {viewerProAccess && !editing ? (
-            <ProProfileDetails
+            <>
+              <label className="pro-contact-edit-label">
+                <Tags size={16} aria-hidden />
+                <span>{t("proCategoryTypeLabel")}</span>
+              </label>
+              <div className="member-since pro-category-display">
+                <span>{viewerProCategoryLabel}</span>
+              </div>
+              <ProProfileDetails
               city={viewerProfileCity}
               address={viewerProAddress}
               websiteUrl={viewerProWebsiteUrl}
@@ -707,9 +733,39 @@ export function ProfilePage() {
               showEmptyContactFields
               className="pro-contact-links--profile"
             />
+            </>
           ) : null}
           {viewerProAccess && editing ? (
             <div className="pro-contact-edit">
+              <label className="pro-contact-edit-label">
+                <Briefcase size={16} aria-hidden />
+                <span>{t("proJobLabel")}</span>
+              </label>
+              <textarea
+                value={draftBio}
+                onChange={(e) => setDraftBio(e.target.value)}
+                placeholder={t("proJobPlaceholder")}
+                className="bio-textarea bio-textarea--pro-job"
+              />
+              <label className="pro-contact-edit-label">
+                <Tags size={16} aria-hidden />
+                <span>{t("proCategoryTypeLabel")}</span>
+              </label>
+              <p className="pro-address-hint">{t("proCategoryTypeHint")}</p>
+              <div className="pro-category-chips" role="listbox" aria-label={t("proCategoryTypeLabel")}>
+                {PRO_CATEGORY_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    role="option"
+                    aria-selected={viewerProCategory === opt.id}
+                    className={`pro-category-chip${viewerProCategory === opt.id ? " pro-category-chip--active" : ""}`}
+                    onClick={() => setViewerProCategory(opt.id)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
               <label className="pro-contact-edit-label">
                 <MapPin size={16} aria-hidden />
                 <span>{t("proAddressLabel")}</span>

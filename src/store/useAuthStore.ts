@@ -130,6 +130,11 @@ interface AuthState {
 
 const LS_USER = "nel_auth_user";
 
+function applySignupProEntitlement(isPro: boolean): void {
+  if (!isPro) return;
+  useMessagingStore.getState().setViewerProfileIsPro(true);
+}
+
 function applySheetProfileToStores(
   sheetUser: Pick<SheetAuthUser, "age" | "bio" | "language" | "avatarUrl">,
 ): void {
@@ -677,6 +682,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             bio: bio ?? "",
             language: useLanguageStore.getState().language,
           });
+          applySignupProEntitlement(!!loggedInUser.isPro);
           const proContact = readViewerProContact();
           syncEmailVerifiedToSheets(
             loggedInUser.id,
@@ -797,6 +803,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         undefined,
         ipCheck.currentIp || undefined,
       );
+      applySignupProEntitlement(!!newUser.isPro);
       set({ user: newUser, isLoading: false });
     } catch (err) {
       set({

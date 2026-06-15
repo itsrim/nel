@@ -59,6 +59,23 @@ export const PRO_CATEGORY_OPTIONS: { id: ProCategory; label: string }[] = [
   { id: "danse", label: "Danse" },
 ];
 
+export const DEFAULT_PRO_CATEGORY: ProCategory = "therapeute";
+
+export function resolveProCategoryFields(raw?: string): {
+  category: ProCategory;
+  categoryLabel: string;
+} {
+  const id = raw?.trim();
+  const match = PRO_CATEGORY_OPTIONS.find((o) => o.id === id);
+  if (match) return { category: match.id, categoryLabel: match.label };
+  return {
+    category: DEFAULT_PRO_CATEGORY,
+    categoryLabel:
+      PRO_CATEGORY_OPTIONS.find((o) => o.id === DEFAULT_PRO_CATEGORY)?.label ??
+      "Thérapeute",
+  };
+}
+
 const _MOCK_PROFESSIONALS_RAW: Omit<MockProfessional, keyof ProContactFields>[] = [
   {
     id: "pro_01",

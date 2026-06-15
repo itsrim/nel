@@ -44,6 +44,8 @@ import {
   listInvitableProfiles,
 } from "../lib/eventInvites";
 import { ReportModal } from "../components/ReportModal";
+import { EventCheckoutModal } from "../components/EventCheckoutModal";
+import { isPaidEventPrice } from "../lib/eventPricing";
 import "./EventDetailPage.css";
 
 type ParticipantSlot =
@@ -108,6 +110,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteSearch, setInviteSearch] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const event = events.find((e) => e.id === id);
 
@@ -270,6 +273,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     isInscribed;
   const showJoinKarmaHint =
     !isHostOrganizer && viewerStatus !== "inscrit" && !isFull && !isPastEvent;
+  const isPaidEvent = isPaidEventPrice(event.priceLabel ?? event.price);
+  const requiresPaymentToJoin =
+    isPaidEvent && !event.manualApproval && !isFull && viewerStatus !== "inscrit";
 
   const markParticipantPresent = (participantProfilId: string) => {
     validateEventParticipantPresent(event.id, participantProfilId);
@@ -327,10 +333,20 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
       joinWaitlist(event.id);
       return;
     }
+    if (requiresPaymentToJoin) {
+      setCheckoutOpen(true);
+      return;
+    }
     joinEvent(event.id);
   };
 
-  const joinButtonLabel =
+  const handleEventPaymentSuccess = () => {
+    setCheckoutOpen(false);
+    joinEvent(event.id);
+    showToast(t("eventPaymentSuccess"));
+  };
+
+  const primaryJoinLabel =
     viewerStatus === "inscrit"
       ? t("unregisterButton")
       : viewerStatus === "en_attente" || viewerOnWaitlist
@@ -339,7 +355,11 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           ? t("joinWaitlist")
           : event.manualApproval
             ? t("joinWaitlist")
-            : t("joinEventButton");
+            : requiresPaymentToJoin
+              ? t("payAndJoinEventButton")
+              : t("joinEventButton");
+
+  const joinButtonLabel = primaryJoinLabel;
 
   const handleShare = async () => {
     try {
@@ -761,9 +781,13 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                   onClick={handleJoinToggle}
                   aria-label={
                     showJoinKarmaHint
-                      ? viewerProAccess
-                        ? `${t("joinEventButton")}, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
-                        : `${t("joinEventButton")}, −${KARMA_JOIN_COST} karma, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
+                      ? requiresPaymentToJoin
+                        ? viewerProAccess
+                          ? `${t("payAndJoinEventButton")}, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
+                          : `${t("payAndJoinEventButton")}, −${KARMA_JOIN_COST} karma, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
+                        : viewerProAccess
+                          ? `${t("joinEventButton")}, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
+                          : `${t("joinEventButton")}, −${KARMA_JOIN_COST} karma, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
                       : undefined
                   }
                 >
@@ -775,7 +799,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                     joinButtonLabel
                   ) : (
                     <>
-                      <span className="ed-join-btn-label">{t("joinEventButton")}</span>
+                      <span className="ed-join-btn-label">{primaryJoinLabel}</span>
                       {showJoinKarmaHint ? (
                         <span className="ed-join-btn-karma" aria-hidden>
                           {viewerProAccess
@@ -905,6 +929,16 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
         subjectId={event.id}
         subjectLabel={event.title}
       />
+
+      {checkoutOpen ? (
+        <EventCheckoutModal
+          eventId={event.id}
+          eventTitle={event.title}
+          priceLabel={event.priceLabel?.trim() || event.price?.trim() || "Gratuit"}
+          onClose={() => setCheckoutOpen(false)}
+          onSuccess={handleEventPaymentSuccess}
+        />
+      ) : null}
     </div>
   );
 }

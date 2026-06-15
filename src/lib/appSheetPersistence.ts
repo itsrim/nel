@@ -53,6 +53,7 @@ import {
   mergeProfessionalsCatalog,
   viewerSettingsRowToProfessional,
 } from "./proDirectory";
+import { DEFAULT_PRO_CATEGORY, isProCategory } from "./proCategory";
 
 const LS_CACHE_PREFIX = "nel_sheet_cache_";
 const GLOBAL_CACHE_USER = "__global__";
@@ -707,6 +708,7 @@ export function viewerSettingsToRow(
     proAddress?: string;
     proLat?: number | null;
     proLng?: number | null;
+    proCategory?: string;
     karma?: number;
     friendRequestSentProfilIds: string[];
     friendRequestRejectedProfilIds: string[];
@@ -745,6 +747,7 @@ export function viewerSettingsToRow(
     proAddress: str(data.proAddress),
     proLat: data.proLat != null ? String(data.proLat) : "",
     proLng: data.proLng != null ? String(data.proLng) : "",
+    proCategory: str(data.proCategory),
     karma: data.karma != null ? String(data.karma) : "",
     friendRequestSentJson: jsonToSheet(data.friendRequestSentProfilIds),
     friendRequestRejectedJson: jsonToSheet(data.friendRequestRejectedProfilIds),
@@ -960,6 +963,7 @@ export interface LoadedAppSheetState {
     proAddress?: string;
     proLat?: number | null;
     proLng?: number | null;
+    proCategory?: string;
     karma?: number;
     friendRequestSentProfilIds: string[];
     friendRequestRejectedProfilIds: string[];
@@ -1010,6 +1014,7 @@ function parseViewerSettingsFromRow(
     proAddress: str(viewerRow.proAddress) || undefined,
     proLat: str(viewerRow.proLat) ? numFromSheet(viewerRow.proLat) : null,
     proLng: str(viewerRow.proLng) ? numFromSheet(viewerRow.proLng) : null,
+    proCategory: str(viewerRow.proCategory) || undefined,
     karma:
       str(viewerRow.karma) !== "" ? numFromSheet(viewerRow.karma, 5) : undefined,
     friendRequestSentProfilIds: jsonFromSheet(viewerRow.friendRequestSentJson, []),
@@ -1155,7 +1160,14 @@ async function loadMergedProfessionalsCatalog(
       .map(viewerSettingsRowToProfessional)
       .filter((p): p is MockProfessional => p != null);
     const tablePros = professionalRows.map(rowToProfessional);
-    return mergeProfessionalsCatalog(tablePros, memberPros);
+    const merged = mergeProfessionalsCatalog(tablePros, memberPros);
+    const tableIds = new Set(tablePros.map((p) => p.id));
+    for (const pro of memberPros) {
+      if (!tableIds.has(pro.id)) {
+        syncProfessionalToSheets(pro);
+      }
+    }
+    return merged;
   } catch (err) {
     console.error("loadMergedProfessionalsCatalog failed:", err);
     return [];
@@ -1416,6 +1428,7 @@ export function mergeLoadedAppState(
   viewerProAddress?: string;
   viewerProLat?: number | null;
   viewerProLng?: number | null;
+  viewerProCategory?: import("./proCategory").ProCategory;
   viewerKarma?: number;
   adminAppInfo?: AdminAppInfo;
 } {
@@ -1508,6 +1521,11 @@ export function mergeLoadedAppState(
     if (vs.proAddress != null) patch.viewerProAddress = vs.proAddress;
     if (vs.proLat != null) patch.viewerProLat = vs.proLat;
     if (vs.proLng != null) patch.viewerProLng = vs.proLng;
+    if (vs.proCategory != null) {
+      patch.viewerProCategory = isProCategory(vs.proCategory)
+        ? vs.proCategory
+        : DEFAULT_PRO_CATEGORY;
+    }
     if (vs.karma != null) patch.viewerKarma = vs.karma;
     if (vs.friendRequestSentProfilIds.length > 0) {
       patch.friendRequestSentProfilIds = vs.friendRequestSentProfilIds;
@@ -1718,6 +1736,7 @@ export function syncAllViewerStateFromStore(state: {
   viewerProAddress?: string;
   viewerProLat?: number | null;
   viewerProLng?: number | null;
+  viewerProCategory?: import("./proCategory").ProCategory;
   viewerKarma?: number;
   friendRequestSentProfilIds: string[];
   friendRequestRejectedProfilIds: string[];
@@ -1749,6 +1768,7 @@ export function syncAllViewerStateFromStore(state: {
     proAddress: state.viewerProAddress,
     proLat: state.viewerProLat,
     proLng: state.viewerProLng,
+    proCategory: state.viewerProCategory,
     karma: state.viewerKarma,
     friendRequestSentProfilIds: state.friendRequestSentProfilIds,
     friendRequestRejectedProfilIds: state.friendRequestRejectedProfilIds,
@@ -1769,31 +1789,38 @@ export async function persistPendingSignupToSheets(
   signupIp?: string,
   profileExtras?: { age?: string; bio?: string; language?: string },
 ): Promise<void> {
-  await upsertSheetRow(
-    "viewer_settings",
-    userId,
-    viewerSettingsToRow(userId, {
-      email,
-      emailVerified: auth.emailVerified,
-      passwordHash: auth.passwordHash,
-      verificationToken: auth.verificationToken ?? "",
-      verificationExpiresAt: auth.verificationExpiresAt ?? null,
-      passwordResetToken: auth.passwordResetToken ?? "",
-      passwordResetExpiresAt: auth.passwordResetExpiresAt ?? null,
-      avatarUrl: "",
-      displayName,
-      age: profileExtras?.age ?? "",
-      bio: profileExtras?.bio ?? "",
-      language: profileExtras?.language ?? "fr",
-      isPro,
-      signupIp,
-      friendRequestSentProfilIds: [],
-      friendRequestRejectedProfilIds: [],
-      favoriteConversationIds: [],
-      moderationHiddenEventIds: [],
-      moderationHiddenProfilIds: [],
-    }),
-  );
+  const viewerRow = viewerSettingsToRow(userId, {
+    email,
+    emailVerified: auth.emailVerified,
+    passwordHash: auth.passwordHash,
+    verificationToken: auth.verificationToken ?? "",
+    verificationExpiresAt: auth.verificationExpiresAt ?? null,
+    passwordResetToken: auth.passwordResetToken ?? "",
+    passwordResetExpiresAt: auth.passwordResetExpiresAt ?? null,
+    avatarUrl: "",
+    displayName,
+    age: profileExtras?.age ?? "",
+    bio: profileExtras?.bio ?? "",
+    language: profileExtras?.language ?? "fr",
+    isPro,
+    signupIp,
+    friendRequestSentProfilIds: [],
+    friendRequestRejectedProfilIds: [],
+    favoriteConversationIds: [],
+    moderationHiddenEventIds: [],
+    moderationHiddenProfilIds: [],
+  });
+  await upsertSheetRow("viewer_settings", userId, viewerRow);
+  if (isPro) {
+    try {
+      const pro = viewerSettingsRowToProfessional(viewerRow);
+      if (pro) {
+        await upsertSheetRow("professionals", pro.id, professionalToRow(pro));
+      }
+    } catch (err) {
+      console.error("persistPendingSignupToSheets: professionals upsert failed:", err);
+    }
+  }
 }
 
 /** @deprecated Préférer persistPendingSignupToSheets (await). */
