@@ -17,23 +17,43 @@ export function countUnreadNotifications(
   return notifications.filter((n) => n.readAt == null).length;
 }
 
-/** Pastille Profil (barre du bas) : notifs non lues + demandes reçues sans doublon. */
+function isPendingIncomingFriendRequest(
+  visit: ProfileVisit,
+  friends: readonly Friend[],
+  friendRequestRejectedProfilIds: readonly string[],
+): boolean {
+  if (!visit.friendRequest) return false;
+  if (friendRequestRejectedProfilIds.includes(visit.id)) return false;
+  return !friends.some((f) => f.profilId === visit.id && f.mutualFriend === true);
+}
+
+function hasFriendRequestNotification(
+  profilId: string,
+  notifications: readonly AppNotification[],
+): boolean {
+  return notifications.some(
+    (n) =>
+      n.kind === "friend_request_received" && n.inviteeProfilId === profilId,
+  );
+}
+
+/** Pastille Profil (barre du bas) : notifs non lues + demandes sans notif associée. */
 export function countProfileNavBadge(input: {
   appNotifications: readonly AppNotification[];
   profileVisits: readonly ProfileVisit[];
   friends: readonly Friend[];
+  friendRequestRejectedProfilIds: readonly string[];
 }): number {
   const unread = countUnreadNotifications(input.appNotifications);
-  const incomingRequests = input.profileVisits.filter(
+  const orphanIncoming = input.profileVisits.filter(
     (v) =>
-      v.friendRequest &&
-      !input.friends.some((f) => f.profilId === v.id && f.mutualFriend === true),
+      isPendingIncomingFriendRequest(
+        v,
+        input.friends,
+        input.friendRequestRejectedProfilIds,
+      ) && !hasFriendRequestNotification(v.id, input.appNotifications),
   ).length;
-  const unreadFriendRequestNotifs = input.appNotifications.filter(
-    (n) => n.kind === "friend_request_received" && n.readAt == null,
-  ).length;
-  const extraIncoming = Math.max(0, incomingRequests - unreadFriendRequestNotifs);
-  return unread + extraIncoming;
+  return unread + orphanIncoming;
 }
 
 export function countUnreadChatMessages(input: {

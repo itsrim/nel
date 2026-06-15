@@ -48,6 +48,11 @@ import {
 import { ADMIN_USER_ID, shouldExcludeFromPublicCatalog } from "./accountRoles";
 import { buildSuggestionCatalog } from "./suggestionCatalog";
 import { shouldSkipEmailVerificationFromSheets } from "./sheetAuth";
+import {
+  isActiveProMemberRow,
+  mergeProfessionalsCatalog,
+  viewerSettingsRowToProfessional,
+} from "./proDirectory";
 
 const LS_CACHE_PREFIX = "nel_sheet_cache_";
 const GLOBAL_CACHE_USER = "__global__";
@@ -1128,6 +1133,35 @@ async function attachRegisteredMemberSuggestions(
   };
 }
 
+async function loadMergedProfessionalsCatalog(
+  excludeUserId: string,
+): Promise<MockProfessional[]> {
+  if (!isGoogleSheetsReadConfigured()) return [];
+  try {
+    const [professionalRows, viewerRows, skipEmailVerification] = await Promise.all([
+      readGlobalTable("professionals"),
+      sheetGet<Record<string, string>>("viewer_settings"),
+      shouldSkipEmailVerificationFromSheets(),
+    ]);
+    const memberPros = viewerRows
+      .filter((row) => {
+        const id = row.id?.trim() || row.userId?.trim();
+        return (
+          id &&
+          id !== excludeUserId &&
+          isActiveProMemberRow(row, skipEmailVerification)
+        );
+      })
+      .map(viewerSettingsRowToProfessional)
+      .filter((p): p is MockProfessional => p != null);
+    const tablePros = professionalRows.map(rowToProfessional);
+    return mergeProfessionalsCatalog(tablePros, memberPros);
+  } catch (err) {
+    console.error("loadMergedProfessionalsCatalog failed:", err);
+    return [];
+  }
+}
+
 export async function loadTabStateFromSheets(
   tab: SheetsTabId,
   userId: string,
@@ -1143,16 +1177,15 @@ export async function loadTabStateFromSheets(
       };
     }
     case "chat": {
-      const [convRows, suggestionRows, profileRows, visitRows, professionalRows] =
+      const [convRows, suggestionRows, profileRows, visitRows, professionals] =
         await Promise.all([
         readScopedUserTable("conversations", userId, isAdmin),
         readScopedUserTable("suggestions", userId, isAdmin),
         readScopedUserTable("profiles", userId, isAdmin),
         readScopedUserTable("profile_visits", userId, isAdmin),
-        readGlobalTable("professionals"),
+        loadMergedProfessionalsCatalog(userId),
       ]);
       const profileVisits = visitRows.map(rowToVisit);
-      const professionals = professionalRows.map(rowToProfessional);
       return attachRegisteredMemberSuggestions(
         {
           ...emptyLoadedState(),
@@ -1171,11 +1204,11 @@ export async function loadTabStateFromSheets(
       );
     }
     case "pro": {
-      const professionalRows = await readGlobalTable("professionals");
+      const professionals = await loadMergedProfessionalsCatalog(userId);
       return {
         ...emptyLoadedState(),
-        professionals: professionalRows.map(rowToProfessional),
-        hasRemoteData: professionalRows.length > 0,
+        professionals,
+        hasRemoteData: professionals.length > 0,
       };
     }
     case "profile": {
@@ -1323,7 +1356,7 @@ export async function loadAppStateFromSheets(
   const appConfigRow = appConfigRows.find((r) => r.id === APP_CONFIG_GLOBAL_ID);
   const adminAppInfo = appConfigRow ? rowToAdminAppInfo(appConfigRow) : undefined;
 
-  const professionals = professionalRows.map(rowToProfessional);
+  const professionals = await loadMergedProfessionalsCatalog(userId);
 
   return attachRegisteredMemberSuggestions(
     {

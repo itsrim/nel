@@ -36,6 +36,9 @@ export function BottomNavigation() {
   const appNotifications = useMessagingStore((s) => s.appNotifications);
   const profileVisits = useMessagingStore((s) => s.profileVisits);
   const friends = useMessagingStore((s) => s.friends);
+  const friendRequestRejectedProfilIds = useMessagingStore(
+    (s) => s.friendRequestRejectedProfilIds,
+  );
   const isAdmin = useMessagingStore((s) => s.isAdmin);
   const innerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -58,8 +61,9 @@ export function BottomNavigation() {
         appNotifications,
         profileVisits,
         friends,
+        friendRequestRejectedProfilIds,
       }),
-    [appNotifications, profileVisits, friends],
+    [appNotifications, profileVisits, friends, friendRequestRejectedProfilIds],
   );
 
   const activeIndex = NAV_ITEMS.findIndex((item) => item.id === activeTab);

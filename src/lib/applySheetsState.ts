@@ -3,7 +3,6 @@
  * GET systématique ; setState uniquement si les données diffèrent du state actuel.
  */
 
-import type { MockProfessional } from "../data/mockProfessionals";
 import { useAuthStore } from "../store/useAuthStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useProsStore } from "../store/useProsStore";
@@ -46,47 +45,25 @@ function filterChangedPatch<T extends object>(
   return changed;
 }
 
-function previewMergedProfessionals(
-  current: MockProfessional[],
-  remote: MockProfessional[],
-): MockProfessional[] {
-  const map = new Map(current.map((p) => [p.id, p]));
-  remote.forEach((p) => {
-    const prev = map.get(p.id);
-    map.set(p.id, prev ? { ...prev, ...p } : p);
-  });
-  return [...map.values()];
-}
-
-function ensureProfessionalsCatalogInStore(): void {
-  if (useProsStore.getState().professionals.length > 0) return;
-  void import("../data/mockProfessionals").then((m) => {
-    if (useProsStore.getState().professionals.length > 0) return;
-    useProsStore.getState().hydrateProfessionals(m.MOCK_PROFESSIONALS);
-  });
-}
-
 export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
   const authUser = useAuthStore.getState().user;
   const viewerContext = authUser
     ? { id: authUser.id, displayName: authUser.displayName }
     : null;
 
-  if (loaded.professionals.length > 0) {
-    const currentPros = useProsStore.getState().professionals;
-    const nextPros = previewMergedProfessionals(currentPros, loaded.professionals);
-    if (!dataEqual(currentPros, nextPros)) {
+  const currentPros = useProsStore.getState().professionals;
+  if (!dataEqual(currentPros, loaded.professionals)) {
+    if (loaded.professionals.length > 0) {
       useProsStore.getState().hydrateProfessionals(loaded.professionals);
+    } else if (currentPros.length > 0) {
+      useProsStore.setState({ professionals: [] });
     }
-  } else {
-    ensureProfessionalsCatalogInStore();
   }
 
   const msgStore = useMessagingStore.getState();
 
   if (!loaded.hasRemoteData) {
     ensureDerivedCatalogInStore(viewerContext);
-    ensureProfessionalsCatalogInStore();
     return;
   }
 
@@ -111,7 +88,6 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
   if (Object.keys(changed).length === 0) {
     ensureParticipantConversationsInStore();
     ensureDerivedCatalogInStore(viewerContext);
-    ensureProfessionalsCatalogInStore();
     return;
   }
 
@@ -226,7 +202,6 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
 
   ensureParticipantConversationsInStore();
   ensureDerivedCatalogInStore(viewerContext);
-  ensureProfessionalsCatalogInStore();
 }
 
 /** Suggestions dérivées des profils Sheets, des inscrits viewer_settings ou des pros. */

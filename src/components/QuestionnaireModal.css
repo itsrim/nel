@@ -123,6 +123,10 @@
   max-height: min(52vh, 420px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .emoji-grid {

@@ -1604,6 +1604,11 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
     const updated = get().friends.find((f) => f.profilId === id);
     if (updated) syncFriendToSheets(updated);
+    const ownerUserId = useAuthStore.getState().user?.id?.trim() ?? "";
+    const visit = get().profileVisits.find((v) => v.id === id);
+    if (ownerUserId && visit) {
+      syncProfileVisitToSheetsForUser(visit, ownerUserId);
+    }
     syncViewerSettingsFromState(get());
     get().showToast("Demande acceptée.");
 
@@ -1643,6 +1648,11 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         ? state.friendRequestRejectedProfilIds
         : [...state.friendRequestRejectedProfilIds, id],
     }));
+    const ownerUserId = useAuthStore.getState().user?.id?.trim() ?? "";
+    const visit = get().profileVisits.find((v) => v.id === id);
+    if (ownerUserId && visit) {
+      syncProfileVisitToSheetsForUser(visit, ownerUserId);
+    }
     syncViewerSettingsFromState(get());
     get().showToast("Demande refusée.");
 
