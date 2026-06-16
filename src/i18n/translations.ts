@@ -3,6 +3,7 @@ export const translations = {
   fr: {
     // ProfilePage
     settings: "Paramètres",
+    loading: "Chargement...",
     premium: "Premium",
     premiumSub: "Toutes les fonctionnalités débloquées",
     premiumPrice: "4,99 €/mois",
@@ -701,6 +702,7 @@ export const translations = {
   en: {
     // ProfilePage
     settings: "Settings",
+    loading: "Loading...",
     premium: "Premium",
     premiumSub: "All features unlocked",
     premiumPrice: "€9.99/mo",

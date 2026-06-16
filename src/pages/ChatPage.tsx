@@ -57,20 +57,20 @@ type SubTab = "suggestions" | "messages" | "visites";
 
 type ChatSearchHit =
   | {
-      kind: "user";
-      id: string;
-      label: string;
-      subtitle: string;
-      avatarUrl: string;
-    }
+    kind: "user";
+    id: string;
+    label: string;
+    subtitle: string;
+    avatarUrl: string;
+  }
   | {
-      kind: "group";
-      id: string;
-      conversationId: string;
-      label: string;
-      subtitle: string;
-      conversation: Conversation;
-    };
+    kind: "group";
+    id: string;
+    conversationId: string;
+    label: string;
+    subtitle: string;
+    conversation: Conversation;
+  };
 
 function foldSearch(s: string): string {
   return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
@@ -117,7 +117,7 @@ function FavoriteStripAvatar({ conversation }: { conversation: Conversation }) {
     },
   );
   const gradient = conversation.avatarGradient;
-
+  const { t } = useTranslation();
   const slotDiv = (i: number, className: string, fallbackBg: string) => {
     const s = slots[i];
     if (s?.hasImage && s.src) {
@@ -407,10 +407,10 @@ export function ChatPage() {
       conversationAccessScope === null
         ? conversations
         : conversations.filter(
-            (c) =>
-              isConversationAccessible(c.id, conversationAccessScope) &&
-              (c.members.length === 0 || c.members.some((m) => m.isSelf)),
-          ),
+          (c) =>
+            isConversationAccessible(c.id, conversationAccessScope) &&
+            (c.members.length === 0 || c.members.some((m) => m.isSelf)),
+        ),
     [conversations, conversationAccessScope],
   );
 
@@ -751,14 +751,14 @@ export function ChatPage() {
               chatLoading && sorted.length === 0 ? (
                 <div className="chat-loading-container">
                   <Loader2 size={36} className="chat-spinner" />
-                  <p className="chat-loading-text">Chargement des messages...</p>
+                  <p className="chat-loading-text">{t("loading")}</p>
                 </div>
               ) : (
                 <div className="conv-list">
                   {chatLoading && sorted.length > 0 && (
                     <div className="chat-refresh-bar">
                       <Loader2 size={16} className="chat-spinner" />
-                      <span>Mise à jour des messages...</span>
+                      <span>{t("loading")}</span>
                     </div>
                   )}
                   {sorted.map((item) => (
@@ -773,7 +773,7 @@ export function ChatPage() {
               chatLoading && sortedVisits.length === 0 ? (
                 <div className="chat-loading-container">
                   <Loader2 size={36} className="chat-spinner" />
-                  <p className="chat-loading-text">Chargement des visites...</p>
+                  <p className="chat-loading-text">{t("loading")}</p>
                 </div>
               ) : (
                 <div className="visits-list">
@@ -794,7 +794,7 @@ export function ChatPage() {
                   {chatLoading && sortedVisits.length > 0 && (
                     <div className="chat-refresh-bar">
                       <Loader2 size={16} className="chat-spinner" />
-                      <span>Mise à jour des visites...</span>
+                      <span>{t("loading")}</span>
                     </div>
                   )}
                   {sortedVisits.map((v) => (
@@ -882,14 +882,14 @@ export function ChatPage() {
               chatLoading && sortedSuggestions.length === 0 ? (
                 <div className="chat-loading-container">
                   <Loader2 size={36} className="chat-spinner" />
-                  <p className="chat-loading-text">Chargement des suggestions...</p>
+                  <p className="chat-loading-text">{t("loading")}</p>
                 </div>
               ) : (
                 <>
                   {chatLoading && sortedSuggestions.length > 0 && (
                     <div className="chat-refresh-bar">
                       <Loader2 size={16} className="chat-spinner" />
-                      <span>Mise à jour des suggestions...</span>
+                      <span>{t("loading")}</span>
                     </div>
                   )}
                   <SuggestionsVirtualList

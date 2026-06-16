@@ -394,15 +394,15 @@ export function EventsPage() {
                   {(searchDraft.length > 0 ||
                     committedSearch.length > 0 ||
                     filterChipsActive) && (
-                    <button
-                      type="button"
-                      className="events-search-clear"
-                      onClick={clearSearch}
-                      aria-label={t("clearSearch")}
-                    >
-                      <X size={18} color="rgba(255,255,255,0.55)" />
-                    </button>
-                  )}
+                      <button
+                        type="button"
+                        className="events-search-clear"
+                        onClick={clearSearch}
+                        aria-label={t("clearSearch")}
+                      >
+                        <X size={18} color="rgba(255,255,255,0.55)" />
+                      </button>
+                    )}
                   <button
                     type="button"
                     className="events-search-submit"
@@ -504,7 +504,7 @@ export function EventsPage() {
         {eventsLoading && !((headerMode === "search" && allSearchEvents.length === 0) || (headerMode !== "search" && sections.length === 0)) && (
           <div className="events-refresh-bar">
             <Loader2 size={16} className="events-spinner" />
-            <span>Mise à jour des sorties...</span>
+            <span>{t("loading")}</span>
           </div>
         )}
 
@@ -536,7 +536,7 @@ export function EventsPage() {
         ) ? (
           <div className="events-loading-container">
             <Loader2 size={36} className="events-spinner" />
-            <p className="events-loading-text">Chargement en cours...</p>
+            <p className="events-loading-text">{t("loading")}</p>
           </div>
         ) : headerMode === "search" ? (
           <EventsSearchVirtualList
