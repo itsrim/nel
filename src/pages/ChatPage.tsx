@@ -4,6 +4,7 @@ import {
   Eye,
   Heart,
   HeartCrack,
+  Loader2,
   Plus,
   Search,
   UserPlus,
@@ -381,6 +382,7 @@ export function ChatPage() {
     showToast,
     isAdmin: adminModeActive,
     getEventByConversationId,
+    chatLoading,
   } = useMessagingStore();
   const viewerPremiumAccess = useMessagingStore(hasViewerPremiumAccess);
   const [sub, setSub] = useState<SubTab>("messages");
@@ -744,124 +746,168 @@ export function ChatPage() {
           </div>
         ) : (
           <>
+            {/* Messages sub-tab */}
             {sub === "messages" && (
-              <div className="conv-list">
-                {sorted.map((item) => (
-                  <ConversationRow key={item.id} item={item} />
-                ))}
-              </div>
+              chatLoading && sorted.length === 0 ? (
+                <div className="chat-loading-container">
+                  <Loader2 size={36} className="chat-spinner" />
+                  <p className="chat-loading-text">Chargement des messages...</p>
+                </div>
+              ) : (
+                <div className="conv-list">
+                  {chatLoading && sorted.length > 0 && (
+                    <div className="chat-refresh-bar">
+                      <Loader2 size={16} className="chat-spinner" />
+                      <span>Mise à jour des messages...</span>
+                    </div>
+                  )}
+                  {sorted.map((item) => (
+                    <ConversationRow key={item.id} item={item} />
+                  ))}
+                </div>
+              )
             )}
 
+            {/* Visites sub-tab */}
             {sub === "visites" && (
-              <div className="visits-list">
-            {/* Premium banner */}
-            <div className="premium-banner">
-              <div className="premium-banner-icon">
-                <Crown size={28} color="#fff" />
-              </div>
-              <div className="premium-banner-texts">
-                <span className="premium-banner-title">
-                  {t("premiumFeature")}
-                </span>
-                <span className="premium-banner-sub">
-                  {profileVisitsVisible.length} {t("visitsPlaceholder")}
-                </span>
-              </div>
-            </div>
-            {sortedVisits.map((v) => (
-              <div
-                key={v.id}
-                className="visit-card"
-                onClick={() => openDetail("profile", v.id)}
-              >
-                <div className="visit-avatar-wrap">
-                  <img
-                    src={v.avatarUrl}
-                    alt={v.name}
-                    className="visit-avatar"
-                  />
-                  {v.friendRequest && (
-                    <span className="visit-friend-badge">
-                      {t("friendRequestBadge")}
-                    </span>
-                  )}
-                  {v.visitMultiplier && v.visitMultiplier > 1 && (
-                    <span className="visit-mult-badge">
-                      {t("visitMultiplier")}
-                      {v.visitMultiplier}
-                    </span>
-                  )}
+              chatLoading && sortedVisits.length === 0 ? (
+                <div className="chat-loading-container">
+                  <Loader2 size={36} className="chat-spinner" />
+                  <p className="chat-loading-text">Chargement des visites...</p>
                 </div>
-                <div className="visit-card-body">
-                  <span className="visit-name-age">
-                    {v.name}, {v.age}
-                  </span>
-                  <div className="visit-meta-row">
-                    <Eye size={14} color="#8E8E93" />
-                    <span className="visit-time">
-                      {formatVisitTimeAgo(v.lastVisitAt)}
-                    </span>
+              ) : (
+                <div className="visits-list">
+                  {/* Premium banner */}
+                  <div className="premium-banner">
+                    <div className="premium-banner-icon">
+                      <Crown size={28} color="#fff" />
+                    </div>
+                    <div className="premium-banner-texts">
+                      <span className="premium-banner-title">
+                        {t("premiumFeature")}
+                      </span>
+                      <span className="premium-banner-sub">
+                        {profileVisitsVisible.length} {t("visitsPlaceholder")}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <button
-                  type="button"
-                  className={`visit-like-btn${hasSentFriendRequest(v.id) ? " visit-like-btn--sent" : ""}${isMutualFriend(v.id) ? " visit-like-btn--friend" : ""}${hasRejectedFriendRequest(v.id) ? " visit-like-btn--rejected" : ""}${dailyFriendRequestLimitReached && !hasSentFriendRequest(v.id) ? " visit-like-btn--daily-limit" : ""}`}
-                  disabled={isFriendRequestBlocked(v.id)}
-                  onClick={(e) => handleFriendRequest(e, v.id)}
-                  aria-label={
-                    isMutualFriend(v.id)
-                      ? t("friendLabel")
-                      : hasRejectedFriendRequest(v.id)
-                        ? t("requestRejected")
-                        : hasSentFriendRequest(v.id)
-                          ? t("requestSent")
-                          : dailyFriendRequestLimitReached
-                            ? t("friendRequestDailyLimit")
-                            : t("sendFriendRequest")
-                  }
-                >
-                  {isMutualFriend(v.id) ? (
-                    <Heart
-                      size={18}
-                      color="#FF4081"
-                      fill="#FF4081"
-                      aria-hidden
-                    />
-                  ) : hasRejectedFriendRequest(v.id) ? (
-                    <HeartCrack size={18} color="#FF9F0A" aria-hidden />
-                  ) : (
-                    <UserPlus size={18} color="#fff" aria-hidden />
+                  {chatLoading && sortedVisits.length > 0 && (
+                    <div className="chat-refresh-bar">
+                      <Loader2 size={16} className="chat-spinner" />
+                      <span>Mise à jour des visites...</span>
+                    </div>
                   )}
-                  <span>
-                    {isMutualFriend(v.id)
-                      ? t("friendLabel")
-                      : hasRejectedFriendRequest(v.id)
-                        ? t("rejectedRequest")
-                        : hasSentFriendRequest(v.id)
-                          ? t("sentRequest")
-                          : t("addFriendButton")}
-                  </span>
-                </button>
-              </div>
-            ))}
-              </div>
+                  {sortedVisits.map((v) => (
+                    <div
+                      key={v.id}
+                      className="visit-card"
+                      onClick={() => openDetail("profile", v.id)}
+                    >
+                      <div className="visit-avatar-wrap">
+                        <img
+                          src={v.avatarUrl}
+                          alt={v.name}
+                          className="visit-avatar"
+                        />
+                        {v.friendRequest && (
+                          <span className="visit-friend-badge">
+                            {t("friendRequestBadge")}
+                          </span>
+                        )}
+                        {v.visitMultiplier && v.visitMultiplier > 1 && (
+                          <span className="visit-mult-badge">
+                            {t("visitMultiplier")}
+                            {v.visitMultiplier}
+                          </span>
+                        )}
+                      </div>
+                      <div className="visit-card-body">
+                        <span className="visit-name-age">
+                          {v.name}, {v.age}
+                        </span>
+                        <div className="visit-meta-row">
+                          <Eye size={14} color="#8E8E93" />
+                          <span className="visit-time">
+                            {formatVisitTimeAgo(v.lastVisitAt)}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className={`visit-like-btn${hasSentFriendRequest(v.id) ? " visit-like-btn--sent" : ""}${isMutualFriend(v.id) ? " visit-like-btn--friend" : ""}${hasRejectedFriendRequest(v.id) ? " visit-like-btn--rejected" : ""}${dailyFriendRequestLimitReached && !hasSentFriendRequest(v.id) ? " visit-like-btn--daily-limit" : ""}`}
+                        disabled={isFriendRequestBlocked(v.id)}
+                        onClick={(e) => handleFriendRequest(e, v.id)}
+                        aria-label={
+                          isMutualFriend(v.id)
+                            ? t("friendLabel")
+                            : hasRejectedFriendRequest(v.id)
+                              ? t("requestRejected")
+                              : hasSentFriendRequest(v.id)
+                                ? t("requestSent")
+                                : dailyFriendRequestLimitReached
+                                  ? t("friendRequestDailyLimit")
+                                  : t("sendFriendRequest")
+                        }
+                      >
+                        {isMutualFriend(v.id) ? (
+                          <Heart
+                            size={18}
+                            color="#FF4081"
+                            fill="#FF4081"
+                            aria-hidden
+                          />
+                        ) : hasRejectedFriendRequest(v.id) ? (
+                          <HeartCrack size={18} color="#FF9F0A" aria-hidden />
+                        ) : (
+                          <UserPlus size={18} color="#fff" aria-hidden />
+                        )}
+                        <span>
+                          {isMutualFriend(v.id)
+                            ? t("friendLabel")
+                            : hasRejectedFriendRequest(v.id)
+                              ? t("rejectedRequest")
+                              : hasSentFriendRequest(v.id)
+                                ? t("sentRequest")
+                                : t("addFriendButton")}
+                        </span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )
             )}
 
+            {/* Suggestions sub-tab */}
             {sub === "suggestions" && (
-              <SuggestionsVirtualList
-                suggestions={sortedSuggestions}
-                scrollRef={chatContentRef}
-                listResetKey={suggestionsListResetKey}
-                loadingMoreLabel={t("chatSuggestionsLoadingMore")}
-                emptyMessage={t("noSuggestions")}
-                onOpenProfile={(id) => openDetail("profile", id)}
-                isMutualFriend={isMutualFriend}
-                hasSentFriendRequest={hasSentFriendRequest}
-                hasRejectedFriendRequest={hasRejectedFriendRequest}
-                dailyFriendRequestLimitReached={dailyFriendRequestLimitReached}
-                isFriendRequestBlocked={isFriendRequestBlocked}
-                onFriendRequest={handleFriendRequest}
-              />
+              chatLoading && sortedSuggestions.length === 0 ? (
+                <div className="chat-loading-container">
+                  <Loader2 size={36} className="chat-spinner" />
+                  <p className="chat-loading-text">Chargement des suggestions...</p>
+                </div>
+              ) : (
+                <>
+                  {chatLoading && sortedSuggestions.length > 0 && (
+                    <div className="chat-refresh-bar">
+                      <Loader2 size={16} className="chat-spinner" />
+                      <span>Mise à jour des suggestions...</span>
+                    </div>
+                  )}
+                  <SuggestionsVirtualList
+                    suggestions={sortedSuggestions}
+                    scrollRef={chatContentRef}
+                    listResetKey={suggestionsListResetKey}
+                    loadingMoreLabel={t("chatSuggestionsLoadingMore")}
+                    emptyMessage={t("noSuggestions")}
+                    onOpenProfile={(id) => openDetail("profile", id)}
+                    isMutualFriend={isMutualFriend}
+                    hasSentFriendRequest={hasSentFriendRequest}
+                    hasRejectedFriendRequest={hasRejectedFriendRequest}
+                    dailyFriendRequestLimitReached={dailyFriendRequestLimitReached}
+                    isFriendRequestBlocked={isFriendRequestBlocked}
+                    onFriendRequest={handleFriendRequest}
+                  />
+                </>
+              )
             )}
           </>
         )}
