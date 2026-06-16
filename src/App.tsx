@@ -127,10 +127,17 @@ function App() {
   useEffect(() => {
     if (!user?.id || !isGoogleSheetsReadConfigured()) return;
     void (async () => {
-      const isAdmin = resolveSheetsAdminScope(user);
-      const loaded = await loadAppStateFromSheets(user.id, isAdmin);
-      applySheetsLoadedState(loaded);
-      await refreshChatMessagesFromSheets();
+      try {
+        useMessagingStore.setState({ eventsLoading: true, chatLoading: true });
+        const isAdmin = resolveSheetsAdminScope(user);
+        const loaded = await loadAppStateFromSheets(user.id, isAdmin);
+        applySheetsLoadedState(loaded);
+        await refreshChatMessagesFromSheets();
+      } catch (err) {
+        console.error("Initial app state load from Sheets failed:", err);
+      } finally {
+        useMessagingStore.setState({ eventsLoading: false, chatLoading: false });
+      }
     })();
   }, [user?.id, user?.isAdmin]);
 
@@ -143,6 +150,11 @@ function App() {
     }
     void (async () => {
       try {
+        if (tab === "events") {
+          useMessagingStore.setState({ eventsLoading: true });
+        } else if (tab === "chat") {
+          useMessagingStore.setState({ chatLoading: true });
+        }
         const isAdmin = resolveSheetsAdminScope(user);
         const loaded = await loadTabStateFromSheets(tab, user.id, isAdmin);
         applySheetsLoadedState(loaded);
@@ -151,6 +163,12 @@ function App() {
         }
       } catch (err) {
         console.error(`Sheets GET [${tab}] failed:`, err);
+      } finally {
+        if (tab === "events") {
+          useMessagingStore.setState({ eventsLoading: false });
+        } else if (tab === "chat") {
+          useMessagingStore.setState({ chatLoading: false });
+        }
       }
     })();
   }, [activeTab, user?.id, user?.isAdmin]);

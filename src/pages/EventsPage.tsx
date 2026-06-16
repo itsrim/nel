@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ListFilter,
+  Loader2,
   Plus,
   Search,
   X,
@@ -131,6 +132,7 @@ export function EventsPage() {
     isAdmin,
     moderationHiddenEventIds,
     viewerProfileDisplayName,
+    eventsLoading,
   } = useMessagingStore();
   const { t } = useTranslation();
   const [viewportW, setViewportW] = useState(() =>
@@ -499,6 +501,13 @@ export function EventsPage() {
 
       {/* Events content */}
       <div className="events-content" ref={eventsContentRef}>
+        {eventsLoading && !((headerMode === "search" && allSearchEvents.length === 0) || (headerMode !== "search" && sections.length === 0)) && (
+          <div className="events-refresh-bar">
+            <Loader2 size={16} className="events-spinner" />
+            <span>Mise à jour des sorties...</span>
+          </div>
+        )}
+
         {/* Top 5 (search mode) */}
         {headerMode === "search" && topSearchEvents.length > 0 && (
           <div className="events-top5">
@@ -521,7 +530,15 @@ export function EventsPage() {
           </div>
         )}
 
-        {headerMode === "search" ? (
+        {eventsLoading && (
+          (headerMode === "search" && allSearchEvents.length === 0) ||
+          (headerMode !== "search" && sections.length === 0)
+        ) ? (
+          <div className="events-loading-container">
+            <Loader2 size={36} className="events-spinner" />
+            <p className="events-loading-text">Chargement en cours...</p>
+          </div>
+        ) : headerMode === "search" ? (
           <EventsSearchVirtualList
             events={allSearchEvents}
             scrollRef={eventsContentRef}
