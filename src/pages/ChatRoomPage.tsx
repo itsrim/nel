@@ -14,6 +14,7 @@ import { useTranslation } from "../i18n/useTranslation";
 import { buildConversationMiniSlots } from "../lib/conversationMiniSlots";
 import { buildEventGroupMembers } from "../lib/eventGroupMembers";
 import { getProfessionalById } from "../store/useProsStore";
+import { getChatSocket, setActiveChatConversationId } from "../lib/chatSync";
 import "./ChatRoomPage.css";
 
 interface ChatRoomPageProps {
@@ -53,6 +54,21 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
   useEffect(() => {
     recordConversationOpened(id);
   }, [id, recordConversationOpened]);
+
+  useEffect(() => {
+    setActiveChatConversationId(id);
+    const socket = getChatSocket();
+    if (socket && socket.connected) {
+      socket.emit("conversation:join", { conversationId: id });
+    }
+    return () => {
+      const s = getChatSocket();
+      if (s && s.connected) {
+        s.emit("conversation:leave", { conversationId: id });
+      }
+      setActiveChatConversationId(null);
+    };
+  }, [id]);
 
   useEffect(() => {
     if (listRef.current) {
@@ -126,12 +142,13 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
 
   const headerInfoContent = (
     <>
-      <div
-        className="cr-avatar"
-        style={{
-          background: `linear-gradient(45deg, ${conversation.avatarGradient[0]}, ${conversation.avatarGradient[1]})`,
-        }}
-      >
+      <div className="cr-avatar-badge-wrap">
+        <div
+          className="cr-avatar"
+          style={{
+            background: `linear-gradient(45deg, ${conversation.avatarGradient[0]}, ${conversation.avatarGradient[1]})`,
+          }}
+        >
         {isGroup ? (
           memberN <= 2 ? (
             <div className="cr-avatar-split">
@@ -197,6 +214,12 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
           </span>
         )}
       </div>
+      {conversation.unreadCount > 0 && (
+        <span className="cr-unread-badge" aria-hidden>
+          {conversation.unreadCount}
+        </span>
+      )}
+    </div>
       <div className="cr-texts">
         <h3 className="cr-title">{conversation.title}</h3>
         <p className="cr-subtitle">

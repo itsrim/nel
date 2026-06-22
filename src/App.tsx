@@ -6,6 +6,8 @@ import {
 } from "./store/useNavigationStore";
 import { useMessagingStore } from "./store/useMessagingStore";
 import { useAuthStore } from "./store/useAuthStore";
+import { countProfileNavBadge, countUnreadChatMessages } from "./lib/navBadges";
+import { updateAllBadges } from "./lib/appBadge";
 import { isChatApiConfigured } from "./lib/chatConfig";
 import {
   initGlobalChatSync,
@@ -68,8 +70,21 @@ function App() {
   const { activeTab, detailStack } = useNavigationStore();
   const toast = useMessagingStore((s) => s.toast);
   const conversations = useMessagingStore((s) => s.conversations);
-  const { setViewerProfileDisplayName, setViewerProfileAvatarUrl, setViewerProfileIsPro, clearViewerSession, resetData } =
-    useMessagingStore();
+  const events = useMessagingStore((s) => s.events);
+  const appNotifications = useMessagingStore((s) => s.appNotifications);
+  const profileVisits = useMessagingStore((s) => s.profileVisits);
+  const friends = useMessagingStore((s) => s.friends);
+  const friendRequestRejectedProfilIds = useMessagingStore(
+    (s) => s.friendRequestRejectedProfilIds,
+  );
+  const isAdmin = useMessagingStore((s) => s.isAdmin);
+  const {
+    setViewerProfileDisplayName,
+    setViewerProfileAvatarUrl,
+    setViewerProfileIsPro,
+    clearViewerSession,
+    resetData,
+  } = useMessagingStore();
   const { user, loadUser } = useAuthStore();
   const mainRef = useRef<HTMLElement>(null);
   const prevAuthUserIdRef = useRef<string | null>(null);
@@ -136,7 +151,10 @@ function App() {
       } catch (err) {
         console.error("Initial app state load from Sheets failed:", err);
       } finally {
-        useMessagingStore.setState({ eventsLoading: false, chatLoading: false });
+        useMessagingStore.setState({
+          eventsLoading: false,
+          chatLoading: false,
+        });
       }
     })();
   }, [user?.id, user?.isAdmin]);
@@ -145,7 +163,12 @@ function App() {
   useEffect(() => {
     if (!user?.id || !isGoogleSheetsReadConfigured()) return;
     const tab = activeTab as SheetsTabId;
-    if (tab !== "chat" && tab !== "events" && tab !== "pro" && tab !== "profile") {
+    if (
+      tab !== "chat" &&
+      tab !== "events" &&
+      tab !== "pro" &&
+      tab !== "profile"
+    ) {
       return;
     }
     void (async () => {
@@ -187,7 +210,11 @@ function App() {
       void (async () => {
         try {
           const isAdmin = resolveSheetsAdminScope(user);
-          const loaded = await loadTabStateFromSheets("profile", user.id, isAdmin);
+          const loaded = await loadTabStateFromSheets(
+            "profile",
+            user.id,
+            isAdmin,
+          );
           applySheetsLoadedState(loaded);
         } catch (err) {
           console.error("Sheets GET [profile poll] failed:", err);
@@ -210,9 +237,100 @@ function App() {
     }
     if (!isChatApiConfigured()) return;
 
+    // Déconnecte le socket précédent avant de se connecter avec le nouveau compte
+    shutdownGlobalChatSync();
     initGlobalChatSync(conversations.map((c) => c.id));
     void registerPushNotifications();
   }, [user, conversations]);
+
+  // Polling global : rafraîchit les notifications, conversations et événements depuis Sheets
+  // (nécessaire quand Socket.IO n'est pas configuré — 2 comptes différents)
+  useEffect(() => {
+    if (!user?.id || !isGoogleSheetsReadConfigured() || isChatApiConfigured()) {
+      return;
+    }
+
+    const poll = () => {
+      void (async () => {
+        try {
+          const isAdmin = resolveSheetsAdminScope(user);
+          // Recharge les notifications + profil (demandes d'ami, inscriptions aux événements)
+          const loaded = await loadTabStateFromSheets("profile", user.id, isAdmin);
+          applySheetsLoadedState(loaded);
+
+          // Recharge les événements pour voir les nouveaux participants
+          const eventsLoaded = await loadTabStateFromSheets("events", user.id, isAdmin);
+          if (eventsLoaded.events.length > 0) {
+            useMessagingStore.setState({ events: eventsLoaded.events });
+          }
+
+          // Recharge les conversations pour voir les nouveaux messages et unreadCount
+          const chatLoaded = await loadTabStateFromSheets("chat", user.id, isAdmin);
+          if (chatLoaded.conversations.length > 0) {
+            const msgStore = useMessagingStore.getState();
+            const mergedConversations = chatLoaded.conversations.map((remoteConv) => {
+              const local = msgStore.conversations.find((c) => c.id === remoteConv.id);
+              if (!local) return remoteConv;
+              const mergedUnread = Math.max(
+                remoteConv.unreadCount ?? 0,
+                local.unreadCount ?? 0,
+              );
+              return {
+                ...local,
+                unreadCount: mergedUnread,
+                lastMessagePreview: remoteConv.lastMessagePreview || local.lastMessagePreview,
+                updatedAt: Math.max(remoteConv.updatedAt ?? 0, local.updatedAt ?? 0),
+              };
+            });
+            // Ajoute les conversations distantes qui n'existent pas localement
+            const localIds = new Set(msgStore.conversations.map((c) => c.id));
+            const newConvs = chatLoaded.conversations.filter((c) => !localIds.has(c.id));
+            useMessagingStore.setState({
+              conversations: [...newConvs, ...mergedConversations],
+            });
+          }
+
+          // Recharge les notifications
+          if (loaded.appNotifications.length > 0) {
+            useMessagingStore.setState({
+              appNotifications: loaded.appNotifications,
+            });
+          }
+        } catch (err) {
+          console.debug("Poll notifications failed:", err);
+        }
+      })();
+    };
+
+    const intervalId = window.setInterval(poll, 10_000);
+    return () => window.clearInterval(intervalId);
+  }, [user?.id, user?.isAdmin]);
+
+  // Synchronisation des badges (favicon + icône PWA) à chaque changement
+  useEffect(() => {
+    const chatUnread = countUnreadChatMessages({
+      adminModeActive: isAdmin,
+      user,
+      conversations,
+      events,
+    });
+    const profileUnread = countProfileNavBadge({
+      appNotifications,
+      profileVisits,
+      friends,
+      friendRequestRejectedProfilIds,
+    });
+    updateAllBadges(chatUnread, profileUnread);
+  }, [
+    isAdmin,
+    user,
+    conversations,
+    events,
+    appNotifications,
+    profileVisits,
+    friends,
+    friendRequestRejectedProfilIds,
+  ]);
 
   /** Chaque onglet repart du haut (pas la position de scroll de la page précédente). */
   useLayoutEffect(() => {
@@ -246,7 +364,7 @@ function App() {
   /**
    * Pile entièrement montée : on ne met pas `visibility: hidden` sur les couches du dessous,
    * sinon un overlay semi-transparent (ex. paramètres de discussion) ne « voile » plus la salle
-   * de chat — on ne voit que l’onglet derrière, comme si la conversation avait disparu.
+   * de chat — on ne voit que l'onglet derrière, comme si la conversation avait disparu.
    * `pointer-events: none` suffit à bloquer les interactions sur les couches inférieures.
    */
   const renderDetailStack = () => {
@@ -277,13 +395,18 @@ function App() {
         {renderTab()}
         {renderDetailStack()}
       </main>
-      {detailStack.length === 0 && !questionnaireOpen ? <BottomNavigation /> : null}
+      {detailStack.length === 0 && !questionnaireOpen ? (
+        <BottomNavigation />
+      ) : null}
       {toast ? (
         <div className="nel-toast" role="status" aria-live="polite">
           {toast.message}
         </div>
       ) : null}
-      <QuestionnaireModal isOpen={questionnaireOpen} onClose={closeQuestionnaire} />
+      <QuestionnaireModal
+        isOpen={questionnaireOpen}
+        onClose={closeQuestionnaire}
+      />
     </div>
   );
 }

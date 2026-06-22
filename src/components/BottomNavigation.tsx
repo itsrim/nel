@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { MessageCircle, Calendar, User, Handbag } from "lucide-react";
+import { MessageCircle, Calendar, User, Handbag, type LucideIcon } from "lucide-react";
 import { useNavigationStore, type TabId } from "../store/useNavigationStore";
 import { useTranslation } from "../i18n/useTranslation";
 import type { TranslationKey } from "../i18n/translations";
@@ -10,14 +10,15 @@ import { formatBadgeCount } from "../data/mockData";
 import {
   countProfileNavBadge,
   countUnreadChatMessages,
+  countEventNavBadge,
 } from "../lib/navBadges";
 import "./BottomNavigation.css";
 
 interface NavItem {
   id: TabId;
   labelKey: TranslationKey;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  badge?: "chat" | "profile";
+  icon: LucideIcon;
+  badge?: "chat" | "profile" | "events";
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -65,6 +66,7 @@ export function BottomNavigation() {
       }),
     [appNotifications, profileVisits, friends, friendRequestRejectedProfilIds],
   );
+
 
   const activeIndex = NAV_ITEMS.findIndex((item) => item.id === activeTab);
 

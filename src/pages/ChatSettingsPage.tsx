@@ -49,12 +49,19 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
 
   const conversation = conversations.find((c) => c.id === id);
   const linkedEvent = events.find((e) => e.conversationId === id);
-  const organizerUserId = linkedEvent ? eventOrganizerUserId(linkedEvent) : undefined;
+  const organizerUserId = linkedEvent
+    ? eventOrganizerUserId(linkedEvent)
+    : undefined;
   const [inviteSectionOpen, setInviteSectionOpen] = useState(false);
 
   useEffect(() => {
     if (linkedEvent) ensureEventConversationRoster(id);
-  }, [id, linkedEvent?.id, linkedEvent?.registeredParticipantIds, ensureEventConversationRoster]);
+  }, [
+    id,
+    linkedEvent?.id,
+    linkedEvent?.registeredParticipantIds,
+    ensureEventConversationRoster,
+  ]);
 
   const members = useMemo(() => {
     if (!conversation) return [];
@@ -294,14 +301,16 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
                           <Bell size={20} color="#8E8E93" />
                         </button>
                         {isGroup &&
-                          !(organizerUserId && m.profilId === organizerUserId) && (
-                          <button
-                            className="cs-member-icon-btn"
-                            onClick={() => handleRemoveMember(m.id)}
-                          >
-                            <UserMinus size={22} color="#FF453A" />
-                          </button>
-                        )}
+                          !(
+                            organizerUserId && m.profilId === organizerUserId
+                          ) && (
+                            <button
+                              className="cs-member-icon-btn"
+                              onClick={() => handleRemoveMember(m.id)}
+                            >
+                              <UserMinus size={22} color="#FF453A" />
+                            </button>
+                          )}
                       </div>
                     )}
                   </div>

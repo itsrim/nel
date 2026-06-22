@@ -1602,6 +1602,14 @@ export function syncFriendToSheets(friend: Friend): void {
   );
 }
 
+export function syncFriendToSheetsForUser(friend: Friend, targetUserId: string): void {
+  const uid = targetUserId.trim();
+  if (!uid) return;
+  syncLater(() =>
+    upsertSheetRow("profiles", friend.profilId, friendToRow(friend, uid), "id"),
+  );
+}
+
 export function syncProfileDeleteToSheets(profilId: string): void {
   const userId = currentUserId();
   if (!userId) return;

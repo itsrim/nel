@@ -14,6 +14,7 @@ import { getAuthToken } from "./authApi";
 
 let listenersAttached = false;
 let activeConversationId: string | null = null;
+let lastConversationIds: string[] = [];
 
 function toUiMessage(
   raw: {
@@ -46,46 +47,57 @@ function mergeMessages(existing: Message[], incoming: Message[]): Message[] {
   return [...byId.values()].sort((a, b) => a.sentAt - b.sentAt);
 }
 
-function applyMessages(conversationId: string, merged: Message[], incomingMessage?: Message): void {
+function applyMessages(
+  conversationId: string,
+  merged: Message[],
+  incomingMessage?: Message,
+): void {
   const user = useAuthStore.getState().user;
   const isIncomingFromOther =
     incomingMessage != null &&
-  !incomingMessage.isOwn &&
+    !incomingMessage.isOwn &&
     conversationId !== activeConversationId;
 
-  useMessagingStore.setState((s) => ({
-    messagesByConversation: {
-      ...s.messagesByConversation,
-      [conversationId]: merged,
-    },
-    conversations: s.conversations.map((c) => {
-      if (c.id !== conversationId) return c;
-      const last = merged[merged.length - 1];
-      return {
-        ...c,
-        lastMessagePreview: last?.text.slice(0, 72) ?? c.lastMessagePreview,
-        updatedAt: last?.sentAt ?? c.updatedAt,
-        unreadCount: isIncomingFromOther ? c.unreadCount + 1 : c.unreadCount,
-      };
-    }),
-    appNotifications: isIncomingFromOther && incomingMessage
-      ? [
-          ...(s.appNotifications.some((n) => n.id === `n_chat_${incomingMessage.id}`)
-            ? []
-            : [
-                {
-                  id: `n_chat_${incomingMessage.id}`,
-                  createdAt: incomingMessage.sentAt,
-                  kind: "chat_message" as const,
-                  conversationId,
-                  senderName: incomingMessage.authorName,
-                  messagePreview: incomingMessage.text.slice(0, 120),
-                },
-              ]),
-          ...s.appNotifications,
-        ]
-      : s.appNotifications,
-  }));
+  useMessagingStore.setState((s) => {
+    const newAppNotifications =
+      isIncomingFromOther && incomingMessage
+        ? [
+            ...(s.appNotifications.some(
+              (n) => n.id === `n_chat_${incomingMessage.id}`,
+            )
+              ? []
+              : [
+                  {
+                    id: `n_chat_${incomingMessage.id}`,
+                    createdAt: incomingMessage.sentAt,
+                    kind: "chat_message" as const,
+                    conversationId,
+                    senderName: incomingMessage.authorName,
+                    messagePreview: incomingMessage.text.slice(0, 120),
+                  },
+                ]),
+            ...s.appNotifications,
+          ]
+        : [...s.appNotifications];
+
+    return {
+      messagesByConversation: {
+        ...s.messagesByConversation,
+        [conversationId]: merged,
+      },
+      conversations: s.conversations.map((c) => {
+        if (c.id !== conversationId) return c;
+        const last = merged[merged.length - 1];
+        return {
+          ...c,
+          lastMessagePreview: last?.text.slice(0, 72) ?? c.lastMessagePreview,
+          updatedAt: last?.sentAt ?? c.updatedAt,
+          unreadCount: isIncomingFromOther ? c.unreadCount + 1 : c.unreadCount,
+        };
+      }),
+      appNotifications: newAppNotifications,
+    };
+  });
 
   saveHistory(
     useMessagingStore.getState().messagesByConversation,
@@ -118,7 +130,8 @@ function applyIncomingFriendRequest(
 function applyFriendRequestAccepted(notif: AppNotification): void {
   const accepterId = notif.inviteeProfilId?.trim();
   if (!accepterId) return;
-  const accepterName = notif.senderName?.trim() || notif.inviteeName?.trim() || "Quelqu'un";
+  const accepterName =
+    notif.senderName?.trim() || notif.inviteeName?.trim() || "Quelqu'un";
 
   useMessagingStore.setState((s) => {
     const visit = s.profileVisits.find((v) => v.id === accepterId);
@@ -157,16 +170,21 @@ function applyFriendRequestAccepted(notif: AppNotification): void {
       friendRequestSentProfilIds: s.friendRequestSentProfilIds.filter(
         (pid) => pid !== accepterId,
       ),
-      appNotifications: already ? s.appNotifications : [notif, ...s.appNotifications],
+      appNotifications: already
+        ? s.appNotifications
+        : [notif, ...s.appNotifications],
     };
   });
-  useMessagingStore.getState().showToast(`${accepterName} a accepté votre demande d'ami.`);
+  useMessagingStore
+    .getState()
+    .showToast(`${accepterName} a accepté votre demande d'ami.`);
 }
 
 function applyFriendRequestRejected(notif: AppNotification): void {
   const rejectorId = notif.inviteeProfilId?.trim();
   if (!rejectorId) return;
-  const rejectorName = notif.senderName?.trim() || notif.inviteeName?.trim() || "Quelqu'un";
+  const rejectorName =
+    notif.senderName?.trim() || notif.inviteeName?.trim() || "Quelqu'un";
 
   useMessagingStore.setState((s) => {
     const already = s.appNotifications.some((n) => n.id === notif.id);
@@ -178,10 +196,14 @@ function applyFriendRequestRejected(notif: AppNotification): void {
         (pid) => pid !== rejectorId,
       ),
       friendRequestRejectedProfilIds: rejected,
-      appNotifications: already ? s.appNotifications : [notif, ...s.appNotifications],
+      appNotifications: already
+        ? s.appNotifications
+        : [notif, ...s.appNotifications],
     };
   });
-  useMessagingStore.getState().showToast(`${rejectorName} a refusé votre demande d'ami.`);
+  useMessagingStore
+    .getState()
+    .showToast(`${rejectorName} a refusé votre demande d'ami.`);
 }
 
 function applyEventInvite(notif: AppNotification): void {
@@ -214,6 +236,18 @@ function ensureSocketListeners(): void {
 
   listenersAttached = true;
 
+  const emitUserSync = () => {
+    if (lastConversationIds.length > 0) {
+      socket.emit("user:sync", { conversationIds: lastConversationIds });
+    }
+  };
+
+  if (socket.connected) {
+    emitUserSync();
+  }
+
+  socket.on("connect", emitUserSync);
+
   socket.on(
     "message:history",
     (payload: {
@@ -232,7 +266,9 @@ function ensureSocketListeners(): void {
 
       const user = useAuthStore.getState().user;
       const viewerName = useMessagingStore.getState().viewerProfileDisplayName;
-      const current = useMessagingStore.getState().messagesByConversation[conversationId] ?? [];
+      const current =
+        useMessagingStore.getState().messagesByConversation[conversationId] ??
+        [];
       const incoming = payload.messages.map((m) =>
         toUiMessage(m, user?.id, viewerName),
       );
@@ -258,7 +294,9 @@ function ensureSocketListeners(): void {
       const user = useAuthStore.getState().user;
       const viewerName = useMessagingStore.getState().viewerProfileDisplayName;
       const conversationId = message.conversationId;
-      const current = useMessagingStore.getState().messagesByConversation[conversationId] ?? [];
+      const current =
+        useMessagingStore.getState().messagesByConversation[conversationId] ??
+        [];
       const alreadyHad = current.some((m) => m.id === message.id);
       const uiMessage = toUiMessage(message, user?.id, viewerName);
       applyMessages(
@@ -275,10 +313,7 @@ function ensureSocketListeners(): void {
 
   socket.on(
     "friend-request:new",
-    (payload: {
-      visit?: ProfileVisit;
-      notification?: AppNotification;
-    }) => {
+    (payload: { visit?: ProfileVisit; notification?: AppNotification }) => {
       const visit = payload?.visit;
       const notification = payload?.notification;
       if (!visit?.id || !notification?.id) return;
@@ -294,7 +329,8 @@ function ensureSocketListeners(): void {
     "friend-request:accepted",
     (payload: { notification?: AppNotification }) => {
       const notification = payload?.notification;
-      if (!notification?.id || notification.kind !== "friend_request_accepted") return;
+      if (!notification?.id || notification.kind !== "friend_request_accepted")
+        return;
       applyFriendRequestAccepted(notification);
     },
   );
@@ -303,7 +339,8 @@ function ensureSocketListeners(): void {
     "friend-request:rejected",
     (payload: { notification?: AppNotification }) => {
       const notification = payload?.notification;
-      if (!notification?.id || notification.kind !== "friend_request_rejected") return;
+      if (!notification?.id || notification.kind !== "friend_request_rejected")
+        return;
       applyFriendRequestRejected(notification);
     },
   );
@@ -312,20 +349,20 @@ function ensureSocketListeners(): void {
     "event-invite:new",
     (payload: { notification?: AppNotification }) => {
       const notification = payload?.notification;
-      if (!notification?.id || notification.kind !== "event_invite_received") return;
+      if (!notification?.id || notification.kind !== "event_invite_received")
+        return;
       applyEventInvite(notification);
     },
   );
-
-  socket.on("connect", () => {
-    const ids = useMessagingStore.getState().conversations.map((c) => c.id);
-    socket.emit("user:sync", { conversationIds: ids });
-  });
 }
 
-export function setActiveChatConversationId(conversationId: string | null): void {
+export function setActiveChatConversationId(
+  conversationId: string | null,
+): void {
   activeConversationId = conversationId;
 }
+
+export { getChatSocket } from "./chatSocket";
 
 export function initGlobalChatSync(conversationIds: string[]): void {
   if (!isChatApiConfigured()) return;
@@ -333,13 +370,9 @@ export function initGlobalChatSync(conversationIds: string[]): void {
   const token = getAuthToken();
   if (!token) return;
 
+  lastConversationIds = conversationIds;
   connectChatSocket(token);
   ensureSocketListeners();
-
-  const socket = getChatSocket();
-  if (!socket) return;
-
-  socket.emit("user:sync", { conversationIds });
 }
 
 export function shutdownGlobalChatSync(): void {

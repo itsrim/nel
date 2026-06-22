@@ -31,6 +31,7 @@ import {
   syncEventReminderToSheets,
   syncEventToSheets,
   syncFriendToSheets,
+  syncFriendToSheetsForUser,
   syncNotificationToSheets,
   syncNotificationReadToSheets,
   syncNotificationToSheetsForUser,
@@ -42,7 +43,11 @@ import {
   syncProfessionalToSheets,
 } from "../lib/appSheetPersistence";
 import { viewerSettingsRowToProfessional } from "../lib/proDirectory";
-import { DEFAULT_PRO_CATEGORY, isProCategory, type ProCategory } from "../lib/proCategory";
+import {
+  DEFAULT_PRO_CATEGORY,
+  isProCategory,
+  type ProCategory,
+} from "../lib/proCategory";
 import {
   DEFAULT_PROFILE_BADGE_SUGGESTIONS,
   DEFAULT_VIEWER_BADGES,
@@ -106,7 +111,10 @@ import {
 } from "../lib/adminAppInfo";
 
 function buildViewerWaitlistEntry(
-  state: Pick<MessagingState, "viewerProfileDisplayName" | "viewerProfileAvatarUrl">,
+  state: Pick<
+    MessagingState,
+    "viewerProfileDisplayName" | "viewerProfileAvatarUrl"
+  >,
   reason: WaitlistEntry["reason"],
 ): WaitlistEntry {
   const viewerId = currentAuthUserId();
@@ -129,7 +137,10 @@ function waitlistEntryBelongsToViewer(
   return !!viewerId && pid === viewerId;
 }
 
-function viewerOnEventWaitlist(event: Event, viewerId?: string | null): boolean {
+function viewerOnEventWaitlist(
+  event: Event,
+  viewerId?: string | null,
+): boolean {
   const uid = viewerId ?? currentAuthUserId();
   return (event.waitlistEntries ?? []).some((w) =>
     waitlistEntryBelongsToViewer(w, uid),
@@ -295,7 +306,10 @@ function readViewerCoord(key: string): number | null {
   }
 }
 
-function readViewerPremiumState(): { active: boolean; expiresAt: number | null } {
+function readViewerPremiumState(): {
+  active: boolean;
+  expiresAt: number | null;
+} {
   const expiresAt = readStoredTimestamp(LS_VIEWER_PREMIUM_EXPIRES);
   if (expiresAt != null) {
     const active = isSubscriptionStillValid(expiresAt);
@@ -313,7 +327,10 @@ function readViewerPremiumState(): { active: boolean; expiresAt: number | null }
   return { active: legacy, expiresAt: null };
 }
 
-function readViewerProState(isProFlag: boolean): { active: boolean; expiresAt: number | null } {
+function readViewerProState(isProFlag: boolean): {
+  active: boolean;
+  expiresAt: number | null;
+} {
   const expiresAt = readStoredTimestamp(LS_VIEWER_PRO_EXPIRES);
   if (expiresAt != null) {
     const active = isSubscriptionStillValid(expiresAt);
@@ -346,20 +363,25 @@ function readViewerBadges(): string[] {
     if (!raw) return [...DEFAULT_VIEWER_BADGES];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [...DEFAULT_VIEWER_BADGES];
-    return parsed.filter((b): b is string => typeof b === "string" && b.trim() !== "");
+    return parsed.filter(
+      (b): b is string => typeof b === "string" && b.trim() !== "",
+    );
   } catch {
     return [...DEFAULT_VIEWER_BADGES];
   }
 }
 
 function readProfileBadgeSuggestions(): string[] {
-  if (typeof window === "undefined") return [...DEFAULT_PROFILE_BADGE_SUGGESTIONS];
+  if (typeof window === "undefined")
+    return [...DEFAULT_PROFILE_BADGE_SUGGESTIONS];
   try {
     const raw = localStorage.getItem(LS_PROFILE_BADGE_SUGGESTIONS);
     if (!raw) return [...DEFAULT_PROFILE_BADGE_SUGGESTIONS];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [...DEFAULT_PROFILE_BADGE_SUGGESTIONS];
-    return parsed.filter((b): b is string => typeof b === "string" && b.trim() !== "");
+    return parsed.filter(
+      (b): b is string => typeof b === "string" && b.trim() !== "",
+    );
   } catch {
     return [...DEFAULT_PROFILE_BADGE_SUGGESTIONS];
   }
@@ -424,7 +446,9 @@ function pushMessageRemote(message: PersistedMessage) {
   sendMessageRemote(message);
 }
 
-function persistLocalMessages(messagesByConversation: Record<string, Message[]>) {
+function persistLocalMessages(
+  messagesByConversation: Record<string, Message[]>,
+) {
   saveHistory(messagesByConversation, resolveMessageAccessFromStores());
 }
 
@@ -491,7 +515,10 @@ function syncViewerSettingsFromState(state: MessagingState) {
   try {
     const raw = localStorage.getItem("nel_auth_user");
     if (raw) {
-      const auth = JSON.parse(raw) as { email?: string; emailVerified?: boolean };
+      const auth = JSON.parse(raw) as {
+        email?: string;
+        emailVerified?: boolean;
+      };
       email = auth.email;
       emailVerified = auth.emailVerified;
     }
@@ -707,7 +734,11 @@ interface MessagingState {
   /** Efface le profil viewer local (changement de compte / déconnexion). */
   clearViewerSession: () => void;
   eventReminders: EventReminder[];
-  sendEventReminder: (eventId: string, participantId: string, participantName: string) => void;
+  sendEventReminder: (
+    eventId: string,
+    participantId: string,
+    participantName: string,
+  ) => void;
   markEventReminderAsRead: (reminderId: string) => void;
 }
 
@@ -791,17 +822,22 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
   const applyOrganizerKarmaOutcome = (event: Event): Event => {
     const isPast = isEventDateBeforeToday(event.dateKey);
-    const presentIds = presentParticipantIds(event.validatedPresentProfilIds ?? []);
+    const presentIds = presentParticipantIds(
+      event.validatedPresentProfilIds ?? [],
+    );
     const ratings = event.organizerRatings ?? [];
     const rewarded = event.karmaOrganizerRewarded === true;
     const denied = event.karmaOrganizerDenied === true;
 
     if (rewarded || denied) return event;
-    if (!shouldFinalizeOrganizerKarma(presentIds, ratings, isPast)) return event;
+    if (!shouldFinalizeOrganizerKarma(presentIds, ratings, isPast))
+      return event;
 
     if (isMajorityBadOrganizerRating(presentIds, ratings)) {
       if (hostedByCurrentViewer(event)) {
-        get().showToast("Pas de bonus karma : majorité de participants insatisfaits.");
+        get().showToast(
+          "Pas de bonus karma : majorité de participants insatisfaits.",
+        );
       }
       return { ...event, karmaOrganizerDenied: true };
     }
@@ -876,7 +912,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     activateViewerSubscription: (plan, months = 1, payment) => {
       const state = get();
       const currentExpires =
-        plan === "premium" ? state.viewerPremiumExpiresAt : state.viewerProExpiresAt;
+        plan === "premium"
+          ? state.viewerPremiumExpiresAt
+          : state.viewerProExpiresAt;
       const start = isSubscriptionStillValid(currentExpires)
         ? currentExpires!
         : Date.now();
@@ -940,7 +978,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
             phone: next.viewerProPhone,
             emailVerified: authUser.emailVerified ? "true" : "false",
             isPro: "true",
-            proCategory: next.viewerProCategory
+            proCategory: next.viewerProCategory,
           });
           if (pro) syncProfessionalToSheets(pro);
         }
@@ -1065,10 +1103,14 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       const next = badges.map((b) => b.trim()).filter(Boolean);
       const unique = next.filter(
         (label, index, arr) =>
-          arr.findIndex((x) => x.toLowerCase() === label.toLowerCase()) === index,
+          arr.findIndex((x) => x.toLowerCase() === label.toLowerCase()) ===
+          index,
       );
       try {
-        localStorage.setItem(LS_PROFILE_BADGE_SUGGESTIONS, JSON.stringify(unique));
+        localStorage.setItem(
+          LS_PROFILE_BADGE_SUGGESTIONS,
+          JSON.stringify(unique),
+        );
       } catch {
         /* ignore */
       }
@@ -1161,14 +1203,16 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           if (patch.verified !== undefined) next.verified = patch.verified;
           if (patch.isPro !== undefined) next.isPro = patch.isPro;
           if (patch.karma !== undefined) next.karma = patch.karma;
-          if (patch.imageUrl !== undefined) next.imageUrl = patch.imageUrl.trim();
+          if (patch.imageUrl !== undefined)
+            next.imageUrl = patch.imageUrl.trim();
           if (patch.websiteUrl !== undefined) {
             next.websiteUrl = patch.websiteUrl.trim() || undefined;
           }
           if (patch.socialUrl !== undefined) {
             next.socialUrl = patch.socialUrl.trim() || undefined;
           }
-          if (patch.phone !== undefined) next.phone = patch.phone.trim() || undefined;
+          if (patch.phone !== undefined)
+            next.phone = patch.phone.trim() || undefined;
           if (patch.proAddress !== undefined) {
             next.proAddress = patch.proAddress.trim() || undefined;
           }
@@ -1336,9 +1380,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           friendRequestSentProfilIds: s.friendRequestSentProfilIds.filter(
             (pid) => pid !== id,
           ),
-          friendRequestRejectedProfilIds: s.friendRequestRejectedProfilIds.filter(
-            (pid) => pid !== id,
-          ),
+          friendRequestRejectedProfilIds:
+            s.friendRequestRejectedProfilIds.filter((pid) => pid !== id),
           moderationHiddenProfilIds: s.moderationHiddenProfilIds.includes(id)
             ? s.moderationHiddenProfilIds
             : [...s.moderationHiddenProfilIds, id],
@@ -1354,7 +1397,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     },
 
     hydrateViewerProfileFields: (fields) => {
-      const patch: Partial<Pick<MessagingState, "viewerProfileAge" | "viewerProfileBio">> = {};
+      const patch: Partial<
+        Pick<MessagingState, "viewerProfileAge" | "viewerProfileBio">
+      > = {};
       if (fields.age !== undefined) {
         const v = fields.age.trim();
         try {
@@ -1496,8 +1541,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       const event = state.events.find((e) => e.id === eventId);
       if (!event) return;
       const isOrganizer =
-        event.status === "organisateur" &&
-        hostedByCurrentViewer(event);
+        event.status === "organisateur" && hostedByCurrentViewer(event);
       if (!isOrganizer) return;
 
       const validated = new Set(event.validatedPresentProfilIds ?? []);
@@ -1515,7 +1559,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         ...event,
         validatedPresentProfilIds: [...validated],
       };
-      persistEventKarmaUpdate(eventId, applyOrganizerKarmaOutcome(withPresence));
+      persistEventKarmaUpdate(
+        eventId,
+        applyOrganizerKarmaOutcome(withPresence),
+      );
     },
 
     submitOrganizerRating: (eventId, rating) => {
@@ -1571,7 +1618,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         return;
       }
       if (hasReachedDailyFriendRequestLimit(friendRequestDailySentDateKey)) {
-        get().showToast("Vous ne pouvez envoyer qu’une demande d’ami par jour.");
+        get().showToast(
+          "Vous ne pouvez envoyer qu’une demande d’ami par jour.",
+        );
         return;
       }
       const incoming = get().profileVisits.find(
@@ -1706,6 +1755,12 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           action: "accepted",
           notification: notif,
         });
+
+        // Synchronise l'ami accepté dans le profil du destinataire (compte B)
+        // pour que sa liste d'amis se mette à jour via le polling
+        if (updated) {
+          syncFriendToSheetsForUser(updated, id);
+        }
       }
     },
     rejectFriendRequest: (profilId) => {
@@ -1715,11 +1770,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         profileVisits: state.profileVisits.map((v) =>
           v.id === id ? { ...v, friendRequest: false } : v,
         ),
-        friendRequestRejectedProfilIds: state.friendRequestRejectedProfilIds.includes(
-          id,
-        )
-          ? state.friendRequestRejectedProfilIds
-          : [...state.friendRequestRejectedProfilIds, id],
+        friendRequestRejectedProfilIds:
+          state.friendRequestRejectedProfilIds.includes(id)
+            ? state.friendRequestRejectedProfilIds
+            : [...state.friendRequestRejectedProfilIds, id],
       }));
       const ownerUserId = useAuthStore.getState().user?.id?.trim() ?? "";
       const visit = get().profileVisits.find((v) => v.id === id);
@@ -1853,10 +1907,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           conversations: state.conversations.map((c) =>
             c.id === tid
               ? {
-                ...c,
-                lastMessagePreview: body.slice(0, 72),
-                updatedAt: Date.now(),
-              }
+                  ...c,
+                  lastMessagePreview: body.slice(0, 72),
+                  updatedAt: Date.now(),
+                }
               : c,
           ),
         };
@@ -1983,7 +2037,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       const state = get();
       const id = `e_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
       const priceLabel = input.priceLabel?.trim() || "Gratuit";
-      const { viewerProfileDisplayName: vn, viewerProfileAvatarUrl: va } = state;
+      const { viewerProfileDisplayName: vn, viewerProfileAvatarUrl: va } =
+        state;
       if (!hasViewerProAccess(state)) {
         applyViewerKarma(-KARMA_ORGANIZE_COST);
       }
@@ -2127,10 +2182,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           conversations: state.conversations.map((c) =>
             c.id === conversationId
               ? {
-                ...c,
-                lastMessagePreview: text.slice(0, 120),
-                updatedAt: Date.now(),
-              }
+                  ...c,
+                  lastMessagePreview: text.slice(0, 120),
+                  updatedAt: Date.now(),
+                }
               : c,
           ),
         };
@@ -2142,7 +2197,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
     toggleConversationFavorite: (conversationId) =>
       set((state) => {
-        const isFavorite = state.favoriteConversationIds.includes(conversationId);
+        const isFavorite =
+          state.favoriteConversationIds.includes(conversationId);
         const newFavs = isFavorite
           ? state.favoriteConversationIds.filter((id) => id !== conversationId)
           : [...state.favoriteConversationIds, conversationId];
@@ -2182,10 +2238,14 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       };
 
       set((state) => {
-        const currentMessages = state.messagesByConversation[conversationId] || [];
+        const currentMessages =
+          state.messagesByConversation[conversationId] || [];
         const next = {
           ...state.messagesByConversation,
-          [conversationId]: [...currentMessages, { ...newMessage, isOwn: true }],
+          [conversationId]: [
+            ...currentMessages,
+            { ...newMessage, isOwn: true },
+          ],
         };
         persistLocalMessages(next);
         return {
@@ -2301,12 +2361,15 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         conversations: state.conversations.map((c) =>
           c.id === conversationId
             ? {
-              ...c,
-              members: [...c.members.filter((m) => m.id !== member.id), member],
-              memberCount:
-                (c.memberCount || 0) +
-                (c.members.some((m) => m.id === member.id) ? 0 : 1),
-            }
+                ...c,
+                members: [
+                  ...c.members.filter((m) => m.id !== member.id),
+                  member,
+                ],
+                memberCount:
+                  (c.memberCount || 0) +
+                  (c.members.some((m) => m.id === member.id) ? 0 : 1),
+              }
             : c,
         ),
       }));
@@ -2316,7 +2379,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
     removeMemberFromGroup: (conversationId, memberId) => {
       const state = get();
-      const event = state.events.find((e) => e.conversationId === conversationId);
+      const event = state.events.find(
+        (e) => e.conversationId === conversationId,
+      );
       const organizerId = event ? eventOrganizerUserId(event) : undefined;
       const target = state.conversations
         .find((c) => c.id === conversationId)
@@ -2327,10 +2392,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         conversations: state.conversations.map((c) =>
           c.id === conversationId
             ? {
-              ...c,
-              members: c.members.filter((m) => m.id !== memberId),
-              memberCount: Math.max(0, (c.memberCount || 1) - 1),
-            }
+                ...c,
+                members: c.members.filter((m) => m.id !== memberId),
+                memberCount: Math.max(0, (c.memberCount || 1) - 1),
+              }
             : c,
         ),
       }));
@@ -2340,7 +2405,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
     leaveConversation: (conversationId) => {
       const state = get();
-      const event = state.events.find((e) => e.conversationId === conversationId);
+      const event = state.events.find(
+        (e) => e.conversationId === conversationId,
+      );
       if (event) {
         const viewerId = currentAuthUserId();
         const viewerIsOrganizer = hostedByCurrentViewer(event);
@@ -2350,7 +2417,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           const wasValidated = (event.validatedPresentProfilIds ?? []).includes(
             VIEWER_KARMA_PARTICIPANT_ID,
           );
-          const wasRegistered = (event.registeredParticipantIds ?? []).includes(viewerId);
+          const wasRegistered = (event.registeredParticipantIds ?? []).includes(
+            viewerId,
+          );
           if (
             (wasRegistered || paidIds.includes(VIEWER_KARMA_PARTICIPANT_ID)) &&
             !wasValidated &&
@@ -2405,14 +2474,20 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
       syncConversationDeleteToSheets(conversationId);
       set((state) => ({
-        conversations: state.conversations.filter((c) => c.id !== conversationId),
+        conversations: state.conversations.filter(
+          (c) => c.id !== conversationId,
+        ),
       }));
     },
 
     ensureEventConversationRoster: (conversationId) => {
-      const event = get().events.find((e) => e.conversationId === conversationId);
+      const event = get().events.find(
+        (e) => e.conversationId === conversationId,
+      );
       if (!event) return;
-      refreshEventGroupConversationMembers(event, set, get, { syncSheets: true });
+      refreshEventGroupConversationMembers(event, set, get, {
+        syncSheets: true,
+      });
     },
 
     updateConversationSettings: (conversationId, settings) => {
@@ -2430,7 +2505,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       const event = state.events.find((e) => e.id === eventId);
       if (!event || hostedByCurrentViewer(event)) return;
 
-      if (event.manualApproval && event.participantCount < event.participantMax) {
+      if (
+        event.manualApproval &&
+        event.participantCount < event.participantMax
+      ) {
         get().joinWaitlist(eventId);
         return;
       }
@@ -2456,7 +2534,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           return {
             ...e,
             waitlistEntries: stripViewerFromWaitlist(e.waitlistEntries),
-            participantCount: Math.min(e.participantMax, e.participantCount + 1),
+            participantCount: Math.min(
+              e.participantMax,
+              e.participantCount + 1,
+            ),
             karmaJoinPaidProfilIds: [...paid],
             registeredParticipantIds: withRegisteredParticipant(
               e.registeredParticipantIds,
@@ -2484,15 +2565,21 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       const state = get();
       const event = state.events.find((e) => e.id === eventId);
       if (!event || hostedByCurrentViewer(event)) return;
-      const conv = state.conversations.find((c) => c.id === event.conversationId);
-      if (viewerOnEventWaitlist(event) || conv?.members.some((m) => m.isSelf)) return;
+      const conv = state.conversations.find(
+        (c) => c.id === event.conversationId,
+      );
+      if (viewerOnEventWaitlist(event) || conv?.members.some((m) => m.isSelf))
+        return;
 
       const reason: WaitlistEntry["reason"] =
         event.manualApproval && event.participantCount < event.participantMax
           ? "en_attente"
           : "overflow";
 
-      if (reason === "overflow" && event.participantCount < event.participantMax) {
+      if (
+        reason === "overflow" &&
+        event.participantCount < event.participantMax
+      ) {
         get().joinEvent(eventId);
         return;
       }
@@ -2557,7 +2644,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         return;
       }
 
-      const remaining = (event.waitlistEntries ?? []).filter((w) => w.id !== entryId);
+      const remaining = (event.waitlistEntries ?? []).filter(
+        (w) => w.id !== entryId,
+      );
       const viewerId = currentAuthUserId();
       const participantId = resolveWaitlistParticipantId(
         entry,
@@ -2587,8 +2676,13 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           return {
             ...e,
             waitlistEntries: remaining,
-            participantCount: Math.min(e.participantMax, e.participantCount + 1),
-            karmaJoinPaidProfilIds: isViewer ? [...paid] : e.karmaJoinPaidProfilIds,
+            participantCount: Math.min(
+              e.participantMax,
+              e.participantCount + 1,
+            ),
+            karmaJoinPaidProfilIds: isViewer
+              ? [...paid]
+              : e.karmaJoinPaidProfilIds,
             registeredParticipantIds: withRegisteredParticipant(
               e.registeredParticipantIds,
               participantId,
@@ -2615,7 +2709,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         participantId,
       );
       notifyWaitlistDecision(event, "event_waitlist_accepted", participantId);
-      get().showToast(`${entry.name.split(/\s+/)[0] || entry.name} accepté(e).`);
+      get().showToast(
+        `${entry.name.split(/\s+/)[0] || entry.name} accepté(e).`,
+      );
     },
 
     rejectWaitlistEntry: (eventId, entryId) => {
@@ -2636,18 +2732,23 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         state.friends,
         state.suggestions,
       );
-      const remaining = (event.waitlistEntries ?? []).filter((w) => w.id !== entryId);
+      const remaining = (event.waitlistEntries ?? []).filter(
+        (w) => w.id !== entryId,
+      );
       const next: Event = {
         ...event,
         waitlistEntries: remaining,
-        status: isViewer && event.status === "en_attente" ? "inscrire" : event.status,
+        status:
+          isViewer && event.status === "en_attente" ? "inscrire" : event.status,
       };
       set((s) => ({
         events: s.events.map((e) => (e.id === eventId ? next : e)),
       }));
       syncEventToSheets(next);
       notifyWaitlistDecision(event, "event_waitlist_rejected", candidateUserId);
-      get().showToast(`Demande de ${entry.name.split(/\s+/)[0] || entry.name} refusée.`);
+      get().showToast(
+        `Demande de ${entry.name.split(/\s+/)[0] || entry.name} refusée.`,
+      );
     },
 
     leaveEvent: (eventId) => {
@@ -2692,7 +2793,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
       const ev = get().events.find((e) => e.id === eventId);
       if (ev) {
-        refreshEventGroupConversationMembers(ev, set, get, { markViewerAsSelf: false });
+        refreshEventGroupConversationMembers(ev, set, get, {
+          markViewerAsSelf: false,
+        });
         syncEventToSheets(ev);
       }
 
@@ -2715,13 +2818,16 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       if (!event) return;
       const invited = new Set(event.invitedProfilIds ?? []);
       if (invited.has(friend.profilId)) return;
-      const conv = state.conversations.find((c) => c.id === event.conversationId);
+      const conv = state.conversations.find(
+        (c) => c.id === event.conversationId,
+      );
       const alreadyMember = (conv?.members ?? []).some(
         (m) => m.profilId === friend.profilId,
       );
       if (alreadyMember) return;
 
-      const hostName = state.viewerProfileDisplayName.trim() || "L’organisateur";
+      const hostName =
+        state.viewerProfileDisplayName.trim() || "L’organisateur";
       const firstName = friend.name.trim().split(/\s+/)[0] || friend.name;
       const systemText = `${hostName} a invité ${firstName} — une notification lui a été envoyée pour « ${event.title} ».`;
 
@@ -2767,7 +2873,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         persistLocalMessages(nextMsgs);
         const nextEvent = {
           ...event,
-          invitedProfilIds: [...(event.invitedProfilIds ?? []), friend.profilId],
+          invitedProfilIds: [
+            ...(event.invitedProfilIds ?? []),
+            friend.profilId,
+          ],
         };
         syncEventToSheets(nextEvent);
         syncNotificationToSheets(organizerNotif);
@@ -2783,15 +2892,17 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           conversations: s.conversations.map((c) =>
             c.id === event.conversationId
               ? {
-                ...c,
-                lastMessagePreview: systemText.slice(0, 120),
-                updatedAt: Date.now(),
-              }
+                  ...c,
+                  lastMessagePreview: systemText.slice(0, 120),
+                  updatedAt: Date.now(),
+                }
               : c,
           ),
         };
       });
-      const updatedConv = get().conversations.find((c) => c.id === event.conversationId);
+      const updatedConv = get().conversations.find(
+        (c) => c.id === event.conversationId,
+      );
       if (updatedConv) syncConversationToSheets(updatedConv);
       pushMessageRemote(msg);
       const inviteeFirst =
@@ -2811,14 +2922,16 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     },
 
     inviteProfilsToEvent: (eventId, profilIds) => {
-      const unique = [...new Set(profilIds.map((id) => id.trim()).filter(Boolean))];
+      const unique = [
+        ...new Set(profilIds.map((id) => id.trim()).filter(Boolean)),
+      ];
       let sent = 0;
       for (const profilId of unique) {
-        const before = get().events.find((e) => e.id === eventId)?.invitedProfilIds
-          ?.length;
+        const before = get().events.find((e) => e.id === eventId)
+          ?.invitedProfilIds?.length;
         get().inviteProfilToEvent(eventId, profilId);
-        const after = get().events.find((e) => e.id === eventId)?.invitedProfilIds
-          ?.length;
+        const after = get().events.find((e) => e.id === eventId)
+          ?.invitedProfilIds?.length;
         if (after != null && before != null && after > before) sent += 1;
       }
       if (sent > 1) {
@@ -2921,9 +3034,12 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       get().showToast(`Relance envoyée à ${participantName.split(" ")[0]}`);
 
       if (typeof window !== "undefined") {
-        window.setTimeout(() => {
-          get().markEventReminderAsRead(id);
-        }, 4000 + Math.random() * 5000);
+        window.setTimeout(
+          () => {
+            get().markEventReminderAsRead(id);
+          },
+          4000 + Math.random() * 5000,
+        );
       }
     },
     markEventReminderAsRead: (reminderId) => {

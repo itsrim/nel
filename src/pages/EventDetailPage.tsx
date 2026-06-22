@@ -44,8 +44,6 @@ import {
   listInvitableProfiles,
 } from "../lib/eventInvites";
 import { ReportModal } from "../components/ReportModal";
-import { EventCheckoutModal } from "../components/EventCheckoutModal";
-import { isPaidEventPrice } from "../lib/eventPricing";
 import "./EventDetailPage.css";
 
 type ParticipantSlot =
@@ -110,7 +108,6 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteSearch, setInviteSearch] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const event = events.find((e) => e.id === id);
 
@@ -126,7 +123,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const resolveWaitlistPhoto = (entry: (typeof waitlist)[number]) => {
     if (entry.imageUrl?.trim()) return resolveAvatarUrl(entry.imageUrl);
     if (entry.profilId) {
-      const fromFriend = friends.find((f) => f.profilId === entry.profilId)?.imageUrl;
+      const fromFriend = friends.find(
+        (f) => f.profilId === entry.profilId,
+      )?.imageUrl;
       if (fromFriend?.trim()) return resolveAvatarUrl(fromFriend);
     }
     return DEFAULT_AVATAR_URL;
@@ -142,7 +141,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     );
     if (fromFriend) return fromFriend.profilId;
     const fromSuggestion = suggestions.find(
-      (s) => s.name === name || s.pseudo === name,
+      (s) => s.pseudo === name,
     );
     return fromSuggestion?.id;
   };
@@ -208,8 +207,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
       ? allAppProfiles
       : allAppProfiles.filter((p) =>
           friends.some(
-            (f) =>
-              f.profilId === p.profilId && f.mutualFriend !== false,
+            (f) => f.profilId === p.profilId && f.mutualFriend !== false,
           ),
         );
     return listInvitableProfiles(event, conversations, pool);
@@ -229,7 +227,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
 
   useEffect(() => {
     if (!event?.conversationId) return;
-    useMessagingStore.getState().ensureEventConversationRoster(event.conversationId);
+    useMessagingStore
+      .getState()
+      .ensureEventConversationRoster(event.conversationId);
   }, [event?.id, event?.conversationId, event?.registeredParticipantIds]);
 
   if (!event) return null;
@@ -240,7 +240,11 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     conversationMembers: eventConversation?.members,
   });
   const viewerHosts = eventHostedByViewer(event, viewerContext);
-  const hostAvatar = resolveEventHostAvatar(event, viewerProfileAvatarUrl, viewerContext);
+  const hostAvatar = resolveEventHostAvatar(
+    event,
+    viewerProfileAvatarUrl,
+    viewerContext,
+  );
   const hostName = viewerHosts
     ? viewerProfileDisplayName
     : event.hostName?.trim() || "Organisateur";
@@ -267,15 +271,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     (r) => r.profilId === VIEWER_KARMA_PARTICIPANT_ID,
   )?.rating;
   const canRateOrganizer =
-    isPastEvent &&
-    !isHostOrganizer &&
-    viewerValidatedPresent &&
-    isInscribed;
+    isPastEvent && !isHostOrganizer && viewerValidatedPresent && isInscribed;
   const showJoinKarmaHint =
     !isHostOrganizer && viewerStatus !== "inscrit" && !isFull && !isPastEvent;
-  const isPaidEvent = isPaidEventPrice(event.priceLabel ?? event.price);
-  const requiresPaymentToJoin =
-    isPaidEvent && !event.manualApproval && !isFull && viewerStatus !== "inscrit";
 
   const markParticipantPresent = (participantProfilId: string) => {
     validateEventParticipantPresent(event.id, participantProfilId);
@@ -333,17 +331,8 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
       joinWaitlist(event.id);
       return;
     }
-    if (requiresPaymentToJoin) {
-      setCheckoutOpen(true);
-      return;
-    }
+    // Participer directement (sans modale de paiement)
     joinEvent(event.id);
-  };
-
-  const handleEventPaymentSuccess = () => {
-    setCheckoutOpen(false);
-    joinEvent(event.id);
-    showToast(t("eventPaymentSuccess"));
   };
 
   const primaryJoinLabel =
@@ -355,9 +344,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           ? t("joinWaitlist")
           : event.manualApproval
             ? t("joinWaitlist")
-            : requiresPaymentToJoin
-              ? t("payAndJoinEventButton")
-              : t("joinEventButton");
+            : "Participer";
 
   const joinButtonLabel = primaryJoinLabel;
 
@@ -411,7 +398,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
               <Share2 size={24} color="#fff" />
               <span className="ed-share-tooltip" role="tooltip">
                 <span className="ed-share-tooltip-url">{publicShareUrl}</span>
-                <span className="ed-share-tooltip-hint">{t("shareLinkTooltip")}</span>
+                <span className="ed-share-tooltip-hint">
+                  {t("shareLinkTooltip")}
+                </span>
               </span>
             </button>
             <button
@@ -456,25 +445,31 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             {event.category || t("defaultActivity")}
           </span>
           <h1 className="ed-title">{event.title}</h1>
-          <div className="ed-host-row" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <div
+            className="ed-host-row"
+            style={{ display: "flex", gap: "8px", alignItems: "center" }}
+          >
             <img src={hostAvatar} alt={hostName} className="ed-host-avatar" />
             <span className="ed-host-name">
               {t("proposedByPrefix")} {hostName}
             </span>
             {hostIsPro && (
-              <span className="ed-pro-badge" style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                background: "rgba(255, 214, 10, 0.15)",
-                color: "#FFD60A",
-                fontSize: "11px",
-                fontWeight: 700,
-                padding: "3px 8px",
-                borderRadius: "6px",
-                textTransform: "uppercase",
-                border: "1px solid rgba(255, 214, 10, 0.25)"
-              }}>
+              <span
+                className="ed-pro-badge"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  background: "rgba(255, 214, 10, 0.15)",
+                  color: "#FFD60A",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  padding: "3px 8px",
+                  borderRadius: "6px",
+                  textTransform: "uppercase",
+                  border: "1px solid rgba(255, 214, 10, 0.25)",
+                }}
+              >
                 <Award size={12} />
                 <span>Pro</span>
               </span>
@@ -509,7 +504,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           <h2 className="ed-section-title">{t("aboutActivity")}</h2>
           <p className="ed-description">
             {event.notes ||
-              "Venez nombreux pour cette activité passionnante ! C\'est l\'occasion idéale de faire de nouvelles rencontres et de partager un bon moment ensemble."}
+              "Venez nombreux pour cette activité passionnante ! C'est l'occasion idéale de faire de nouvelles rencontres et de partager un bon moment ensemble."}
           </p>
         </div>
 
@@ -543,7 +538,10 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                     type="button"
                     className="ed-participant-avatar ed-participant-avatar--clickable"
                     onClick={() => {
-                      if (slot.profilId && !eventHostedByViewer(event, viewerContext)) {
+                      if (
+                        slot.profilId &&
+                        !eventHostedByViewer(event, viewerContext)
+                      ) {
                         openDetail("profile", slot.profilId);
                       } else {
                         setActiveTab("profile");
@@ -667,7 +665,11 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                             onClick={() => openDetail("profile", profileId)}
                             aria-label={`${t("viewProfileLabel")} ${w.name}`}
                           >
-                            <img src={photo} alt="" className="ed-waitlist-av" />
+                            <img
+                              src={photo}
+                              alt=""
+                              className="ed-waitlist-av"
+                            />
                           </button>
                         ) : (
                           <img src={photo} alt="" className="ed-waitlist-av" />
@@ -714,9 +716,13 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
         {canRateOrganizer && (
           <div className="ed-section ed-rate-organizer-section">
             <h2 className="ed-section-title">{t("rateOrganizerTitle")}</h2>
-            <p className="ed-rate-organizer-sub">{t("rateOrganizerSubtitle")}</p>
+            <p className="ed-rate-organizer-sub">
+              {t("rateOrganizerSubtitle")}
+            </p>
             {myOrganizerRating ? (
-              <p className="ed-rate-organizer-done">{t("rateOrganizerThanks")}</p>
+              <p className="ed-rate-organizer-done">
+                {t("rateOrganizerThanks")}
+              </p>
             ) : (
               <div className="ed-rate-organizer-actions">
                 <button
@@ -781,13 +787,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                   onClick={handleJoinToggle}
                   aria-label={
                     showJoinKarmaHint
-                      ? requiresPaymentToJoin
-                        ? viewerProAccess
-                          ? `${t("payAndJoinEventButton")}, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
-                          : `${t("payAndJoinEventButton")}, −${KARMA_JOIN_COST} karma, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
-                        : viewerProAccess
-                          ? `${t("joinEventButton")}, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
-                          : `${t("joinEventButton")}, −${KARMA_JOIN_COST} karma, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
+                      ? viewerProAccess
+                        ? `Participer, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
+                        : `Participer, −${KARMA_JOIN_COST} karma, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
                       : undefined
                   }
                 >
@@ -799,7 +801,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                     joinButtonLabel
                   ) : (
                     <>
-                      <span className="ed-join-btn-label">{primaryJoinLabel}</span>
+                      <span className="ed-join-btn-label">
+                        {primaryJoinLabel}
+                      </span>
                       {showJoinKarmaHint ? (
                         <span className="ed-join-btn-karma" aria-hidden>
                           {viewerProAccess
@@ -912,7 +916,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                   >
                     <img src={p.imageUrl} alt="" className="ed-invite-av" />
                     <span className="ed-invite-name">{p.name}</span>
-                    <span className="ed-invite-action">{t("inviteAction")}</span>
+                    <span className="ed-invite-action">
+                      {t("inviteAction")}
+                    </span>
                   </button>
                 ))
               )}
@@ -929,16 +935,6 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
         subjectId={event.id}
         subjectLabel={event.title}
       />
-
-      {checkoutOpen ? (
-        <EventCheckoutModal
-          eventId={event.id}
-          eventTitle={event.title}
-          priceLabel={event.priceLabel?.trim() || event.price?.trim() || "Gratuit"}
-          onClose={() => setCheckoutOpen(false)}
-          onSuccess={handleEventPaymentSuccess}
-        />
-      ) : null}
     </div>
   );
 }
