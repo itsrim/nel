@@ -20,7 +20,7 @@ import {
   buildEventGroupMembers,
   eventGroupMemberCount,
 } from "./eventGroupMembers";
-import { loadHistory } from "./chatPersistence";
+import { loadHistory, buildEventDateKeyByConversationId } from "./chatPersistence";
 import { writeSubscriptionPaymentRecord } from "./subscriptionPersistence";
 import { useLanguageStore } from "../store/useLanguageStore";
 import { enrichEventsForViewer } from "./viewerEventScope";
@@ -294,7 +294,10 @@ export async function refreshChatMessagesFromSheets(): Promise<void> {
   if (!viewerId) return;
 
   const scope = resolveMessageAccessFromStores();
-  const history = await loadHistory(scope);
+  const events = useMessagingStore.getState().events;
+  const history = await loadHistory(scope, {
+    eventDateKeyByConversationId: buildEventDateKeyByConversationId(events),
+  });
   const viewerName = useMessagingStore.getState().viewerProfileDisplayName;
   const mergedMsgs: Record<string, ReturnType<typeof useMessagingStore.getState>["messagesByConversation"][string]> = {};
 

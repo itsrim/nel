@@ -37,14 +37,16 @@ function hasFriendRequestNotification(
   );
 }
 
-/** Pastille Profil (barre du bas) : notifs non lues + demandes sans notif associée. */
+/** Pastille onglet Notifications + barre du bas Profil (même calcul). */
 export function countProfileNavBadge(input: {
   appNotifications: readonly AppNotification[];
   profileVisits: readonly ProfileVisit[];
   friends: readonly Friend[];
   friendRequestRejectedProfilIds: readonly string[];
 }): number {
-  const unread = countUnreadNotifications(input.appNotifications);
+  const unread = input.appNotifications.filter(
+    (n) => n.readAt == null && n.kind !== "chat_message",
+  ).length;
   const orphanIncoming = input.profileVisits.filter(
     (v) =>
       isPendingIncomingFriendRequest(
@@ -55,6 +57,9 @@ export function countProfileNavBadge(input: {
   ).length;
   return unread + orphanIncoming;
 }
+
+/** Alias explicite — même valeur que countProfileNavBadge. */
+export const countProfileNotificationsBadge = countProfileNavBadge;
 
 export function countEventNavBadge(input: {
   appNotifications: readonly AppNotification[];

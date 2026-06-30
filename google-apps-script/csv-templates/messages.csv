@@ -1,1 +1,1 @@
-conversationId,id,authorId,authorName,text,sentAt,userId
+conversationId,id,text,createdAt,updatedAt,userId

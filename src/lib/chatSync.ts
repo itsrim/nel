@@ -1,9 +1,9 @@
-import type { Message } from "../data/mockData";
+import type { Conversation, Message } from "../data/mockData";
 import type { AppNotification, ProfileVisit } from "../data/mockData";
 import { useAuthStore } from "../store/useAuthStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { resolveMessageAccessFromStores } from "./accessScope";
-import { saveHistory } from "./chatPersistence";
+import { saveHistory, buildEventDateKeyByConversationId } from "./chatPersistence";
 import {
   connectChatSocket,
   disconnectChatSocket,
@@ -11,6 +11,10 @@ import {
 } from "./chatSocket";
 import { isChatApiConfigured } from "./chatConfig";
 import { getAuthToken } from "./authApi";
+import {
+  findDmConversationByPeer,
+  resolveLocalDmConversationId,
+} from "./dmConversation";
 
 let listenersAttached = false;
 let activeConversationId: string | null = null;
@@ -102,9 +106,92 @@ function applyMessages(
   saveHistory(
     useMessagingStore.getState().messagesByConversation,
     resolveMessageAccessFromStores(),
+    {
+      eventDateKeyByConversationId: buildEventDateKeyByConversationId(
+        useMessagingStore.getState().events,
+      ),
+    },
   );
 }
 
+function ensureConversationForIncoming(
+  localConversationId: string,
+  remoteConversationId: string,
+  incomingMessage: Message,
+  authorUserId?: string,
+): string {
+  const state = useMessagingStore.getState();
+  if (state.conversations.some((c) => c.id === localConversationId)) {
+    return localConversationId;
+  }
+
+  const user = useAuthStore.getState().user;
+  const peerId = authorUserId?.trim();
+  if (
+    peerId &&
+    user?.id &&
+    peerId !== user.id &&
+    remoteConversationId.startsWith("dm-")
+  ) {
+    const createdId = state.openOrCreateDmConversation({
+      profilId: peerId,
+      displayName: incomingMessage.authorName,
+    });
+    return (
+      resolveLocalDmConversationId(
+        remoteConversationId,
+        peerId,
+        useMessagingStore.getState().conversations,
+        user.id,
+      ) || createdId
+    );
+  }
+
+  return localConversationId;
+}
+
+function handleIncomingMessage(
+  message: {
+    id: string;
+    conversationId: string;
+    authorId?: string;
+    authorName: string;
+    text: string;
+    sentAt: number;
+  },
+): void {
+  const user = useAuthStore.getState().user;
+  const viewerName = useMessagingStore.getState().viewerProfileDisplayName;
+  const remoteConversationId = message.conversationId;
+  const conversations = useMessagingStore.getState().conversations;
+  let localConversationId = resolveLocalDmConversationId(
+    remoteConversationId,
+    message.authorId,
+    conversations,
+    user?.id,
+  );
+
+  const uiMessage = toUiMessage(message, user?.id, viewerName);
+  if (!uiMessage.isOwn) {
+    localConversationId = ensureConversationForIncoming(
+      localConversationId,
+      remoteConversationId,
+      uiMessage,
+      message.authorId,
+    );
+  }
+
+  const current =
+    useMessagingStore.getState().messagesByConversation[localConversationId] ??
+    [];
+  const alreadyHad = current.some((m) => m.id === message.id);
+  const merged = mergeMessages(current, [{ ...uiMessage, conversationId: localConversationId }]);
+  applyMessages(
+    localConversationId,
+    merged,
+    alreadyHad ? undefined : { ...uiMessage, conversationId: localConversationId },
+  );
+}
 function applyIncomingFriendRequest(
   visit: ProfileVisit,
   notif: AppNotification,
@@ -290,20 +377,7 @@ function ensureSocketListeners(): void {
     }) => {
       const message = payload?.message;
       if (!message?.conversationId) return;
-
-      const user = useAuthStore.getState().user;
-      const viewerName = useMessagingStore.getState().viewerProfileDisplayName;
-      const conversationId = message.conversationId;
-      const current =
-        useMessagingStore.getState().messagesByConversation[conversationId] ??
-        [];
-      const alreadyHad = current.some((m) => m.id === message.id);
-      const uiMessage = toUiMessage(message, user?.id, viewerName);
-      applyMessages(
-        conversationId,
-        mergeMessages(current, [uiMessage]),
-        alreadyHad ? undefined : uiMessage,
-      );
+      handleIncomingMessage(message);
     },
   );
 
@@ -354,6 +428,92 @@ function ensureSocketListeners(): void {
       applyEventInvite(notification);
     },
   );
+
+  socket.on(
+    "waitlist:accepted",
+    (payload: { eventId?: string; eventTitle?: string; organizerName?: string }) => {
+      const eventId = payload?.eventId?.trim();
+      const eventTitle = payload?.eventTitle?.trim() || "un événement";
+      const organizerName = payload?.organizerName?.trim() || "L'organisateur";
+      if (!eventId) return;
+
+      // Met à jour l'événement dans le store
+      const store = useMessagingStore.getState();
+      const event = store.events.find((e) => e.id === eventId);
+      if (event) {
+        const updatedEvent = {
+          ...event,
+          status: "inscrit" as const,
+          participantCount: Math.min(event.participantMax, event.participantCount + 1),
+        };
+        // Mise à jour locale du statut
+        useMessagingStore.setState((s) => ({
+          events: s.events.map((e) => (e.id === eventId ? updatedEvent : e)),
+        }));
+      }
+
+      useMessagingStore.getState().showToast(
+        `Tu as été accepté(e) pour « ${eventTitle} ».`
+      );
+    },
+  );
+
+  socket.on(
+    "waitlist:rejected",
+    (payload: { eventId?: string; eventTitle?: string; organizerName?: string }) => {
+      const eventTitle = payload?.eventTitle?.trim() || "un événement";
+
+      useMessagingStore.getState().showToast(
+        `Tu n'as pas été accepté(e) pour « ${eventTitle} ».`
+      );
+    },
+  );
+
+  socket.on(
+    "group:you-added",
+    (payload: {
+      conversationId: string;
+      addedByUserId: string;
+      addedByName: string;
+      conversation: { id: string; title: string };
+    }) => {
+      const conversationId = payload?.conversationId?.trim();
+      const addedByName = payload?.addedByName?.trim() || "Quelqu'un";
+      if (!conversationId) return;
+
+      // Ajoute la conversation dans le store si elle n'existe pas
+      const store = useMessagingStore.getState();
+      const exists = store.conversations.some((c) => c.id === conversationId);
+      if (!exists) {
+        const title = payload.conversation?.title || "Groupe";
+        const newConv: Conversation = {
+          id: conversationId,
+          title,
+          type: "group",
+          lastMessagePreview: "",
+          avatarGradient: ["#9B5DE5", "#C23B8E"],
+          unreadCount: 0,
+          updatedAt: Date.now(),
+          isFavorite: false,
+          memberCount: 1,
+          members: [
+            {
+              id: "me",
+              name: "Moi",
+              isSelf: true,
+              avatarGradient: ["#78909C", "#546E7A"],
+            },
+          ],
+        };
+        useMessagingStore.setState((s) => ({
+          conversations: [newConv, ...s.conversations],
+        }));
+      }
+
+      // Toast de notification
+      useMessagingStore.getState().showToast(`${addedByName} vous a ajouté au groupe.`);
+    },
+  );
 }
 
 export function setActiveChatConversationId(
@@ -373,6 +533,15 @@ export function initGlobalChatSync(conversationIds: string[]): void {
   lastConversationIds = conversationIds;
   connectChatSocket(token);
   ensureSocketListeners();
+
+  const socket = getChatSocket();
+  if (socket && lastConversationIds.length > 0) {
+    const sync = () => {
+      socket.emit("user:sync", { conversationIds: lastConversationIds });
+    };
+    if (socket.connected) sync();
+    else socket.once("connect", sync);
+  }
 }
 
 export function shutdownGlobalChatSync(): void {

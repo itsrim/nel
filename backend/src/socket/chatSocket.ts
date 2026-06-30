@@ -7,6 +7,7 @@ import {
 } from "../lib/memberStore.js";
 import { isPushConfigured, notifyConversationMembers } from "../lib/pushService.js";
 import type { AuthUser, PostMessageBody } from "../lib/types.js";
+import { broadcastNewMessage } from "../lib/messageBroadcast.js";
 
 function roomName(conversationId: string): string {
   return `conversation:${conversationId}`;
@@ -207,6 +208,50 @@ export function registerChatSocket(io: Server) {
       },
     );
 
+    socket.on(
+      "waitlist:respond",
+      (payload: {
+        recipientUserId?: string;
+        action?: "accepted" | "rejected";
+        eventId?: string;
+        eventTitle?: string;
+      }) => {
+        const recipientUserId = payload?.recipientUserId?.trim();
+        const action = payload?.action?.trim();
+        const eventId = payload?.eventId?.trim();
+        const eventTitle = payload?.eventTitle?.trim();
+        if (!recipientUserId || recipientUserId === user.id) return;
+        if (action !== "accepted" && action !== "rejected") return;
+        if (!eventId) return;
+
+        const eventName = action === "accepted" ? "waitlist:accepted" : "waitlist:rejected";
+
+        io.to(userRoom(recipientUserId)).emit(eventName, {
+          eventId,
+          eventTitle: eventTitle || "un événement",
+          organizerName: user.displayName,
+        });
+      },
+    );
+
+    socket.on("group:member-added", (payload: { conversationId?: string; targetUserId?: string; conversation?: { id: string; title: string } }) => {
+      const conversationId = payload?.conversationId?.trim();
+      const targetUserId = payload?.targetUserId?.trim();
+      if (!conversationId || !targetUserId || targetUserId === user.id) return;
+
+      // Le créateur rejoint la room de la conversation
+      void socket.join(roomName(conversationId));
+      addUserToConversation(user.id, conversationId);
+
+      // Notifie le nouveau membre
+      io.to(userRoom(targetUserId)).emit("group:you-added", {
+        conversationId,
+        addedByUserId: user.id,
+        addedByName: user.displayName,
+        conversation: payload.conversation ?? { id: conversationId, title: "" },
+      });
+    });
+
     socket.on("message:send", async (payload: PostMessageBody & { conversationId?: string }) => {
       const conversationId = payload?.conversationId?.trim();
       if (!conversationId) {
@@ -221,7 +266,11 @@ export function registerChatSocket(io: Server) {
           displayName: user.displayName,
         });
 
-        io.to(roomName(conversationId)).emit("message:new", { message });
+        const recipientUserIds = Array.isArray(payload.recipientUserIds)
+          ? payload.recipientUserIds.filter((id): id is string => typeof id === "string")
+          : [];
+
+        broadcastNewMessage(io, message, user.id, recipientUserIds);
 
         if (isPushConfigured()) {
           void notifyConversationMembers(conversationId, user.id, {

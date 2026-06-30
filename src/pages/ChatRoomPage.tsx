@@ -57,6 +57,7 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
 
   useEffect(() => {
     setActiveChatConversationId(id);
+    markAsRead(id);
     const socket = getChatSocket();
     if (socket && socket.connected) {
       socket.emit("conversation:join", { conversationId: id });
@@ -68,16 +69,13 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
       }
       setActiveChatConversationId(null);
     };
-  }, [id]);
+  }, [id, markAsRead]);
 
   useEffect(() => {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
-    if (conversation && conversation.unreadCount > 0) {
-      markAsRead(id);
-    }
-  }, [id, messages.length, markAsRead, conversation?.unreadCount]);
+  }, [id, messages.length]);
 
   if (!conversation) return null;
 

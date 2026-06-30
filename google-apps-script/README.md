@@ -7,9 +7,23 @@ Chaque **onglet** du classeur = une **table**. Les **POST** ajoutent une ligne ;
 Créer un classeur avec **11 onglets** et la **ligne 1 = en-têtes** (copier-coller une ligne par onglet).
 
 ### `messages`
+Une **ligne par conversation**. La colonne `text` contient un JSON avec tous les messages (ordre chronologique).
+
 ```
-conversationId,id,authorId,authorName,text,sentAt,userId
+conversationId,id,text,createdAt,updatedAt,userId
 ```
+
+Exemple `text` :
+```json
+[{"id":"m1","authorId":"user_a","authorName":"Alice","text":"Bonjour","sentAt":1782480786232}]
+```
+
+- `id` = même valeur que `conversationId` (clé PUT)
+- `createdAt` = ancre du fil (date événement lié ou 1er message), en ms
+- `updatedAt` = timestamp du dernier message, en ms
+- Discussion active **7 jours** après `createdAt` (date de l'événement ou création du fil)
+
+> Ancien format (1 ligne / message) encore lu à la migration, consolidé à l'écriture.
 
 ### `events`
 ```

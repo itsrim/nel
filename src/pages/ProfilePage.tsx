@@ -77,7 +77,7 @@ import { isEventDateBeforeToday, parseDateKeyLocal, todayDateKey, toDateKey } fr
 import { geocodeProAddress, isPlausibleProAddress } from "../lib/proGeocode";
 import { scrollLockSurfaceAttr, useLockBodyScroll } from "../lib/useLockBodyScroll";
 import { hasViewerProAccess } from "../lib/viewerEntitlements";
-import { countUnreadNotifications } from "../lib/navBadges";
+import { countProfileNavBadge } from "../lib/navBadges";
 import {
   buildFriendNetworkEntries,
   countIncomingFriendRequests,
@@ -479,9 +479,26 @@ export function ProfilePage() {
   );
 
   const unreadNotificationsCount = useMemo(
-    () => countUnreadNotifications(appNotifications),
-    [appNotifications],
+    () =>
+      countProfileNavBadge({
+        appNotifications,
+        profileVisits,
+        friends,
+        friendRequestRejectedProfilIds,
+      }),
+    [
+      appNotifications,
+      profileVisits,
+      friends,
+      friendRequestRejectedProfilIds,
+    ],
   );
+
+  useEffect(() => {
+    if (activeTab !== "notifications") return;
+    const hasUnread = appNotifications.some((n) => n.readAt == null);
+    if (hasUnread) markAllNotificationsRead();
+  }, [activeTab, appNotifications, markAllNotificationsRead]);
 
   const handlePhotoClick = () => {
     fileInputRef.current?.click();

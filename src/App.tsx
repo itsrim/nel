@@ -10,6 +10,7 @@ import { countProfileNavBadge, countUnreadChatMessages } from "./lib/navBadges";
 import { updateAllBadges } from "./lib/appBadge";
 import { isChatApiConfigured } from "./lib/chatConfig";
 import {
+  getChatSocket,
   initGlobalChatSync,
   setActiveChatConversationId,
   shutdownGlobalChatSync,
@@ -243,6 +244,15 @@ function App() {
     void registerPushNotifications();
   }, [user, conversations]);
 
+  // Re-sync les conversations quand le socket est déjà connecté et que les conversations se chargent
+  useEffect(() => {
+    if (!user || !isChatApiConfigured() || conversations.length === 0) return;
+    const s = getChatSocket();
+    if (s && s.connected) {
+      s.emit("user:sync", { conversationIds: conversations.map((c) => c.id) });
+    }
+  }, [user, conversations.length > 0 ? conversations.map((c) => c.id).join(",") : null]);
+
   // Polling global : rafraîchit les notifications, conversations et événements depuis Sheets
   // (nécessaire quand Socket.IO n'est pas configuré — 2 comptes différents)
   useEffect(() => {
@@ -271,15 +281,19 @@ function App() {
             const mergedConversations = chatLoaded.conversations.map((remoteConv) => {
               const local = msgStore.conversations.find((c) => c.id === remoteConv.id);
               if (!local) return remoteConv;
-              const mergedUnread = Math.max(
-                remoteConv.unreadCount ?? 0,
-                local.unreadCount ?? 0,
-              );
+              const remoteUpdated = remoteConv.updatedAt ?? 0;
+              const localUpdated = local.updatedAt ?? 0;
+              const remoteHasNewerPreview =
+                remoteUpdated > localUpdated &&
+                remoteConv.lastMessagePreview !== local.lastMessagePreview;
+              const mergedUnread = remoteHasNewerPreview
+                ? Math.max(remoteConv.unreadCount ?? 0, (local.unreadCount ?? 0) + 1)
+                : Math.max(remoteConv.unreadCount ?? 0, local.unreadCount ?? 0);
               return {
                 ...local,
                 unreadCount: mergedUnread,
                 lastMessagePreview: remoteConv.lastMessagePreview || local.lastMessagePreview,
-                updatedAt: Math.max(remoteConv.updatedAt ?? 0, local.updatedAt ?? 0),
+                updatedAt: Math.max(remoteUpdated, localUpdated),
               };
             });
             // Ajoute les conversations distantes qui n'existent pas localement
@@ -302,8 +316,16 @@ function App() {
       })();
     };
 
-    const intervalId = window.setInterval(poll, 10_000);
-    return () => window.clearInterval(intervalId);
+    poll();
+    const intervalId = window.setInterval(poll, 3_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") poll();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [user?.id, user?.isAdmin]);
 
   // Synchronisation des badges (favicon + icône PWA) à chaque changement

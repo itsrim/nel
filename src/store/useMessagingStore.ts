@@ -17,11 +17,13 @@ import {
   emitEventInviteRemote,
   emitFriendRequestRemote,
   emitFriendRequestRespondRemote,
+  emitGroupMemberAddedRemote,
+  emitWaitlistRespondRemote,
   sendMessageRemote,
 } from "../lib/chatSocket";
 import { useLanguageStore } from "./useLanguageStore";
 import { resolveMessageAccessFromStores } from "../lib/accessScope";
-import { saveHistory, type PersistedMessage } from "../lib/chatPersistence";
+import { saveHistory, buildEventDateKeyByConversationId, type PersistedMessage } from "../lib/chatPersistence";
 import { useAuthStore } from "./useAuthStore";
 import {
   syncAllViewerStateFromStore,
@@ -65,7 +67,11 @@ import {
   writeSubscriptionPaymentRecord,
   type SubscriptionPaymentRecord,
 } from "../lib/subscriptionPersistence";
-import { hasViewerProAccess } from "../lib/viewerEntitlements";
+import {
+  buildCanonicalDmConversationId,
+  dmRecipientUserIds,
+  findDmConversationByPeer,
+} from "../lib/dmConversation";
 import { buildEventPublicUrl } from "../lib/eventPublicUrl";
 import {
   deliverEventRosterNotifications,
@@ -441,15 +447,21 @@ export type AdminProfilePatch = {
   stats?: { reliability?: number; events?: number; friends?: number };
 };
 
-function pushMessageRemote(message: PersistedMessage) {
+function pushMessageRemote(
+  message: PersistedMessage,
+  recipientUserIds?: string[],
+): void {
   if (!isChatApiConfigured()) return;
-  sendMessageRemote(message);
+  sendMessageRemote({ ...message, recipientUserIds });
 }
 
 function persistLocalMessages(
   messagesByConversation: Record<string, Message[]>,
 ) {
-  saveHistory(messagesByConversation, resolveMessageAccessFromStores());
+  const events = useMessagingStore.getState().events;
+  saveHistory(messagesByConversation, resolveMessageAccessFromStores(), {
+    eventDateKeyByConversationId: buildEventDateKeyByConversationId(events),
+  });
 }
 
 function authViewerContext() {
@@ -1917,7 +1929,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       });
       const conv = get().conversations.find((c) => c.id === tid);
       if (conv) syncConversationToSheets(conv);
-      pushMessageRemote(newMessage);
+      pushMessageRemote(newMessage, dmRecipientUserIds(conv));
     },
     moderationHideAndNotifyFromReport: (reportId) => {
       const id = reportId.trim();
@@ -2192,7 +2204,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       });
       const conv = get().conversations.find((c) => c.id === conversationId);
       if (conv) syncConversationToSheets(conv);
-      pushMessageRemote(msg);
+      pushMessageRemote(msg, dmRecipientUserIds(conv));
     },
 
     toggleConversationFavorite: (conversationId) =>
@@ -2260,7 +2272,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
       const conv = get().conversations.find((c) => c.id === conversationId);
       if (conv) syncConversationToSheets(conv);
-      pushMessageRemote(newMessage);
+      pushMessageRemote(newMessage, dmRecipientUserIds(conv));
     },
 
     openOrCreateDmConversation: ({
@@ -2270,17 +2282,21 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       avatarGradient,
     }) => {
       const state = get();
-      const existing = state.conversations.find(
-        (c) =>
-          c.type === "dm" &&
-          c.members.some((m) => !m.isSelf && m.profilId === profilId),
-      );
+      const viewerId = useAuthStore.getState().user?.id?.trim() ?? "";
+      const peer = profilId.trim();
+      const existing = viewerId
+        ? findDmConversationByPeer(state.conversations, peer, viewerId)
+        : state.conversations.find(
+            (c) =>
+              c.type === "dm" &&
+              c.members.some((m) => !m.isSelf && m.profilId === peer),
+          );
       if (existing) return existing.id;
 
-      const baseId = `dm-${profilId}`;
-      const id = state.conversations.some((c) => c.id === baseId)
-        ? `dm-${profilId}-${Date.now().toString(36)}`
-        : baseId;
+      const id =
+        viewerId && peer
+          ? buildCanonicalDmConversationId(viewerId, peer)
+          : `dm-${peer}`;
 
       const gradientPool: readonly [string, string][] = [
         ["#FF6B35", "#FF4081"],
@@ -2333,13 +2349,40 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
     markAsRead: (conversationId) => {
       const conv = get().conversations.find((c) => c.id === conversationId);
-      if (!conv || conv.unreadCount === 0) return;
+      const chatNotifsToMark = get().appNotifications.filter(
+        (n) =>
+          n.kind === "chat_message" &&
+          n.conversationId === conversationId &&
+          n.readAt == null,
+      );
+      if (
+        (!conv || conv.unreadCount === 0) &&
+        chatNotifsToMark.length === 0
+      ) {
+        return;
+      }
 
-      set((state) => ({
-        conversations: state.conversations.map((c) =>
-          c.id === conversationId ? { ...c, unreadCount: 0 } : c,
-        ),
-      }));
+      set((state) => {
+        const now = Date.now();
+        const appNotifications = state.appNotifications.map((n) => {
+          if (
+            n.kind !== "chat_message" ||
+            n.conversationId !== conversationId ||
+            n.readAt != null
+          ) {
+            return n;
+          }
+          const updated = { ...n, readAt: now };
+          syncNotificationReadToSheets(updated);
+          return updated;
+        });
+        return {
+          conversations: state.conversations.map((c) =>
+            c.id === conversationId ? { ...c, unreadCount: 0 } : c,
+          ),
+          appNotifications,
+        };
+      });
       const updated = get().conversations.find((c) => c.id === conversationId);
       if (updated) syncConversationToSheets(updated);
     },
@@ -2375,6 +2418,19 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       }));
       const updated = get().conversations.find((c) => c.id === conversationId);
       if (updated) syncConversationToSheets(updated);
+
+      // Notifie le nouveau membre via socket
+      if (member.profilId && isChatApiConfigured()) {
+        const targetUserId = member.profilId;
+        const authUser = useAuthStore.getState().user;
+        if (authUser?.id && targetUserId !== authUser.id) {
+          emitGroupMemberAddedRemote({
+            conversationId,
+            targetUserId,
+            conversation: { id: conversationId, title: updated?.title || "" },
+          });
+        }
+      }
     },
 
     removeMemberFromGroup: (conversationId, memberId) => {
@@ -2701,6 +2757,16 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         refreshEventGroupConversationMembers(ev, set, get);
         syncEventToSheets(ev);
       }
+      // Notifie via socket le participant accepté
+      if (participantId && !isViewer && participantId !== viewerId && isChatApiConfigured()) {
+        emitWaitlistRespondRemote({
+          recipientUserId: participantId,
+          action: "accepted",
+          eventId,
+          eventTitle: event.title,
+        });
+      }
+
       notifyEventRosterChange(
         event,
         "event_participant_joined",
@@ -2904,7 +2970,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         (c) => c.id === event.conversationId,
       );
       if (updatedConv) syncConversationToSheets(updatedConv);
-      pushMessageRemote(msg);
+      pushMessageRemote(msg, dmRecipientUserIds(updatedConv));
       const inviteeFirst =
         friend.name.trim().split(/\s+/)[0] || friend.name.trim() || friend.name;
       get().showToast(`Invitation envoyée à ${inviteeFirst}`);
