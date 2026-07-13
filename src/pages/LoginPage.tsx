@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
+import { PublicLandingSections } from "../components/PublicLandingSections";
+import "../components/PublicLandingSections.css";
 import { matchFrontAdminLogin } from "../lib/frontAdminLogin";
 import {
   canSubmitSignin,
@@ -80,6 +82,11 @@ export function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<SignupBlockerId, string>>
   >({});
+  const authSectionRef = useRef<HTMLDivElement>(null);
+
+  const scrollToAuth = useCallback(() => {
+    authSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   const clearFieldError = useCallback((field: SignupBlockerId) => {
     setFieldErrors((prev) => {
@@ -317,366 +324,403 @@ export function LoginPage() {
           : t("loginSignIn");
 
   return (
-    <div className="login-page">
-      <div className="login-container">
-        <div className="login-header">
-          <h1 className="login-title">{t("loginTitle")}</h1>
-          <p className="login-subtitle">{subtitle}</p>
+    <div className="login-page public-site">
+      <header className="public-site-header">
+        <div className="public-site-header-inner">
+        <a href="#accueil" className="public-site-logo">
+          Happy Let&apos;s Go
+        </a>
+        <nav className="public-site-nav" aria-label="Navigation principale">
+          <a href="#accueil">{t("landingNavHome")}</a>
+          <a href="#decouvrir">{t("landingNavDiscover")}</a>
+          <a href="#comment">{t("landingNavHow")}</a>
+          <a href="#professionnels">{t("landingNavPros")}</a>
+          <button type="button" className="public-site-nav-cta" onClick={scrollToAuth}>
+            {t("landingNavJoin")}
+          </button>
+        </nav>
         </div>
+      </header>
 
-        <form className="login-form" onSubmit={handleSubmit} noValidate>
-          {(error || localError) && (
-            <div className="login-error" role="alert">
-              {error || localError}
+      <main className="public-site-main">
+        <section className="public-hero" id="accueil">
+          <div className="public-hero-copy">
+            <p className="public-hero-badge">{t("landingHeroBadge")}</p>
+            <h1 className="public-hero-title">{t("landingHeroTitle")}</h1>
+            <p className="public-hero-lead">{t("landingHeroLead")}</p>
+            <p className="public-hero-sub">{t("landingHeroSub")}</p>
+            <div className="public-hero-actions">
+              <button type="button" className="landing-cta-btn" onClick={scrollToAuth}>
+                {t("landingCtaJoin")}
+              </button>
+              <a href="#decouvrir" className="public-hero-link">
+                {t("landingCtaDiscover")}
+              </a>
             </div>
-          )}
+          </div>
 
-          {passwordResetMessage ? (
-            <div
-              className={
-                passwordResetMessage.includes("n'a pas pu") ||
-                passwordResetMessage.includes("not been sent")
-                  ? "login-error"
-                  : "login-success"
-              }
-              role="status"
-            >
-              {passwordResetMessage}
-            </div>
-          ) : null}
+          <div className="login-container" id="connexion" ref={authSectionRef}>
+          <div className="login-header">
+            <h1 className="login-title">{t("loginTitle")}</h1>
+            <p className="login-subtitle">{subtitle}</p>
+          </div>
 
-          {view === "forgot" ? (
-            <p className="login-field-hint login-forgot-hint">{t("loginForgotHint")}</p>
-          ) : null}
+          <form className="login-form" onSubmit={handleSubmit} noValidate>
+            {(error || localError) && (
+              <div className="login-error" role="alert">
+                {error || localError}
+              </div>
+            )}
 
-          {view === "reset" ? (
-            <p className="login-field-hint login-forgot-hint">{t("loginResetHint")}</p>
-          ) : null}
-
-          {(view === "signin" || view === "signup" || view === "forgot") && (
-            <div className="login-field">
-              <label htmlFor="email" className="login-label">
-                {view === "signin" ? t("loginEmailOrId") : t("loginEmail")}
-              </label>
-              <input
-                id="email"
-                type="text"
-                inputMode={view === "signin" ? "text" : "email"}
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                className={`login-input${fieldErrors.email ? " login-input--error" : ""}`}
-                placeholder={t("loginPlaceholderEmail")}
-                autoComplete="username"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  clearFieldError("email");
-                }}
-                disabled={isLoading}
-                required
-                aria-invalid={!!fieldErrors.email}
-                aria-describedby={
-                  fieldErrors.email
-                    ? "login-email-error"
-                    : view === "signin" && showsSigninEmailFormatHint(email)
-                      ? "login-email-format-hint"
-                      : undefined
+            {passwordResetMessage ? (
+              <div
+                className={
+                  passwordResetMessage.includes("n'a pas pu") ||
+                  passwordResetMessage.includes("not been sent")
+                    ? "login-error"
+                    : "login-success"
                 }
-              />
-              {fieldErrors.email ? (
-                <p id="login-email-error" className="login-field-hint login-field-hint--error" role="alert">
-                  {fieldErrors.email}
-                </p>
-              ) : null}
-              {view === "signin" && !fieldErrors.email && showsSigninEmailFormatHint(email) ? (
-                <p id="login-email-format-hint" className="login-field-hint">
-                  {t("loginEmailFormatHint")}
-                </p>
-              ) : null}
-            </div>
-          )}
+                role="status"
+              >
+                {passwordResetMessage}
+              </div>
+            ) : null}
 
-          {view === "signup" && (
-            <>
+            {view === "forgot" ? (
+              <p className="login-field-hint login-forgot-hint">{t("loginForgotHint")}</p>
+            ) : null}
+
+            {view === "reset" ? (
+              <p className="login-field-hint login-forgot-hint">{t("loginResetHint")}</p>
+            ) : null}
+
+            {(view === "signin" || view === "signup" || view === "forgot") && (
               <div className="login-field">
-                <label htmlFor="displayName" className="login-label">
-                  {t("loginDisplayName")}
+                <label htmlFor="email" className="login-label">
+                  {view === "signin" ? t("loginEmailOrId") : t("loginEmail")}
                 </label>
                 <input
-                  id="displayName"
+                  id="email"
                   type="text"
-                  className={`login-input${fieldErrors.displayName ? " login-input--error" : ""}`}
-                  placeholder={t("loginPlaceholderDisplayName")}
-                  value={displayName}
+                  inputMode={view === "signin" ? "text" : "email"}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className={`login-input${fieldErrors.email ? " login-input--error" : ""}`}
+                  placeholder={t("loginPlaceholderEmail")}
+                  autoComplete="username"
+                  value={email}
                   onChange={(e) => {
-                    setDisplayName(e.target.value);
-                    clearFieldError("displayName");
+                    setEmail(e.target.value);
+                    clearFieldError("email");
                   }}
                   disabled={isLoading}
                   required
-                  aria-invalid={!!fieldErrors.displayName}
-                  aria-describedby={fieldErrors.displayName ? "login-displayName-error" : undefined}
+                  aria-invalid={!!fieldErrors.email}
+                  aria-describedby={
+                    fieldErrors.email
+                      ? "login-email-error"
+                      : view === "signin" && showsSigninEmailFormatHint(email)
+                        ? "login-email-format-hint"
+                        : undefined
+                  }
                 />
-                {fieldErrors.displayName ? (
-                  <p id="login-displayName-error" className="login-field-hint login-field-hint--error" role="alert">
-                    {fieldErrors.displayName}
+                {fieldErrors.email ? (
+                  <p id="login-email-error" className="login-field-hint login-field-hint--error" role="alert">
+                    {fieldErrors.email}
+                  </p>
+                ) : null}
+                {view === "signin" && !fieldErrors.email && showsSigninEmailFormatHint(email) ? (
+                  <p id="login-email-format-hint" className="login-field-hint">
+                    {t("loginEmailFormatHint")}
                   </p>
                 ) : null}
               </div>
-
-              <div className="login-field">
-                <label htmlFor="age" className="login-label">
-                  {t("loginAge")}
-                </label>
-                <input
-                  id="age"
-                  type="number"
-                  className={`login-input${fieldErrors.age ? " login-input--error" : ""}`}
-                  placeholder={t("loginPlaceholderAge")}
-                  value={age}
-                  onChange={(e) => {
-                    setAge(e.target.value);
-                    clearFieldError("age");
-                  }}
-                  disabled={isLoading}
-                  min={MIN_SIGNUP_AGE}
-                  max={MAX_SIGNUP_AGE}
-                  required
-                  aria-invalid={!!fieldErrors.age}
-                  aria-describedby={fieldErrors.age ? "login-age-error" : "login-age-hint"}
-                />
-                {fieldErrors.age ? (
-                  <p id="login-age-error" className="login-field-hint login-field-hint--error" role="alert">
-                    {fieldErrors.age}
-                  </p>
-                ) : (
-                  <p id="login-age-hint" className="login-field-hint">
-                    {t("loginAgeHint")}
-                  </p>
-                )}
-              </div>
-
-              <div className="login-field">
-                <label htmlFor="bio" className="login-label">
-                  {t("loginBioOptional")}
-                </label>
-                <textarea
-                  id="bio"
-                  className="login-input"
-                  placeholder={t("loginPlaceholderBio")}
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  disabled={isLoading}
-                  rows={3}
-                />
-              </div>
-
-              <div className="login-field login-field--checkbox">
-                <input
-                  id="isPro"
-                  type="checkbox"
-                  className="login-checkbox"
-                  checked={isPro}
-                  onChange={(e) => setIsPro(e.target.checked)}
-                  disabled={isLoading}
-                />
-                <label htmlFor="isPro" className="login-label login-label--checkbox">
-                  {t("loginProAccount")}
-                </label>
-              </div>
-              {isPro ? (
-                <p className="login-pro-hint">{t("loginProCompleteInProfile")}</p>
-              ) : null}
-            </>
-          )}
-
-          {view === "reset" && (
-            <>
-              <div className="login-field">
-                <label htmlFor="newPassword" className="login-label">
-                  {t("loginResetPassword")}
-                </label>
-                <input
-                  id="newPassword"
-                  type="password"
-                  className="login-input"
-                  placeholder="••••••••"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  disabled={isLoading}
-                  required
-                  minLength={6}
-                  autoComplete="new-password"
-                />
-              </div>
-              <div className="login-field">
-                <label htmlFor="confirmPassword" className="login-label">
-                  {t("loginResetConfirm")}
-                </label>
-                <input
-                  id="confirmPassword"
-                  type="password"
-                  className="login-input"
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={isLoading}
-                  required
-                  minLength={6}
-                  autoComplete="new-password"
-                />
-              </div>
-            </>
-          )}
-
-          {(view === "signin" || view === "signup") && (
-            <div className="login-field">
-              <label htmlFor="password" className="login-label">
-                {t("loginPassword")}
-              </label>
-              <input
-                id="password"
-                type="password"
-                className={`login-input${fieldErrors.password ? " login-input--error" : ""}`}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  clearFieldError("password");
-                }}
-                disabled={isLoading}
-                required
-                minLength={6}
-                autoComplete={view === "signup" ? "new-password" : "current-password"}
-                aria-invalid={!!fieldErrors.password}
-                aria-describedby={fieldErrors.password ? "login-password-error" : undefined}
-              />
-              {fieldErrors.password ? (
-                <p id="login-password-error" className="login-field-hint login-field-hint--error" role="alert">
-                  {fieldErrors.password}
-                </p>
-              ) : null}
-              {view === "signup" && !fieldErrors.password ? (
-                <p className="login-field-hint">{t("loginResetHint")}</p>
-              ) : null}
-              {view === "signin" ? (
-                <button
-                  type="button"
-                  className="login-forgot-link"
-                  onClick={() => {
-                    setLocalError("");
-                    clearPasswordResetMessage();
-                    setView("forgot");
-                  }}
-                  disabled={isLoading}
-                >
-                  {t("loginForgotPassword")}
-                </button>
-              ) : null}
-            </div>
-          )}
-
-          {(view === "signin" || view === "signup") ? (
-            <div className="login-field">
-              <label htmlFor="captcha" className="login-label">
-                {t("loginCaptchaLabel")} : {captcha.question}
-              </label>
-              <input
-                id="captcha"
-                type="text"
-                inputMode="numeric"
-                className={`login-input${fieldErrors.captcha ? " login-input--error" : ""}`}
-                placeholder={t("loginCaptchaPlaceholder")}
-                value={captchaAnswer}
-                onChange={(e) => {
-                  setCaptchaAnswer(e.target.value.replace(/[^\d-]/g, ""));
-                  clearFieldError("captcha");
-                }}
-                disabled={isLoading}
-                required
-                autoComplete="off"
-                aria-invalid={!!fieldErrors.captcha}
-                aria-describedby={fieldErrors.captcha ? "login-captcha-error" : undefined}
-              />
-              {fieldErrors.captcha ? (
-                <p id="login-captcha-error" className="login-field-hint login-field-hint--error" role="alert">
-                  {fieldErrors.captcha}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-
-          <button
-            type="submit"
-            className="login-button"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <span className="login-button-loading">
-                <span className="spinner" />
-                {t("loginLoading")}
-              </span>
-            ) : view === "signup" ? (
-              t("loginSignUp")
-            ) : view === "forgot" ? (
-              t("loginForgotSubmit")
-            ) : view === "reset" ? (
-              t("loginResetSubmit")
-            ) : (
-              t("loginSignIn")
             )}
-          </button>
-        </form>
 
-        <div className="login-footer">
-          {view === "forgot" || view === "reset" ? (
+            {view === "signup" && (
+              <>
+                <div className="login-field">
+                  <label htmlFor="displayName" className="login-label">
+                    {t("loginDisplayName")}
+                  </label>
+                  <input
+                    id="displayName"
+                    type="text"
+                    className={`login-input${fieldErrors.displayName ? " login-input--error" : ""}`}
+                    placeholder={t("loginPlaceholderDisplayName")}
+                    value={displayName}
+                    onChange={(e) => {
+                      setDisplayName(e.target.value);
+                      clearFieldError("displayName");
+                    }}
+                    disabled={isLoading}
+                    required
+                    aria-invalid={!!fieldErrors.displayName}
+                    aria-describedby={fieldErrors.displayName ? "login-displayName-error" : undefined}
+                  />
+                  {fieldErrors.displayName ? (
+                    <p id="login-displayName-error" className="login-field-hint login-field-hint--error" role="alert">
+                      {fieldErrors.displayName}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="login-field">
+                  <label htmlFor="age" className="login-label">
+                    {t("loginAge")}
+                  </label>
+                  <input
+                    id="age"
+                    type="number"
+                    className={`login-input${fieldErrors.age ? " login-input--error" : ""}`}
+                    placeholder={t("loginPlaceholderAge")}
+                    value={age}
+                    onChange={(e) => {
+                      setAge(e.target.value);
+                      clearFieldError("age");
+                    }}
+                    disabled={isLoading}
+                    min={MIN_SIGNUP_AGE}
+                    max={MAX_SIGNUP_AGE}
+                    required
+                    aria-invalid={!!fieldErrors.age}
+                    aria-describedby={fieldErrors.age ? "login-age-error" : "login-age-hint"}
+                  />
+                  {fieldErrors.age ? (
+                    <p id="login-age-error" className="login-field-hint login-field-hint--error" role="alert">
+                      {fieldErrors.age}
+                    </p>
+                  ) : (
+                    <p id="login-age-hint" className="login-field-hint">
+                      {t("loginAgeHint")}
+                    </p>
+                  )}
+                </div>
+
+                <div className="login-field">
+                  <label htmlFor="bio" className="login-label">
+                    {t("loginBioOptional")}
+                  </label>
+                  <textarea
+                    id="bio"
+                    className="login-input"
+                    placeholder={t("loginPlaceholderBio")}
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    disabled={isLoading}
+                    rows={3}
+                  />
+                </div>
+
+                <div className="login-field login-field--checkbox">
+                  <input
+                    id="isPro"
+                    type="checkbox"
+                    className="login-checkbox"
+                    checked={isPro}
+                    onChange={(e) => setIsPro(e.target.checked)}
+                    disabled={isLoading}
+                  />
+                  <label htmlFor="isPro" className="login-label login-label--checkbox">
+                    {t("loginProAccount")}
+                  </label>
+                </div>
+                {isPro ? (
+                  <p className="login-pro-hint">{t("loginProCompleteInProfile")}</p>
+                ) : null}
+              </>
+            )}
+
+            {view === "reset" && (
+              <>
+                <div className="login-field">
+                  <label htmlFor="newPassword" className="login-label">
+                    {t("loginResetPassword")}
+                  </label>
+                  <input
+                    id="newPassword"
+                    type="password"
+                    className="login-input"
+                    placeholder="••••••••"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    disabled={isLoading}
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div className="login-field">
+                  <label htmlFor="confirmPassword" className="login-label">
+                    {t("loginResetConfirm")}
+                  </label>
+                  <input
+                    id="confirmPassword"
+                    type="password"
+                    className="login-input"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={isLoading}
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                  />
+                </div>
+              </>
+            )}
+
+            {(view === "signin" || view === "signup") && (
+              <div className="login-field">
+                <label htmlFor="password" className="login-label">
+                  {t("loginPassword")}
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  className={`login-input${fieldErrors.password ? " login-input--error" : ""}`}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    clearFieldError("password");
+                  }}
+                  disabled={isLoading}
+                  required
+                  minLength={6}
+                  autoComplete={view === "signup" ? "new-password" : "current-password"}
+                  aria-invalid={!!fieldErrors.password}
+                  aria-describedby={fieldErrors.password ? "login-password-error" : undefined}
+                />
+                {fieldErrors.password ? (
+                  <p id="login-password-error" className="login-field-hint login-field-hint--error" role="alert">
+                    {fieldErrors.password}
+                  </p>
+                ) : null}
+                {view === "signup" && !fieldErrors.password ? (
+                  <p className="login-field-hint">{t("loginResetHint")}</p>
+                ) : null}
+                {view === "signin" ? (
+                  <button
+                    type="button"
+                    className="login-forgot-link"
+                    onClick={() => {
+                      setLocalError("");
+                      clearPasswordResetMessage();
+                      setView("forgot");
+                    }}
+                    disabled={isLoading}
+                  >
+                    {t("loginForgotPassword")}
+                  </button>
+                ) : null}
+              </div>
+            )}
+
+            {(view === "signin" || view === "signup") ? (
+              <div className="login-field">
+                <label htmlFor="captcha" className="login-label">
+                  {t("loginCaptchaLabel")} : {captcha.question}
+                </label>
+                <input
+                  id="captcha"
+                  type="text"
+                  inputMode="numeric"
+                  className={`login-input${fieldErrors.captcha ? " login-input--error" : ""}`}
+                  placeholder={t("loginCaptchaPlaceholder")}
+                  value={captchaAnswer}
+                  onChange={(e) => {
+                    setCaptchaAnswer(e.target.value.replace(/[^\d-]/g, ""));
+                    clearFieldError("captcha");
+                  }}
+                  disabled={isLoading}
+                  required
+                  autoComplete="off"
+                  aria-invalid={!!fieldErrors.captcha}
+                  aria-describedby={fieldErrors.captcha ? "login-captcha-error" : undefined}
+                />
+                {fieldErrors.captcha ? (
+                  <p id="login-captcha-error" className="login-field-hint login-field-hint--error" role="alert">
+                    {fieldErrors.captcha}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
             <button
-              type="button"
-              className="login-toggle-button"
-              onClick={() => {
-                setView("signin");
-                setLocalError("");
-                clearPasswordResetMessage();
-                setNewPassword("");
-                setConfirmPassword("");
-              }}
+              type="submit"
+              className="login-button"
               disabled={isLoading}
             >
-              {t("loginForgotBack")}
+              {isLoading ? (
+                <span className="login-button-loading">
+                  <span className="spinner" />
+                  {t("loginLoading")}
+                </span>
+              ) : view === "signup" ? (
+                t("loginSignUp")
+              ) : view === "forgot" ? (
+                t("loginForgotSubmit")
+              ) : view === "reset" ? (
+                t("loginResetSubmit")
+              ) : (
+                t("loginSignIn")
+              )}
             </button>
-          ) : (
-            <>
-              <p className="login-toggle-text">
-                {view === "signup" ? t("loginHasAccount") : t("loginNoAccount")}
-              </p>
+          </form>
+
+          <div className="login-footer">
+            {view === "forgot" || view === "reset" ? (
               <button
                 type="button"
                 className="login-toggle-button"
                 onClick={() => {
-                  const nextSignup = view !== "signup";
-                  setView(nextSignup ? "signup" : "signin");
+                  setView("signin");
                   setLocalError("");
-                  setFieldErrors({});
-                  clearPendingVerification();
                   clearPasswordResetMessage();
-                  setEmail("");
-                  setPassword("");
-                  setDisplayName("");
-                  setAge("");
-                  setBio("");
-                  setIsPro(false);
-                  refreshCaptcha();
+                  setNewPassword("");
+                  setConfirmPassword("");
                 }}
                 disabled={isLoading}
               >
-                {view === "signup" ? t("loginSignIn") : t("loginSignUp")}
+                {t("loginForgotBack")}
               </button>
-            </>
-          )}
-        </div>
+            ) : (
+              <>
+                <p className="login-toggle-text">
+                  {view === "signup" ? t("loginHasAccount") : t("loginNoAccount")}
+                </p>
+                <button
+                  type="button"
+                  className="login-toggle-button"
+                  onClick={() => {
+                    const nextSignup = view !== "signup";
+                    setView(nextSignup ? "signup" : "signin");
+                    setLocalError("");
+                    setFieldErrors({});
+                    clearPendingVerification();
+                    clearPasswordResetMessage();
+                    setEmail("");
+                    setPassword("");
+                    setDisplayName("");
+                    setAge("");
+                    setBio("");
+                    setIsPro(false);
+                    refreshCaptcha();
+                  }}
+                  disabled={isLoading}
+                >
+                  {view === "signup" ? t("loginSignIn") : t("loginSignUp")}
+                </button>
+              </>
+            )}
+          </div>
+          </div>
+        </section>
 
-      </div>
+        <PublicLandingSections onScrollToAuth={scrollToAuth} />
+      </main>
     </div>
   );
 }

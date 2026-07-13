@@ -1,16 +1,7 @@
 User-agent: *
 Disallow: /images/
-Disallow: /icons/
-Disallow: /event-cover-themes/
 Disallow: /csv/
-Disallow: /install-on-android.webp
-Disallow: /install-on-ios.webp
-Disallow: /splash.jpg
-Disallow: /manifest.webmanifest
-Disallow: /.htaccess
 Disallow: /api/
 Disallow: /backend/
 Disallow: /google-apps-script/
-
-# Empêche les moteurs de recherche de récupérer les fichiers statiques et les ressources du site.
-# Ajoute ou retire des chemins selon la structure réelle de ton site.
+Allow: /event-cover-themes/
