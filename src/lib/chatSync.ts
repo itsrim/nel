@@ -1,5 +1,6 @@
 import type { Conversation, Message } from "../data/mockData";
 import type { AppNotification, ProfileVisit } from "../data/mockData";
+import type { UserBadgeSeenPayload } from "./userBadges";
 import { useAuthStore } from "../store/useAuthStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { resolveMessageAccessFromStores } from "./accessScope";
@@ -112,6 +113,9 @@ function applyMessages(
       ),
     },
   );
+  if (isIncomingFromOther) {
+    queueMicrotask(() => useMessagingStore.getState().reconcileUserBadgeCounts());
+  }
 }
 
 function ensureConversationForIncoming(
@@ -210,6 +214,7 @@ function applyIncomingFriendRequest(
       : [notif, ...s.appNotifications];
     return { profileVisits, appNotifications };
   });
+  queueMicrotask(() => useMessagingStore.getState().reconcileUserBadgeCounts());
   const name = notif.senderName?.trim() || visit.name;
   useMessagingStore.getState().showToast(`Demande d'ami de ${name}`);
 }
@@ -312,6 +317,7 @@ function applyEventInvite(notif: AppNotification): void {
         : s.events;
     return { appNotifications, events };
   });
+  queueMicrotask(() => useMessagingStore.getState().reconcileUserBadgeCounts());
   const host = notif.senderName?.trim() || "Quelqu'un";
   const title = notif.eventTitle?.trim() || "un évènement";
   useMessagingStore.getState().showToast(`${host} vous invite à « ${title} ».`);
@@ -514,6 +520,11 @@ function ensureSocketListeners(): void {
       useMessagingStore.getState().showToast(`${addedByName} vous a ajouté au groupe.`);
     },
   );
+
+  socket.on("badge:seen", (payload: UserBadgeSeenPayload) => {
+    if (!payload?.key || typeof payload.updatedAt !== "number") return;
+    useMessagingStore.getState().applyRemoteUserBadgeSeen(payload);
+  });
 }
 
 export function setActiveChatConversationId(

@@ -77,11 +77,7 @@ import { isEventDateBeforeToday, parseDateKeyLocal, todayDateKey, toDateKey } fr
 import { geocodeProAddress, isPlausibleProAddress } from "../lib/proGeocode";
 import { scrollLockSurfaceAttr, useLockBodyScroll } from "../lib/useLockBodyScroll";
 import { hasViewerProAccess } from "../lib/viewerEntitlements";
-import { countProfileNavBadge } from "../lib/navBadges";
-import {
-  buildFriendNetworkEntries,
-  countIncomingFriendRequests,
-} from "../lib/friendsTabNetwork";
+import { buildFriendNetworkEntries } from "../lib/friendsTabNetwork";
 import { VIEWER_PRO_ID } from "../lib/proLocation";
 import { PRO_CATEGORY_OPTIONS, resolveProCategoryFields } from "../lib/proCategory";
 import { useProsStore } from "../store/useProsStore";
@@ -174,8 +170,9 @@ export function ProfilePage() {
     acceptFriendRequest,
     rejectFriendRequest,
     appNotifications,
-    markAllNotificationsRead,
     markNotificationRead,
+    userBadgeCounts,
+    markUserBadgeSeen,
     toggleEventFavorite,
     isAdmin,
     setIsAdmin,
@@ -185,7 +182,6 @@ export function ProfilePage() {
     activateViewerSubscription,
     cancelViewerSubscription,
     adminReports,
-    markAllAdminReportsRead,
     dismissAdminReport,
     moderationHideAndNotifyFromReport,
     viewerProfileAvatarUrl,
@@ -253,11 +249,6 @@ export function ProfilePage() {
     ],
   );
 
-  const incomingFriendRequestsCount = useMemo(
-    () => countIncomingFriendRequests(friendNetworkEntries),
-    [friendNetworkEntries],
-  );
-
   const friendsTabCount = friendNetworkEntries.length;
 
   const { openDetail } = useNavigationStore();
@@ -281,14 +272,17 @@ export function ProfilePage() {
         ? strip.getBoundingClientRect().top
         : null;
       if (next === "reports") {
-        markAllAdminReportsRead();
+        markUserBadgeSeen("profile_reports");
       }
       if (next === "notifications") {
-        markAllNotificationsRead();
+        markUserBadgeSeen("profile_notifications");
+      }
+      if (next === "friends") {
+        markUserBadgeSeen("profile_friends");
       }
       setActiveTab(next);
     },
-    [activeTab, markAllAdminReportsRead, markAllNotificationsRead],
+    [activeTab, markUserBadgeSeen],
   );
 
   useLayoutEffect(() => {
@@ -370,10 +364,7 @@ export function ProfilePage() {
     setViewerProfileBio(draftBio);
     setEditing(false);
   };
-  const unreadAdminReportsCount = useMemo(
-    () => adminReports.filter((r) => !r.read).length,
-    [adminReports],
-  );
+  const unreadAdminReportsCount = userBadgeCounts.profile_reports;
 
   const viewerContext = useMemo(
     () =>
@@ -478,27 +469,7 @@ export function ProfilePage() {
     [appNotifications],
   );
 
-  const unreadNotificationsCount = useMemo(
-    () =>
-      countProfileNavBadge({
-        appNotifications,
-        profileVisits,
-        friends,
-        friendRequestRejectedProfilIds,
-      }),
-    [
-      appNotifications,
-      profileVisits,
-      friends,
-      friendRequestRejectedProfilIds,
-    ],
-  );
-
-  useEffect(() => {
-    if (activeTab !== "notifications") return;
-    const hasUnread = appNotifications.some((n) => n.readAt == null);
-    if (hasUnread) markAllNotificationsRead();
-  }, [activeTab, appNotifications, markAllNotificationsRead]);
+  const unreadNotificationsCount = userBadgeCounts.profile_notifications;
 
   const handlePhotoClick = () => {
     fileInputRef.current?.click();
@@ -984,12 +955,12 @@ export function ProfilePage() {
                 color={activeTab === "friends" ? "#8B5CF6" : "#8E8E93"}
               />
               <span>{t("friends")}</span>
-              {incomingFriendRequestsCount > 0 ? (
+              {userBadgeCounts.profile_friends > 0 ? (
                 <span
                   className="p-tab-badge p-tab-badge--alert"
-                  aria-label={`${incomingFriendRequestsCount} ${t("friendRequestBadge")}`}
+                  aria-label={`${userBadgeCounts.profile_friends} ${t("friendRequestBadge")}`}
                 >
-                  {formatBadgeCount(incomingFriendRequestsCount)}
+                  {formatBadgeCount(userBadgeCounts.profile_friends)}
                 </span>
               ) : (
                 <span className="p-tab-badge p-tab-badge--muted">

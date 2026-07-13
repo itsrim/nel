@@ -6,7 +6,6 @@ import {
 } from "./store/useNavigationStore";
 import { useMessagingStore } from "./store/useMessagingStore";
 import { useAuthStore } from "./store/useAuthStore";
-import { countProfileNavBadge, countUnreadChatMessages } from "./lib/navBadges";
 import { updateAllBadges } from "./lib/appBadge";
 import { isChatApiConfigured } from "./lib/chatConfig";
 import {
@@ -71,14 +70,6 @@ function App() {
   const { activeTab, detailStack } = useNavigationStore();
   const toast = useMessagingStore((s) => s.toast);
   const conversations = useMessagingStore((s) => s.conversations);
-  const events = useMessagingStore((s) => s.events);
-  const appNotifications = useMessagingStore((s) => s.appNotifications);
-  const profileVisits = useMessagingStore((s) => s.profileVisits);
-  const friends = useMessagingStore((s) => s.friends);
-  const friendRequestRejectedProfilIds = useMessagingStore(
-    (s) => s.friendRequestRejectedProfilIds,
-  );
-  const isAdmin = useMessagingStore((s) => s.isAdmin);
   const {
     setViewerProfileDisplayName,
     setViewerProfileAvatarUrl,
@@ -94,6 +85,27 @@ function App() {
   const closeQuestionnaire = useCallback(() => {
     if (user?.id) markDailyQuestionnaireShown(user.id);
     setQuestionnaireOpen(false);
+  }, [user?.id]);
+
+  // Recalcule les pastilles dès que les données source changent (notifs, chat, visites…)
+  useEffect(() => {
+    if (!user?.id) return;
+    useMessagingStore.getState().reconcileUserBadgeCounts();
+    return useMessagingStore.subscribe((state, prev) => {
+      if (
+        state.appNotifications !== prev.appNotifications ||
+        state.conversations !== prev.conversations ||
+        state.profileVisits !== prev.profileVisits ||
+        state.friends !== prev.friends ||
+        state.adminReports !== prev.adminReports ||
+        state.friendRequestRejectedProfilIds !==
+          prev.friendRequestRejectedProfilIds ||
+        state.moderationHiddenProfilIds !== prev.moderationHiddenProfilIds ||
+        state.userBadgeLastSeenAt !== prev.userBadgeLastSeenAt
+      ) {
+        state.reconcileUserBadgeCounts();
+      }
+    });
   }, [user?.id]);
 
   useEffect(() => {
@@ -329,30 +341,10 @@ function App() {
   }, [user?.id, user?.isAdmin]);
 
   // Synchronisation des badges (favicon + icône PWA) à chaque changement
+  const userBadgeCounts = useMessagingStore((s) => s.userBadgeCounts);
   useEffect(() => {
-    const chatUnread = countUnreadChatMessages({
-      adminModeActive: isAdmin,
-      user,
-      conversations,
-      events,
-    });
-    const profileUnread = countProfileNavBadge({
-      appNotifications,
-      profileVisits,
-      friends,
-      friendRequestRejectedProfilIds,
-    });
-    updateAllBadges(chatUnread, profileUnread);
-  }, [
-    isAdmin,
-    user,
-    conversations,
-    events,
-    appNotifications,
-    profileVisits,
-    friends,
-    friendRequestRejectedProfilIds,
-  ]);
+    updateAllBadges(userBadgeCounts.chat, userBadgeCounts.profile);
+  }, [userBadgeCounts.chat, userBadgeCounts.profile]);
 
   /** Chaque onglet repart du haut (pas la position de scroll de la page précédente). */
   useLayoutEffect(() => {

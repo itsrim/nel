@@ -558,8 +558,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      set({ isLoading: false, error: "Email ou mot de passe incorrect" });
+      set({
+        isLoading: false,
+        error:
+          "Connexion impossible : Google Sheets non configuré. " +
+          "Ajoutez VITE_GOOGLE_SHEETS_URL_ENCODED dans .env puis relancez yarn dev (ou rebuild prod).",
+      });
     } catch (err) {
       set({
         isLoading: false,

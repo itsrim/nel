@@ -1,17 +1,11 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MessageCircle, Calendar, User, Handbag, type LucideIcon } from "lucide-react";
 import { useNavigationStore, type TabId } from "../store/useNavigationStore";
 import { useTranslation } from "../i18n/useTranslation";
 import type { TranslationKey } from "../i18n/translations";
 import { useMessagingStore } from "../store/useMessagingStore";
-import { useAuthStore } from "../store/useAuthStore";
 import { formatBadgeCount } from "../data/mockData";
-import {
-  countProfileNavBadge,
-  countUnreadChatMessages,
-  countEventNavBadge,
-} from "../lib/navBadges";
 import "./BottomNavigation.css";
 
 interface NavItem {
@@ -31,42 +25,14 @@ const NAV_ITEMS: NavItem[] = [
 export function BottomNavigation() {
   const { activeTab, setActiveTab } = useNavigationStore();
   const { t } = useTranslation();
-  const user = useAuthStore((s) => s.user);
-  const conversations = useMessagingStore((s) => s.conversations);
-  const events = useMessagingStore((s) => s.events);
-  const appNotifications = useMessagingStore((s) => s.appNotifications);
-  const profileVisits = useMessagingStore((s) => s.profileVisits);
-  const friends = useMessagingStore((s) => s.friends);
-  const friendRequestRejectedProfilIds = useMessagingStore(
-    (s) => s.friendRequestRejectedProfilIds,
-  );
-  const isAdmin = useMessagingStore((s) => s.isAdmin);
+  const userBadgeCounts = useMessagingStore((s) => s.userBadgeCounts);
+  const markUserBadgeSeen = useMessagingStore((s) => s.markUserBadgeSeen);
   const innerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [indicator, setIndicator] = useState({ left: 0, width: 0 });
 
-  const unreadChatCount = useMemo(
-    () =>
-      countUnreadChatMessages({
-        adminModeActive: isAdmin,
-        user,
-        conversations,
-        events,
-      }),
-    [isAdmin, user, conversations, events],
-  );
-
-  const profileBadgeCount = useMemo(
-    () =>
-      countProfileNavBadge({
-        appNotifications,
-        profileVisits,
-        friends,
-        friendRequestRejectedProfilIds,
-      }),
-    [appNotifications, profileVisits, friends, friendRequestRejectedProfilIds],
-  );
-
+  const unreadChatCount = userBadgeCounts.chat;
+  const profileBadgeCount = userBadgeCounts.profile;
 
   const activeIndex = NAV_ITEMS.findIndex((item) => item.id === activeTab);
 
@@ -126,7 +92,10 @@ export function BottomNavigation() {
               }}
               type="button"
               className={`ftb-item ${isActive ? "ftb-item--active" : ""}`}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                setActiveTab(item.id);
+                if (item.badge === "chat") markUserBadgeSeen("chat");
+              }}
               aria-label={ariaLabel}
               aria-current={isActive ? "page" : undefined}
             >

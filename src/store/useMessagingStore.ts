@@ -22,7 +22,12 @@ import {
   sendMessageRemote,
 } from "../lib/chatSocket";
 import { useLanguageStore } from "./useLanguageStore";
-import { resolveMessageAccessFromStores } from "../lib/accessScope";
+import {
+  isConversationAccessible,
+  resolveConversationAccessScope,
+  resolveMessageAccessFromStores,
+  userIsAppAdmin,
+} from "../lib/accessScope";
 import { saveHistory, buildEventDateKeyByConversationId, type PersistedMessage } from "../lib/chatPersistence";
 import { useAuthStore } from "./useAuthStore";
 import {
@@ -60,6 +65,7 @@ import {
   readStoredTimestamp,
   writeStoredTimestamp,
 } from "../lib/subscriptionDates";
+import { hasViewerProAccess } from "../lib/viewerEntitlements";
 import type { SubscriptionPlan } from "../lib/subscriptionPayment";
 import {
   clearSubscriptionPaymentRecord,
@@ -73,6 +79,18 @@ import {
   findDmConversationByPeer,
 } from "../lib/dmConversation";
 import { buildEventPublicUrl } from "../lib/eventPublicUrl";
+import {
+  computeUserBadgeCounts,
+  EMPTY_USER_BADGE_COUNTS,
+  parseUserBadgeLastSeen,
+  serializeUserBadgeCounts,
+  serializeUserBadgeLastSeen,
+  type UserBadgeCounts,
+  type UserBadgeKey,
+  type UserBadgeLastSeen,
+  type UserBadgeSeenPayload,
+} from "../lib/userBadges";
+import { emitUserBadgeSeenRemote } from "../lib/chatSocket";
 import {
   deliverEventRosterNotifications,
   deliverWaitlistDecisionNotification,
@@ -568,6 +586,8 @@ function syncViewerSettingsFromState(state: MessagingState) {
     favoriteConversationIds: state.favoriteConversationIds,
     moderationHiddenEventIds: state.moderationHiddenEventIds,
     moderationHiddenProfilIds: state.moderationHiddenProfilIds,
+    userBadgeCountsJson: serializeUserBadgeCounts(state.userBadgeCounts),
+    userBadgeLastSeenJson: serializeUserBadgeLastSeen(state.userBadgeLastSeenAt),
   });
 }
 
@@ -752,6 +772,15 @@ interface MessagingState {
     participantName: string,
   ) => void;
   markEventReminderAsRead: (reminderId: string) => void;
+  /** Compteurs de pastilles (nav + onglets), dérivés des données source. */
+  userBadgeCounts: UserBadgeCounts;
+  userBadgeLastSeenAt: UserBadgeLastSeen;
+  userBadgeSyncUpdatedAt: number;
+  reconcileUserBadgeCounts: () => void;
+  /** Remet à zéro une pastille à l’ouverture de l’onglet associé. */
+  markUserBadgeSeen: (key: UserBadgeKey, options?: { remote?: boolean }) => void;
+  applyRemoteUserBadgeSeen: (payload: UserBadgeSeenPayload) => void;
+  markAllChatsRead: () => void;
 }
 
 export const useMessagingStore = create<MessagingState>((set, get) => {
@@ -763,6 +792,26 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
   );
   const premiumPaymentInit = readSubscriptionPaymentRecord("premium");
   const proPaymentInit = readSubscriptionPaymentRecord("pro");
+
+  const buildBadgeComputeInput = (state: MessagingState) => ({
+    adminModeActive: state.isAdmin,
+    user: useAuthStore.getState().user,
+    conversations: state.conversations,
+    events: state.events,
+    appNotifications: state.appNotifications,
+    profileVisits: state.profileVisits,
+    friends: state.friends,
+    suggestions: state.suggestions,
+    friendRequestSentProfilIds: state.friendRequestSentProfilIds,
+    friendRequestRejectedProfilIds: state.friendRequestRejectedProfilIds,
+    moderationHiddenProfilIds: state.moderationHiddenProfilIds,
+    adminReports: state.adminReports,
+    lastSeenAt: state.userBadgeLastSeenAt,
+  });
+
+  const persistUserBadgeState = (state: MessagingState) => {
+    syncViewerSettingsFromState(state);
+  };
 
   const applyViewerKarma = (delta: number) => {
     const next = normalizeKarma(get().viewerKarma + delta);
@@ -1612,6 +1661,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     profileVisits: [],
     suggestions: [],
     friends: [],
+    userBadgeCounts: { ...EMPTY_USER_BADGE_COUNTS },
+    userBadgeLastSeenAt: {},
+    userBadgeSyncUpdatedAt: 0,
     friendRequestSentProfilIds: [],
     friendRequestRejectedProfilIds: [],
     friendRequestDailySentDateKey: null,
@@ -1859,7 +1911,11 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           syncNotificationReadToSheets(updated);
           return updated;
         });
-        return changed ? { appNotifications } : s;
+        const next = changed ? { appNotifications } : s;
+        if (changed) {
+          queueMicrotask(() => get().reconcileUserBadgeCounts());
+        }
+        return next;
       }),
     adminReports: [],
     submitAdminReport: ({ kind, subjectId, subjectLabel, explanation }) => {
@@ -1884,6 +1940,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           r.read ? r : { ...r, read: true },
         );
         adminReports.forEach((r) => syncReportToSheets(r));
+        queueMicrotask(() => get().reconcileUserBadgeCounts());
         return { adminReports };
       }),
     moderationHiddenEventIds: [],
@@ -2385,6 +2442,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       });
       const updated = get().conversations.find((c) => c.id === conversationId);
       if (updated) syncConversationToSheets(updated);
+      queueMicrotask(() => get().reconcileUserBadgeCounts());
     },
 
     recordConversationOpened: (conversationId) => {
@@ -3034,6 +3092,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         friendRequestDailySentDateKey: null,
         appNotifications: [],
         adminReports: [],
+        userBadgeCounts: { ...EMPTY_USER_BADGE_COUNTS },
+        userBadgeLastSeenAt: {},
+        userBadgeSyncUpdatedAt: 0,
         moderationHiddenEventIds: [],
         moderationHiddenProfilIds: [],
         eventReminders: [],
@@ -3118,6 +3179,159 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         ),
       }));
       syncEventReminderToSheets(updated);
+    },
+
+    reconcileUserBadgeCounts: () => {
+      const state = get();
+      const counts = computeUserBadgeCounts(buildBadgeComputeInput(state));
+      const prev = state.userBadgeCounts;
+      const unchanged =
+        prev.chat === counts.chat &&
+        prev.profile === counts.profile &&
+        prev.profile_notifications === counts.profile_notifications &&
+        prev.profile_friends === counts.profile_friends &&
+        prev.profile_reports === counts.profile_reports &&
+        prev.chat_visits === counts.chat_visits;
+      if (unchanged) return;
+      const updatedAt = Date.now();
+      const nextState = {
+        ...state,
+        userBadgeCounts: counts,
+        userBadgeSyncUpdatedAt: updatedAt,
+      };
+      set({ userBadgeCounts: counts, userBadgeSyncUpdatedAt: updatedAt });
+      persistUserBadgeState(nextState);
+    },
+
+    markAllChatsRead: () => {
+      const state = get();
+      const user = useAuthStore.getState().user;
+      const scope = resolveConversationAccessScope({
+        adminModeActive: state.isAdmin,
+        isStaffAccount: userIsAppAdmin(user),
+        conversations: state.conversations,
+        events: state.events,
+      });
+      const accessible =
+        scope === null
+          ? state.conversations
+          : state.conversations.filter(
+              (c) =>
+                isConversationAccessible(c.id, scope) &&
+                (c.members.length === 0 || c.members.some((m) => m.isSelf)),
+            );
+      for (const c of accessible) {
+        if (c.unreadCount > 0) get().markAsRead(c.id);
+      }
+    },
+
+    markUserBadgeSeen: (key, options) => {
+      const state = get();
+      const now = Date.now();
+      const nextLastSeen: UserBadgeLastSeen = {
+        ...state.userBadgeLastSeenAt,
+        [key]: now,
+      };
+
+      switch (key) {
+        case "chat":
+          get().markAllChatsRead();
+          nextLastSeen.chat = now;
+          break;
+        case "profile":
+        case "profile_notifications":
+          get().markAllNotificationsRead();
+          nextLastSeen.profile = now;
+          nextLastSeen.profile_notifications = now;
+          break;
+        case "profile_friends": {
+          const appNotifications = state.appNotifications.map((n) => {
+            if (n.kind !== "friend_request_received" || n.readAt != null) {
+              return n;
+            }
+            const updated = { ...n, readAt: now };
+            syncNotificationReadToSheets(updated);
+            return updated;
+          });
+          set({ appNotifications, userBadgeLastSeenAt: nextLastSeen });
+          break;
+        }
+        case "profile_reports":
+          get().markAllAdminReportsRead();
+          nextLastSeen.profile_reports = now;
+          break;
+        case "chat_visits":
+          set({ userBadgeLastSeenAt: nextLastSeen });
+          break;
+        default:
+          break;
+      }
+
+      if (key !== "profile_friends" && key !== "chat_visits") {
+        set({ userBadgeLastSeenAt: nextLastSeen });
+      }
+
+      get().reconcileUserBadgeCounts();
+
+      if (!options?.remote) {
+        const payload: UserBadgeSeenPayload = {
+          key,
+          lastSeenAt: get().userBadgeLastSeenAt,
+          updatedAt: Date.now(),
+        };
+        emitUserBadgeSeenRemote(payload);
+        persistUserBadgeState(get());
+      }
+    },
+
+    applyRemoteUserBadgeSeen: (payload) => {
+      const state = get();
+      if (payload.updatedAt <= state.userBadgeSyncUpdatedAt) return;
+
+      const mergedLastSeen: UserBadgeLastSeen = {
+        ...state.userBadgeLastSeenAt,
+      };
+      for (const [k, v] of Object.entries(payload.lastSeenAt)) {
+        const key = k as UserBadgeKey;
+        const ts = typeof v === "number" ? v : 0;
+        if (!mergedLastSeen[key] || ts > mergedLastSeen[key]!) {
+          mergedLastSeen[key] = ts;
+        }
+      }
+
+      set({
+        userBadgeLastSeenAt: mergedLastSeen,
+        userBadgeSyncUpdatedAt: payload.updatedAt,
+      });
+
+      switch (payload.key) {
+        case "chat":
+          get().markAllChatsRead();
+          break;
+        case "profile":
+        case "profile_notifications":
+          get().markAllNotificationsRead();
+          break;
+        case "profile_friends": {
+          const now = payload.updatedAt;
+          set((s) => ({
+            appNotifications: s.appNotifications.map((n) =>
+              n.kind === "friend_request_received" && n.readAt == null
+                ? { ...n, readAt: now }
+                : n,
+            ),
+          }));
+          break;
+        }
+        case "profile_reports":
+          get().markAllAdminReportsRead();
+          break;
+        default:
+          break;
+      }
+
+      get().reconcileUserBadgeCounts();
+      persistUserBadgeState(get());
     },
   };
 });

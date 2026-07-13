@@ -16,6 +16,7 @@ import type {
 } from "../data/mockData";
 import type { MockProfessional } from "../data/mockProfessionals";
 import type { SubscriptionPaymentRecord } from "./subscriptionPersistence";
+import { parseUserBadgeLastSeen } from "./userBadges";
 import { resolveAvatarUrl } from "./avatarUrl";
 import { buildEventPublicUrl, resolveEventPublicUrl } from "./eventPublicUrl";
 import { proCoordinates } from "./proCoordinates";
@@ -625,6 +626,8 @@ export interface ViewerSettingsRow {
   moderationHiddenProfilIdsJson: string;
   badgesJson?: string;
   profileBadgeSuggestionsJson?: string;
+  userBadgeCountsJson?: string;
+  userBadgeLastSeenJson?: string;
   signupIp?: string;
   lastLoginIp?: string;
 }
@@ -718,6 +721,8 @@ export function viewerSettingsToRow(
     moderationHiddenProfilIds: string[];
     viewerProfileBadges?: string[];
     profileBadgeSuggestions?: string[];
+    userBadgeCountsJson?: string;
+    userBadgeLastSeenJson?: string;
     signupIp?: string;
     lastLoginIp?: string;
   } & ViewerSettingsAuthFields,
@@ -757,6 +762,8 @@ export function viewerSettingsToRow(
     moderationHiddenProfilIdsJson: jsonToSheet(data.moderationHiddenProfilIds),
     badgesJson: jsonToSheet(data.viewerProfileBadges ?? []),
     profileBadgeSuggestionsJson: jsonToSheet(data.profileBadgeSuggestions ?? []),
+    userBadgeCountsJson: str(data.userBadgeCountsJson),
+    userBadgeLastSeenJson: str(data.userBadgeLastSeenJson),
     ...(data.signupIp != null ? { signupIp: str(data.signupIp) } : {}),
     ...(data.lastLoginIp != null ? { lastLoginIp: str(data.lastLoginIp) } : {}),
     deleted: "false",
@@ -973,6 +980,8 @@ export interface LoadedAppSheetState {
     moderationHiddenProfilIds: string[];
     viewerProfileBadges?: string[];
     profileBadgeSuggestions?: string[];
+    userBadgeCountsJson?: string;
+    userBadgeLastSeenJson?: string;
     signupIp?: string;
     lastLoginIp?: string;
   };
@@ -1032,6 +1041,8 @@ function parseViewerSettingsFromRow(
     ),
     viewerProfileBadges: jsonFromSheet(viewerRow.badgesJson, []),
     profileBadgeSuggestions: jsonFromSheet(viewerRow.profileBadgeSuggestionsJson, []),
+    userBadgeCountsJson: str(viewerRow.userBadgeCountsJson) || undefined,
+    userBadgeLastSeenJson: str(viewerRow.userBadgeLastSeenJson) || undefined,
     signupIp: str(viewerRow.signupIp) || undefined,
     lastLoginIp: str(viewerRow.lastLoginIp) || undefined,
   };
@@ -1431,6 +1442,7 @@ export function mergeLoadedAppState(
   viewerProCategory?: import("./proCategory").ProCategory;
   viewerKarma?: number;
   adminAppInfo?: AdminAppInfo;
+  userBadgeLastSeenAt?: import("./userBadges").UserBadgeLastSeen;
 } {
   const patch: Partial<typeof current> & {
     adminAppInfo?: AdminAppInfo;
@@ -1545,6 +1557,9 @@ export function mergeLoadedAppState(
     if (vs.moderationHiddenProfilIds.length > 0) {
       patch.moderationHiddenProfilIds = vs.moderationHiddenProfilIds;
     }
+    if (vs.userBadgeLastSeenJson) {
+      patch.userBadgeLastSeenAt = parseUserBadgeLastSeen(vs.userBadgeLastSeenJson);
+    }
   }
 
   return patch;
@@ -1636,6 +1651,8 @@ export function syncViewerSettingsToSheets(data: {
   proLng?: number | null;
   viewerProfileBadges?: string[];
   profileBadgeSuggestions?: string[];
+  userBadgeCountsJson?: string;
+  userBadgeLastSeenJson?: string;
   friendRequestSentProfilIds: string[];
   friendRequestRejectedProfilIds: string[];
   friendRequestDailySentDateKey?: string | null;
@@ -1734,6 +1751,8 @@ export function syncAllViewerStateFromStore(state: {
   proSubscriptionPayment?: SubscriptionPaymentRecord;
   viewerProfileBadges: string[];
   profileBadgeSuggestions: string[];
+  userBadgeCountsJson?: string;
+  userBadgeLastSeenJson?: string;
   viewerProfileCity?: string;
   viewerProfileAge?: string;
   viewerProfileBio?: string;
@@ -1784,6 +1803,8 @@ export function syncAllViewerStateFromStore(state: {
     favoriteConversationIds: state.favoriteConversationIds,
     moderationHiddenEventIds: state.moderationHiddenEventIds,
     moderationHiddenProfilIds: state.moderationHiddenProfilIds,
+    userBadgeCountsJson: state.userBadgeCountsJson,
+    userBadgeLastSeenJson: state.userBadgeLastSeenJson,
   });
 }
 

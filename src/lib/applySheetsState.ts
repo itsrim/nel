@@ -88,6 +88,7 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
   if (Object.keys(changed).length === 0) {
     ensureParticipantConversationsInStore();
     ensureDerivedCatalogInStore(viewerContext);
+    queueMicrotask(() => useMessagingStore.getState().reconcileUserBadgeCounts());
     return;
   }
 
@@ -96,6 +97,8 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
   }
 
   useMessagingStore.setState(changed);
+
+  queueMicrotask(() => useMessagingStore.getState().reconcileUserBadgeCounts());
 
   if ("viewerProfileAge" in changed && changed.viewerProfileAge != null) {
     try {

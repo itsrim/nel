@@ -383,6 +383,8 @@ export function ChatPage() {
     isAdmin: adminModeActive,
     getEventByConversationId,
     chatLoading,
+    userBadgeCounts,
+    markUserBadgeSeen,
   } = useMessagingStore();
   const viewerPremiumAccess = useMessagingStore(hasViewerPremiumAccess);
   const [sub, setSub] = useState<SubTab>("messages");
@@ -419,6 +421,11 @@ export function ChatPage() {
       userSearchInputRef.current?.focus();
     }
   }, [userSearchOpen, viewerPremiumAccess]);
+
+  useEffect(() => {
+    if (sub === "messages") markUserBadgeSeen("chat");
+    if (sub === "visites") markUserBadgeSeen("chat_visits");
+  }, [sub, markUserBadgeSeen]);
 
   /** Ami mutuel (cœur rose) — distinct du simple fait d’être dans l’annuaire « Amis » nel. */
   const isMutualFriend = useCallback(
@@ -486,23 +493,14 @@ export function ChatPage() {
     );
   }, [accessibleConversations, favoriteConversationIds]);
 
-  const messagesTabBadge = useMemo(
-    () => accessibleConversations.reduce((s, c) => s + c.unreadCount, 0),
-    [accessibleConversations],
-  );
-
   const profileVisitsVisible = useMemo(
     () =>
       profileVisits.filter((v) => !moderationHiddenProfilIds.includes(v.id)),
     [profileVisits, moderationHiddenProfilIds],
   );
 
-  const visitesTabBadge = useMemo(
-    () =>
-      profileVisitsVisible.filter((v) => v.friendRequest).length +
-      profileVisitsVisible.length,
-    [profileVisitsVisible],
-  );
+  const messagesTabBadge = userBadgeCounts.chat;
+  const visitesTabBadge = userBadgeCounts.chat_visits;
 
   const suggestionsVisible = useMemo(
     () =>

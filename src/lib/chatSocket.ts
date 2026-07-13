@@ -1,6 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 import type { PersistedMessage } from "./chatPersistence";
 import type { AppNotification, ProfileVisit } from "../data/mockData";
+import type { UserBadgeSeenPayload } from "./userBadges";
 import { getAuthToken } from "./authApi";
 
 import { CHAT_API_BASE, isChatApiConfigured } from "./chatConfig";
@@ -157,6 +158,21 @@ export function emitGroupMemberAddedRemote(payload: {
     targetUserId: payload.targetUserId,
     conversation: payload.conversation,
   });
+}
+
+export function emitUserBadgeSeenRemote(payload: UserBadgeSeenPayload): void {
+  const s = getChatSocket();
+  if (!s) return;
+
+  const emit = () => {
+    s.emit("badge:seen", payload);
+  };
+
+  if (s.connected) {
+    emit();
+  } else {
+    s.once("connect", emit);
+  }
 }
 
 export async function checkChatApiHealth(): Promise<boolean> {
