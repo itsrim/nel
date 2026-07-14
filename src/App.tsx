@@ -8,6 +8,7 @@ import { useMessagingStore } from "./store/useMessagingStore";
 import { useAuthStore } from "./store/useAuthStore";
 import { updateAllBadges } from "./lib/appBadge";
 import { isChatApiConfigured } from "./lib/chatConfig";
+import { trySetSessionToken } from "./lib/authApi";
 import {
   getChatSocket,
   initGlobalChatSync,
@@ -246,6 +247,15 @@ function App() {
     setActiveChatConversationId(openChat?.id ?? null);
   }, [detailStack]);
 
+  const conversationIdsKey =
+    conversations.length > 0
+      ? conversations
+          .map((c) => c.id)
+          .sort()
+          .join(",")
+      : "";
+
+  // Connexion Socket.IO — uniquement au changement de compte (pas à chaque message reçu).
   useEffect(() => {
     if (!user) {
       shutdownGlobalChatSync();
@@ -253,20 +263,32 @@ function App() {
     }
     if (!isChatApiConfigured()) return;
 
-    // Déconnecte le socket précédent avant de se connecter avec le nouveau compte
     shutdownGlobalChatSync();
-    initGlobalChatSync(conversations.map((c) => c.id));
-    void registerPushNotifications();
-  }, [user, conversations]);
+    void (async () => {
+      await trySetSessionToken({
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        emailVerified: user.emailVerified,
+      });
+      const ids = useMessagingStore
+        .getState()
+        .conversations.map((c) => c.id)
+        .filter(Boolean);
+      initGlobalChatSync(ids);
+      void registerPushNotifications();
+    })();
+  }, [user?.id]);
 
-  // Re-sync les conversations quand le socket est déjà connecté et que les conversations se chargent
+  // Rejoindre les rooms quand la liste de conversations change (sans couper le socket).
   useEffect(() => {
-    if (!user || !isChatApiConfigured() || conversations.length === 0) return;
+    if (!user || !isChatApiConfigured() || !conversationIdsKey) return;
+    const ids = conversationIdsKey.split(",");
     const s = getChatSocket();
     if (s && s.connected) {
-      s.emit("user:sync", { conversationIds: conversations.map((c) => c.id) });
+      s.emit("user:sync", { conversationIds: ids });
     }
-  }, [user, conversations.length > 0 ? conversations.map((c) => c.id).join(",") : null]);
+  }, [user?.id, conversationIdsKey]);
 
   // Polling global : rafraîchit les notifications, conversations et événements depuis Sheets
   // (nécessaire quand Socket.IO n'est pas configuré — 2 comptes différents)
