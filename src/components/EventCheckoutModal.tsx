@@ -98,6 +98,7 @@ export function EventCheckoutModal({
           <span>{t("eventTipPaymentLabel")}</span>
           <strong>{priceLabel}</strong>
         </div>
+        <p className="sub-checkout-trust-ticket-hint">{t("eventTrustTicketCheckoutHint")}</p>
 
         <form className="sub-checkout-form" onSubmit={handleSubmit}>
           <label className="sub-checkout-label">

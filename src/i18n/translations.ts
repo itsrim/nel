@@ -276,10 +276,11 @@ export const translations = {
     eventPriceFree: "Gratuit",
     eventPricePaid: "Payant",
     eventPricePlaceholder: "Prix par personne",
-    eventJoinTipEnable: "Demander un pourboire pour inciter les participants",
+    eventJoinTipEnable: "Proposer un Billet de confiance",
+    eventJoinTipRequired: "Billet de confiance obligatoire (sortie payante)",
     eventJoinTipHint:
-      "Les participants devront payer ce pourboire pour s'inscrire à la sortie.",
-    eventJoinTipAmountLabel: "Montant du pourboire",
+      "Frais de réservation pour l'application : les participants paient ce montant pour confirmer leur inscription à la sortie.",
+    eventJoinTipAmountLabel: "Montant du Billet de confiance",
 
     // ChatPage
     newGroup: "Nouveau groupe",
@@ -664,11 +665,14 @@ export const translations = {
     editEventButton: "Modifier la sortie",
     unregisterButton: "Se désinscrire",
     joinEventButton: "Participer",
-    payAndJoinEventButton: "Payer et participer",
-    eventCheckoutTitle: "Paiement du pourboire",
+    payAndJoinEventButton: "Payer le Billet de confiance et participer",
+    eventCheckoutTitle: "Billet de confiance",
     eventPaymentTotal: "Total",
-    eventTipPaymentLabel: "Pourboire",
-    eventPaymentSuccess: "Paiement validé — vous êtes inscrit·e à la sortie.",
+    eventTipPaymentLabel: "Billet de confiance",
+    eventTrustTicketCheckoutHint:
+      "Frais de réservation pour l'application Happy Let's Go.",
+    eventPaymentSuccess:
+      "Billet de confiance validé — vous êtes inscrit·e à la sortie.",
     joinEventKarmaCost: "−{cost} karma",
     joinEventKarmaReward: "+{reward} karma si présence validée",
     completeEventButton: "Complet",
@@ -1055,10 +1059,11 @@ export const translations = {
     eventPriceFree: "Free",
     eventPricePaid: "Paid",
     eventPricePlaceholder: "Price per person",
-    eventJoinTipEnable: "Ask for a tip to encourage participants to join",
+    eventJoinTipEnable: "Offer a Trust Ticket",
+    eventJoinTipRequired: "Trust Ticket required (paid event)",
     eventJoinTipHint:
-      "Participants will need to pay this tip to register for the event.",
-    eventJoinTipAmountLabel: "Tip amount",
+      "App reservation fee: participants pay this amount to confirm their registration for the event.",
+    eventJoinTipAmountLabel: "Trust Ticket amount",
 
     // ChatPage
     newGroup: "New Group",
@@ -1439,11 +1444,14 @@ export const translations = {
     editEventButton: "Edit event",
     unregisterButton: "Unregister",
     joinEventButton: "Join",
-    payAndJoinEventButton: "Pay and join",
-    eventCheckoutTitle: "Tip payment",
+    payAndJoinEventButton: "Pay Trust Ticket and join",
+    eventCheckoutTitle: "Trust Ticket",
     eventPaymentTotal: "Total",
-    eventTipPaymentLabel: "Tip",
-    eventPaymentSuccess: "Payment confirmed — you are registered for this event.",
+    eventTipPaymentLabel: "Trust Ticket",
+    eventTrustTicketCheckoutHint:
+      "Reservation fee for the Happy Let's Go app.",
+    eventPaymentSuccess:
+      "Trust Ticket confirmed — you are registered for this event.",
     joinEventKarmaCost: "−{cost} karma",
     joinEventKarmaReward: "+{reward} karma if attendance validated",
     completeEventButton: "Full",

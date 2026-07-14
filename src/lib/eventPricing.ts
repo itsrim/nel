@@ -37,7 +37,7 @@ export function getEventJoinTipEuros(event: {
   return Math.min(5, Math.max(1, Math.round(event.joinTipAmount)));
 }
 
-/** Montant à payer à l'inscription : uniquement le pourboire (pas le tarif de la sortie). */
+/** Montant à payer à l'inscription : Billet de confiance (frais de réservation app). */
 export function getEventJoinPaymentEuros(event: {
   joinTipEnabled?: boolean;
   joinTipAmount?: number;

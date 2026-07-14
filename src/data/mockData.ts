@@ -71,10 +71,10 @@ export interface Event {
   karmaOrganizePaid?: boolean;
   /** Colonne `userId` Sheets = organisateur (écriture / propriété). */
   sheetOwnerUserId?: string;
-  /** Pourboire demandé à l'inscription (1–5 €) pour inciter les participants. */
+  /** Billet de confiance — frais de réservation app (1–5 €) à l'inscription. */
   joinTipEnabled?: boolean;
   joinTipAmount?: number;
-  /** Profils ayant payé pour participer (prix + pourboire). */
+  /** Profils ayant payé le Billet de confiance pour participer. */
   joinTipPaidProfilIds?: string[];
 }
 
