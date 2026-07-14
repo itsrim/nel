@@ -6,10 +6,11 @@ import {
 } from "../lib/googleSheetsDb";
 import {
   trySetSessionToken,
-  setAuthToken,
   signupWithApi,
   resendVerificationWithApi,
   forgotPasswordWithApi,
+  verifyEmailWithApi,
+  setAuthToken,
 } from "../lib/authApi";
 import {
   findViewerRowByEmail,
@@ -286,16 +287,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: false, error: "Google Sheets non configuré" });
         return;
       }
+
       let sheetUser: SheetAuthUser;
-      try {
-        sheetUser = await verifyEmailFromViewerSettings(token);
-      } catch (verifyErr) {
-        const pendingId = get().pendingVerificationUserId?.trim();
-        if (pendingId) {
-          const row = await findViewerRowById(pendingId);
-          if (row && boolFromSheet(row.emailVerified)) {
-            sheetUser = {
-              ...{
+
+      if (isChatApiConfigured()) {
+        const result = await verifyEmailWithApi(token);
+        setAuthToken(result.token);
+        const row = await findViewerRowById(result.user.id);
+        sheetUser = {
+          id: result.user.id,
+          email: result.user.email,
+          displayName: result.user.displayName,
+          emailVerified: true,
+          isPro: row ? boolFromSheet(row.isPro) : false,
+          age: row?.age?.trim() || "",
+          bio: row?.bio?.trim() || "",
+          language: row?.language?.trim() || "",
+          avatarUrl: row?.avatarUrl?.trim() || "",
+        };
+      } else {
+        try {
+          sheetUser = await verifyEmailFromViewerSettings(token);
+        } catch (verifyErr) {
+          const pendingId = get().pendingVerificationUserId?.trim();
+          if (pendingId) {
+            const row = await findViewerRowById(pendingId);
+            if (row && boolFromSheet(row.emailVerified)) {
+              sheetUser = {
                 id: row.id?.trim() || row.userId?.trim() || pendingId,
                 email: row.email?.trim().toLowerCase() || "",
                 displayName: row.displayName?.trim() || row.email?.trim() || pendingId,
@@ -304,15 +322,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 age: row.age?.trim() || "",
                 bio: row.bio?.trim() || "",
                 language: row.language?.trim() || "",
-              },
-            };
+              };
+            } else {
+              throw verifyErr;
+            }
           } else {
             throw verifyErr;
           }
-        } else {
-          throw verifyErr;
         }
       }
+
       let extras: Partial<User> = {};
       try {
         const raw = sessionStorage.getItem("nel_signup_extras");

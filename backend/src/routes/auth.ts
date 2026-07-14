@@ -5,6 +5,7 @@ import {
   requestPasswordResetForEmail,
   resendVerificationForEmail,
   signupUser,
+  verifyEmailByToken,
   verifyToken,
 } from "../lib/authStore.js";
 import { shouldSkipEmailVerification } from "../lib/appConfig.js";
@@ -185,11 +186,26 @@ export async function authRoutes(app: FastifyInstance) {
             ok: false,
             emailDeliveryFailed: true,
             message:
-              "L'email n'a pas pu être envoyé. Réessayez plus tard ou demandez à l'admin d'activer l'inscription sans vérification email.",
+              "L'email n'a pas pu être envoyé (Brevo). Réessayez plus tard ou demandez à l'admin d'activer l'inscription sans vérification email.",
           });
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Envoi email impossible";
+        return reply.status(400).send({ error: message });
+      }
+    },
+  );
+
+  app.get<{ Querystring: { token?: string } }>(
+    "/api/auth/verify-email",
+    async (request, reply) => {
+      try {
+        const token = request.query?.token ?? "";
+        const user = await verifyEmailByToken(token);
+        const jwt = await createToken(user);
+        return { ok: true, user, token: jwt };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Verification failed";
         return reply.status(400).send({ error: message });
       }
     },
@@ -242,7 +258,7 @@ export async function authRoutes(app: FastifyInstance) {
           ok: false,
           emailDeliveryFailed: true,
           message:
-            "L'email n'a pas pu être envoyé. Réessayez plus tard ou contactez le support.",
+            "L'email n'a pas pu être envoyé (Brevo). Réessayez plus tard ou contactez le support.",
         });
       }
     },

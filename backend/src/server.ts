@@ -14,6 +14,10 @@ import { authStorageMode } from "./lib/authStore.js";
 import { storageMode } from "./lib/chatStore.js";
 import { isPushConfigured } from "./lib/pushService.js";
 import { emailTransportLabel, isEmailConfigured } from "./lib/emailConfig.js";
+import {
+  isSheetsReadConfigured,
+  isSheetsWriteConfigured,
+} from "./lib/googleSheets.js";
 import { authRoutes } from "./routes/auth.js";
 import { chatRoutes } from "./routes/chat.js";
 import { pushRoutes } from "./routes/push.js";
@@ -32,7 +36,8 @@ app.get("/api/health", async () => ({
   service: "hlg-chat-api",
   storage: storageMode(),
   auth: authStorageMode(),
-  authMode: "front-sheets-login",
+  sheets: isSheetsReadConfigured(),
+  sheetsWrite: isSheetsWriteConfigured(),
   realtime: "socket.io",
   push: isPushConfigured(),
   email: isEmailConfigured() ? emailTransportLabel() : "not-configured",

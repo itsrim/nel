@@ -125,6 +125,20 @@ export async function signupWithApi(
   return (await res.json()) as SignupApiResponse;
 }
 
+export interface VerifyEmailResponse {
+  ok: boolean;
+  user: AuthResponse["user"];
+  token: string;
+}
+
+export async function verifyEmailWithApi(token: string): Promise<VerifyEmailResponse> {
+  const res = await fetch(
+    `${CHAT_API_BASE}/api/auth/verify-email?token=${encodeURIComponent(token)}`,
+  );
+  if (!res.ok) throw new Error(await parseAuthError(res));
+  return (await res.json()) as VerifyEmailResponse;
+}
+
 export interface ResendVerificationResponse {
   ok?: boolean;
   message?: string;
