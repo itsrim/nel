@@ -44,6 +44,7 @@ import {
   markDailyQuestionnaireShown,
   shouldShowDailyQuestionnaire,
 } from "./lib/questionnaireDaily";
+import { useNotificationSoundEffect } from "./hooks/useNotificationSoundEffect";
 import "./App.css";
 
 function renderDetailContent(detail: DetailState) {
@@ -81,6 +82,8 @@ function App() {
   const mainRef = useRef<HTMLElement>(null);
   const prevAuthUserIdRef = useRef<string | null>(null);
   const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
+
+  useNotificationSoundEffect(user?.id);
 
   const closeQuestionnaire = useCallback(() => {
     if (user?.id) markDailyQuestionnaireShown(user.id);

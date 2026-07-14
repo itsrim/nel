@@ -329,6 +329,12 @@ export function eventToRow(event: Event, userId: string): Record<string, string>
     registeredParticipantIdsJson: jsonToSheet(event.registeredParticipantIds ?? []),
     registeredParticipantMetaJson: jsonToSheet(event.registeredParticipantMeta ?? {}),
     karmaOrganizePaid: boolToSheet(event.karmaOrganizePaid),
+    joinTipEnabled: boolToSheet(event.joinTipEnabled),
+    joinTipAmount:
+      event.joinTipEnabled && event.joinTipAmount
+        ? String(event.joinTipAmount)
+        : "",
+    joinTipPaidProfilIdsJson: jsonToSheet(event.joinTipPaidProfilIds ?? []),
     deleted: "false",
   };
 }
@@ -375,6 +381,15 @@ export function rowToEvent(row: Record<string, string>): Event {
       Record<string, { name?: string; imageUrl?: string }>
     >(row.registeredParticipantMetaJson, {}),
     karmaOrganizePaid: boolFromSheet(row.karmaOrganizePaid),
+    joinTipEnabled: boolFromSheet(row.joinTipEnabled),
+    joinTipAmount: (() => {
+      const raw = row.joinTipAmount?.trim();
+      if (!raw) return undefined;
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return undefined;
+      return Math.min(5, Math.max(1, Math.round(n)));
+    })(),
+    joinTipPaidProfilIds: jsonFromSheet(row.joinTipPaidProfilIdsJson, []),
     sheetOwnerUserId: row.userId?.trim() || undefined,
   };
 }

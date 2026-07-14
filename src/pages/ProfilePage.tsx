@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   Clock,
   Bell,
+  BellOff,
   X,
   Plus,
   Loader2,
@@ -80,7 +81,9 @@ import { hasViewerProAccess } from "../lib/viewerEntitlements";
 import { buildFriendNetworkEntries } from "../lib/friendsTabNetwork";
 import { VIEWER_PRO_ID } from "../lib/proLocation";
 import { PRO_CATEGORY_OPTIONS, resolveProCategoryFields } from "../lib/proCategory";
+import { unlockNotificationSound } from "../lib/notificationSound";
 import { useProsStore } from "../store/useProsStore";
+import { useNotificationSoundStore } from "../store/useNotificationSoundStore";
 import "./ProfilePage.css";
 
 type TabId =
@@ -156,6 +159,8 @@ function fillNotifTemplate(
 
 export function ProfilePage() {
   const { t } = useTranslation();
+  const notificationSoundEnabled = useNotificationSoundStore((s) => s.enabled);
+  const toggleNotificationSound = useNotificationSoundStore((s) => s.toggleEnabled);
   const { language, setLanguage } = useLanguageStore();
   const isDarkMode = useThemeStore((s) => s.isDarkMode);
   const setDarkMode = useThemeStore((s) => s.setDarkMode);
@@ -594,16 +599,38 @@ export function ProfilePage() {
             <Settings size={22} color="#fff" />
           </button>
           <div style={{ flex: 1 }} />
-          <button
-            type="button"
-            className="hero-icon-btn"
-            onClick={handlePhotoClick}
-            disabled={uploadingPhoto}
-            aria-label={t("changePhoto")}
-            aria-busy={uploadingPhoto}
-          >
-            <Camera size={22} color="#fff" />
-          </button>
+          <div className="hero-top-btns-right">
+            <button
+              type="button"
+              className={`hero-icon-btn${notificationSoundEnabled ? "" : " hero-icon-btn--muted"}`}
+              onClick={() => {
+                void unlockNotificationSound();
+                toggleNotificationSound();
+              }}
+              aria-label={
+                notificationSoundEnabled
+                  ? t("notificationSoundDisable")
+                  : t("notificationSoundEnable")
+              }
+              aria-pressed={notificationSoundEnabled}
+            >
+              {notificationSoundEnabled ? (
+                <Bell size={22} color="#fff" />
+              ) : (
+                <BellOff size={22} color="#fff" />
+              )}
+            </button>
+            <button
+              type="button"
+              className="hero-icon-btn"
+              onClick={handlePhotoClick}
+              disabled={uploadingPhoto}
+              aria-label={t("changePhoto")}
+              aria-busy={uploadingPhoto}
+            >
+              <Camera size={22} color="#fff" />
+            </button>
+          </div>
         </div>
 
         <input

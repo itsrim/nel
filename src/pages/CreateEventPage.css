@@ -429,17 +429,20 @@
   padding: 0 4px;
 }
 
+.ce-price-block {
+  margin-bottom: 24px;
+}
+
 .ce-price-toggle {
   display: flex;
   gap: 8px;
-  margin-top: 12px;
 }
 
 .ce-price-toggle-btn {
   flex: 1;
-  min-height: 44px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  min-height: 52px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   background: #1c1c1e;
   color: #fff;
   font-size: 15px;
@@ -459,29 +462,65 @@
   margin-top: 12px;
 }
 
-.ce-price-input {
-  flex: 1;
-  min-height: 48px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: #1c1c1e;
-  color: #fff;
-  font-size: 17px;
+.ce-price-amount-field {
   font-weight: 700;
-  padding: 0 14px;
-  box-sizing: border-box;
-}
-
-.ce-price-input:focus {
-  outline: none;
-  border-color: rgba(155, 93, 229, 0.55);
-  box-shadow: 0 0 0 2px rgba(155, 93, 229, 0.22);
 }
 
 .ce-price-currency {
   color: rgba(255, 255, 255, 0.72);
   font-size: 17px;
   font-weight: 700;
+}
+
+.ce-tip-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.ce-tip-option input {
+  margin-top: 2px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: #9b5de5;
+  cursor: pointer;
+}
+
+.ce-tip-amount-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ce-tip-amount-btn {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1c1c1e;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ce-tip-amount-btn--active {
+  border-color: rgba(155, 93, 229, 0.65);
+  background: rgba(107, 33, 168, 0.35);
+}
+
+.ce-tip-hint {
+  margin: 10px 0 0;
+  color: rgba(142, 142, 147, 0.95);
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .ce-stepper-btn {

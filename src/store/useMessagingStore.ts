@@ -427,6 +427,8 @@ export type NewEventInput = {
   isPrivate?: boolean;
   manualApproval?: boolean;
   isBeta?: boolean;
+  joinTipEnabled?: boolean;
+  joinTipAmount?: number;
 };
 
 /** Mise à jour d’une sortie existante (même conversation / même id). */
@@ -445,6 +447,8 @@ export type UpdateEventInput = {
   manualApproval?: boolean;
   isBeta?: boolean;
   priceLabel?: string;
+  joinTipEnabled?: boolean;
+  joinTipAmount?: number;
 };
 
 export type AdminProfilePatch = {
@@ -745,6 +749,7 @@ interface MessagingState {
     settings: { muteSounds?: boolean; blockNotifications?: boolean },
   ) => void;
   joinEvent: (eventId: string) => void;
+  markEventJoinPaymentPaid: (eventId: string) => void;
   leaveEvent: (eventId: string) => void;
   joinWaitlist: (eventId: string) => void;
   leaveWaitlist: (eventId: string) => void;
@@ -2148,8 +2153,14 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         karmaOrganizePaid: !hasViewerProAccess(state),
         validatedPresentProfilIds: [],
         karmaJoinPaidProfilIds: [],
+        joinTipPaidProfilIds: [],
         organizerRatings: [],
         sheetOwnerUserId,
+        joinTipEnabled: input.joinTipEnabled === true,
+        joinTipAmount:
+          input.joinTipEnabled === true && input.joinTipAmount
+            ? Math.min(5, Math.max(1, Math.round(input.joinTipAmount)))
+            : undefined,
       };
       set((s) => ({ events: [event, ...s.events] }));
       syncEventToSheets(event);
@@ -2181,6 +2192,11 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           ...(input.priceLabel != null
             ? { priceLabel: input.priceLabel, price: input.priceLabel }
             : {}),
+          joinTipEnabled: input.joinTipEnabled === true,
+          joinTipAmount:
+            input.joinTipEnabled === true && input.joinTipAmount
+              ? Math.min(5, Math.max(1, Math.round(input.joinTipAmount)))
+              : undefined,
         };
         const convTitle = `${next.title} — ${next.dateLabel.split(" ")[0]}`;
         const conversations = state.conversations.map((c) =>
@@ -2673,6 +2689,21 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         state.viewerProfileDisplayName,
         viewerId ?? undefined,
       );
+    },
+
+    markEventJoinPaymentPaid: (eventId) => {
+      const viewerId = currentAuthUserId();
+      const profilId = viewerId ?? VIEWER_KARMA_PARTICIPANT_ID;
+      set((s) => ({
+        events: s.events.map((e) => {
+          if (e.id !== eventId) return e;
+          const paid = new Set(e.joinTipPaidProfilIds ?? []);
+          paid.add(profilId);
+          return { ...e, joinTipPaidProfilIds: [...paid] };
+        }),
+      }));
+      const ev = get().events.find((e) => e.id === eventId);
+      if (ev) syncEventToSheets(ev);
     },
 
     joinWaitlist: (eventId) => {

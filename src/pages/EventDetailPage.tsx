@@ -44,6 +44,12 @@ import {
   listInvitableProfiles,
 } from "../lib/eventInvites";
 import { ReportModal } from "../components/ReportModal";
+import { EventCheckoutModal } from "../components/EventCheckoutModal";
+import {
+  formatEventJoinPaymentLabel,
+  getEventJoinPaymentEuros,
+  viewerNeedsJoinPayment,
+} from "../lib/eventPricing";
 import "./EventDetailPage.css";
 
 type ParticipantSlot =
@@ -81,6 +87,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     friends,
     toggleEventFavorite,
     joinEvent,
+    markEventJoinPaymentPaid,
     leaveEvent,
     joinWaitlist,
     leaveWaitlist,
@@ -108,6 +115,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteSearch, setInviteSearch] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const event = events.find((e) => e.id === id);
 
@@ -275,6 +283,25 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const showJoinKarmaHint =
     !isHostOrganizer && viewerStatus !== "inscrit" && !isFull && !isPastEvent;
 
+  const joinPaymentEuros = getEventJoinPaymentEuros(event);
+  const joinPaymentLabel = formatEventJoinPaymentLabel(joinPaymentEuros);
+  const needsJoinPayment = viewerNeedsJoinPayment(event, user?.id);
+  const showJoinPaymentHint =
+    needsJoinPayment &&
+    !isHostOrganizer &&
+    viewerStatus !== "inscrit" &&
+    !isPastEvent &&
+    !(viewerStatus === "en_attente" || viewerOnWaitlist) &&
+    !(isFull && !event.manualApproval);
+
+  const performJoin = () => {
+    if (event.manualApproval || isFull) {
+      joinWaitlist(event.id);
+      return;
+    }
+    joinEvent(event.id);
+  };
+
   const markParticipantPresent = (participantProfilId: string) => {
     validateEventParticipantPresent(event.id, participantProfilId);
   };
@@ -331,8 +358,18 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
       joinWaitlist(event.id);
       return;
     }
-    // Participer directement (sans modale de paiement)
+    if (needsJoinPayment) {
+      setCheckoutOpen(true);
+      return;
+    }
     joinEvent(event.id);
+  };
+
+  const handleCheckoutSuccess = () => {
+    markEventJoinPaymentPaid(event.id);
+    setCheckoutOpen(false);
+    showToast(t("eventPaymentSuccess"));
+    performJoin();
   };
 
   const primaryJoinLabel =
@@ -344,7 +381,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           ? t("joinWaitlist")
           : event.manualApproval
             ? t("joinWaitlist")
-            : "Participer";
+            : showJoinPaymentHint
+              ? t("payAndJoinEventButton")
+              : t("joinEventButton");
 
   const joinButtonLabel = primaryJoinLabel;
 
@@ -804,19 +843,27 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                       <span className="ed-join-btn-label">
                         {primaryJoinLabel}
                       </span>
-                      {showJoinKarmaHint ? (
+                      {showJoinKarmaHint || showJoinPaymentHint ? (
                         <span className="ed-join-btn-karma" aria-hidden>
-                          {viewerProAccess
-                            ? t("createEventKarmaFree")
-                            : t("joinEventKarmaCost").replace(
-                                "{cost}",
-                                String(KARMA_JOIN_COST),
+                          {showJoinPaymentHint ? joinPaymentLabel : null}
+                          {showJoinPaymentHint && showJoinKarmaHint ? " · " : null}
+                          {showJoinKarmaHint
+                            ? viewerProAccess
+                              ? t("createEventKarmaFree")
+                              : t("joinEventKarmaCost").replace(
+                                  "{cost}",
+                                  String(KARMA_JOIN_COST),
+                                )
+                            : null}
+                          {showJoinKarmaHint ? (
+                            <>
+                              {" · "}
+                              {t("joinEventKarmaReward").replace(
+                                "{reward}",
+                                String(KARMA_ATTENDANCE_REWARD),
                               )}
-                          {" · "}
-                          {t("joinEventKarmaReward").replace(
-                            "{reward}",
-                            String(KARMA_ATTENDANCE_REWARD),
-                          )}
+                            </>
+                          ) : null}
                         </span>
                       ) : null}
                     </>
@@ -935,6 +982,16 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
         subjectId={event.id}
         subjectLabel={event.title}
       />
+
+      {checkoutOpen ? (
+        <EventCheckoutModal
+          eventId={event.id}
+          eventTitle={event.title}
+          priceLabel={joinPaymentLabel}
+          onClose={() => setCheckoutOpen(false)}
+          onSuccess={() => handleCheckoutSuccess()}
+        />
+      ) : null}
     </div>
   );
 }

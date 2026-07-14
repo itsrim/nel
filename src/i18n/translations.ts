@@ -276,6 +276,10 @@ export const translations = {
     eventPriceFree: "Gratuit",
     eventPricePaid: "Payant",
     eventPricePlaceholder: "Prix par personne",
+    eventJoinTipEnable: "Demander un pourboire pour inciter les participants",
+    eventJoinTipHint:
+      "Les participants devront payer ce pourboire pour s'inscrire à la sortie.",
+    eventJoinTipAmountLabel: "Montant du pourboire",
 
     // ChatPage
     newGroup: "Nouveau groupe",
@@ -340,6 +344,8 @@ export const translations = {
 
     // Aria labels & buttons
     settingsAriaLabel: "Paramètres",
+    notificationSoundEnable: "Activer le son des notifications",
+    notificationSoundDisable: "Désactiver le son des notifications",
     searchAriaLabel: "Rechercher",
     previousWeek: "Semaine précédente",
     nextWeek: "Semaine suivante",
@@ -429,6 +435,8 @@ export const translations = {
     loginCaptchaLabel: "Je ne suis pas un robot",
     loginCaptchaPlaceholder: "Votre réponse",
     loginCaptchaInvalid: "Réponse incorrecte — réessayez le calcul.",
+    loginLockout:
+      "Trop de tentatives échouées. Réessayez dans {time}.",
     loginSignupIncomplete: "Pour activer le bouton, complétez :",
     loginLoading: "Chargement...",
     loginNoAccount: "Pas de compte ?",
@@ -657,8 +665,9 @@ export const translations = {
     unregisterButton: "Se désinscrire",
     joinEventButton: "Participer",
     payAndJoinEventButton: "Payer et participer",
-    eventCheckoutTitle: "Paiement de la sortie",
+    eventCheckoutTitle: "Paiement du pourboire",
     eventPaymentTotal: "Total",
+    eventTipPaymentLabel: "Pourboire",
     eventPaymentSuccess: "Paiement validé — vous êtes inscrit·e à la sortie.",
     joinEventKarmaCost: "−{cost} karma",
     joinEventKarmaReward: "+{reward} karma si présence validée",
@@ -1046,6 +1055,10 @@ export const translations = {
     eventPriceFree: "Free",
     eventPricePaid: "Paid",
     eventPricePlaceholder: "Price per person",
+    eventJoinTipEnable: "Ask for a tip to encourage participants to join",
+    eventJoinTipHint:
+      "Participants will need to pay this tip to register for the event.",
+    eventJoinTipAmountLabel: "Tip amount",
 
     // ChatPage
     newGroup: "New Group",
@@ -1110,6 +1123,8 @@ export const translations = {
 
     // Aria labels & buttons
     settingsAriaLabel: "Settings",
+    notificationSoundEnable: "Enable notification sound",
+    notificationSoundDisable: "Disable notification sound",
     searchAriaLabel: "Search",
     previousWeek: "Previous week",
     nextWeek: "Next week",
@@ -1198,6 +1213,7 @@ export const translations = {
     loginCaptchaLabel: "I'm not a robot",
     loginCaptchaPlaceholder: "Your answer",
     loginCaptchaInvalid: "Wrong answer — try the calculation again.",
+    loginLockout: "Too many failed attempts. Try again in {time}.",
     loginSignupIncomplete: "To enable the button, complete:",
     loginLoading: "Loading...",
     loginNoAccount: "Don't have an account?",
@@ -1424,8 +1440,9 @@ export const translations = {
     unregisterButton: "Unregister",
     joinEventButton: "Join",
     payAndJoinEventButton: "Pay and join",
-    eventCheckoutTitle: "Event payment",
+    eventCheckoutTitle: "Tip payment",
     eventPaymentTotal: "Total",
+    eventTipPaymentLabel: "Tip",
     eventPaymentSuccess: "Payment confirmed — you are registered for this event.",
     joinEventKarmaCost: "−{cost} karma",
     joinEventKarmaReward: "+{reward} karma if attendance validated",

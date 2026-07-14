@@ -27,7 +27,7 @@ Exemple `text` :
 
 ### `events`
 ```
-userId,id,conversationId,title,location,dateKey,timeShort,dateLabel,sectionDateLabel,imageUri,priceLabel,price,participantCount,participantMax,isFavorite,isBeta,status,notes,visitsCount,category,hostName,hostAvatar,participantAvatarsJson,hideAddress,isPrivate,manualApproval,hostedByViewer,creatorId,waitlistEntriesJson,invitedProfilIdsJson,publicUrl,validatedPresentProfilIdsJson,karmaOrganizerRewarded,karmaOrganizerDenied,organizerRatingsJson,karmaJoinPaidProfilIdsJson,registeredParticipantIdsJson,karmaOrganizePaid,deleted
+userId,id,conversationId,title,location,dateKey,timeShort,dateLabel,sectionDateLabel,imageUri,priceLabel,price,participantCount,participantMax,isFavorite,isBeta,status,notes,visitsCount,category,hostName,hostAvatar,participantAvatarsJson,hideAddress,isPrivate,manualApproval,hostedByViewer,creatorId,waitlistEntriesJson,invitedProfilIdsJson,publicUrl,validatedPresentProfilIdsJson,karmaOrganizerRewarded,karmaOrganizerDenied,organizerRatingsJson,karmaJoinPaidProfilIdsJson,registeredParticipantIdsJson,registeredParticipantMetaJson,karmaOrganizePaid,joinTipEnabled,joinTipAmount,joinTipPaidProfilIdsJson,deleted
 ```
 
 ### `conversations`

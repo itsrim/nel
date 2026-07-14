@@ -95,10 +95,7 @@ export function EventCheckoutModal({
         </div>
 
         <div className="sub-checkout-price-row">
-          <span>
-            {t("eventPaymentTotal")}{" "}
-            <span className="sub-checkout-price-meta">({t("pricePerPerson")})</span>
-          </span>
+          <span>{t("eventTipPaymentLabel")}</span>
           <strong>{priceLabel}</strong>
         </div>
 

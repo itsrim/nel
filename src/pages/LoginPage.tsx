@@ -21,6 +21,12 @@ import {
   isMathCaptchaAnswerValid,
   type MathCaptcha,
 } from "../lib/signupCaptcha";
+import {
+  formatLoginLockoutDuration,
+  getLoginAttemptInfo,
+  recordLoginFailure,
+  resetLoginAttempts,
+} from "../lib/loginAttemptGuard";
 import "./LoginPage.css";
 
 function readVerifyTokenFromUrl(): string | null {
@@ -82,6 +88,8 @@ export function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<SignupBlockerId, string>>
   >({});
+  const [attemptTick, setAttemptTick] = useState(0);
+  const [lockoutRemainingMs, setLockoutRemainingMs] = useState(0);
   const authSectionRef = useRef<HTMLDivElement>(null);
 
   const scrollToAuth = useCallback(() => {
@@ -116,10 +124,59 @@ export function LoginPage() {
   );
 
   const refreshCaptcha = useCallback(() => {
-    setCaptcha(createMathCaptcha());
+    setCaptcha((prev) => createMathCaptcha(prev));
     setCaptchaAnswer("");
     clearFieldError("captcha");
   }, [clearFieldError]);
+
+  const formatLockoutMessage = useCallback(
+    (remainingMs: number) =>
+      t("loginLockout").replace(
+        "{time}",
+        formatLoginLockoutDuration(remainingMs),
+      ),
+    [t],
+  );
+
+  const handleSigninFailure = useCallback(
+    (message: string) => {
+      refreshCaptcha();
+      const info = recordLoginFailure(email);
+      setAttemptTick((n) => n + 1);
+      if (info.isLocked) {
+        setLocalError(formatLockoutMessage(info.remainingMs));
+        setLockoutRemainingMs(info.remainingMs);
+      } else {
+        setLocalError(message);
+      }
+    },
+    [email, formatLockoutMessage, refreshCaptcha],
+  );
+
+  const showSigninError = useCallback(
+    (message: string) => {
+      refreshCaptcha();
+      setLocalError(message);
+    },
+    [refreshCaptcha],
+  );
+
+  useEffect(() => {
+    if (view !== "signin" || !email.trim()) {
+      setLockoutRemainingMs(0);
+      return;
+    }
+    const update = () => {
+      const info = getLoginAttemptInfo(email);
+      setLockoutRemainingMs(info.isLocked ? info.remainingMs : 0);
+    };
+    update();
+    const id = window.setInterval(update, 1000);
+    return () => window.clearInterval(id);
+  }, [view, email, attemptTick]);
+
+  const isSigninLocked =
+    view === "signin" && email.trim() !== "" && lockoutRemainingMs > 0;
 
   const validateSignupFields = useCallback((): Partial<
     Record<SignupBlockerId, string>
@@ -203,26 +260,32 @@ export function LoginPage() {
     }
 
     if (view === "signin") {
+      const lockInfo = getLoginAttemptInfo(email);
+      if (lockInfo.isLocked) {
+        setLocalError(formatLockoutMessage(lockInfo.remainingMs));
+        refreshCaptcha();
+        return;
+      }
+
       const adminLogin = matchFrontAdminLogin(email, password);
       if (!adminLogin) {
         if (!canSubmitSignin(email, password)) {
           if (!email.trim()) {
-            setLocalError(t("loginEmailInvalid"));
+            showSigninError(t("loginEmailInvalid"));
             return;
           }
           if (password.length < 6) {
-            setLocalError(t("loginPasswordTooShort"));
+            showSigninError(t("loginPasswordTooShort"));
             return;
           }
         }
         if (requiresSigninEmailFormat(email, password) && !isValidEmailFormat(email)) {
-          setLocalError(t("loginEmailInvalid"));
+          showSigninError(t("loginEmailInvalid"));
           return;
         }
       }
       if (!isMathCaptchaAnswerValid(captcha, captchaAnswer)) {
-        setLocalError(t("loginCaptchaInvalid"));
-        refreshCaptcha();
+        handleSigninFailure(t("loginCaptchaInvalid"));
         return;
       }
     }
@@ -232,9 +295,23 @@ export function LoginPage() {
         await signup(email, password, displayName, age, bio, isPro);
       } else {
         await login(email, password);
+        const authState = useAuthStore.getState();
+        if (authState.error) {
+          handleSigninFailure(authState.error);
+          return;
+        }
+        if (authState.user) {
+          resetLoginAttempts(email);
+        }
       }
     } catch {
-      setLocalError(error || t("loginGenericError"));
+      if (view === "signin") {
+        handleSigninFailure(
+          useAuthStore.getState().error || t("loginGenericError"),
+        );
+      } else {
+        setLocalError(error || t("loginGenericError"));
+      }
     }
   };
 
@@ -366,9 +443,11 @@ export function LoginPage() {
           </div>
 
           <form className="login-form" onSubmit={handleSubmit} noValidate>
-            {(error || localError) && (
+            {(error || localError || isSigninLocked) && (
               <div className="login-error" role="alert">
-                {error || localError}
+                {isSigninLocked
+                  ? formatLockoutMessage(lockoutRemainingMs)
+                  : error || localError}
               </div>
             )}
 
@@ -414,7 +493,7 @@ export function LoginPage() {
                     setEmail(e.target.value);
                     clearFieldError("email");
                   }}
-                  disabled={isLoading}
+                  disabled={isLoading || isSigninLocked}
                   required
                   aria-invalid={!!fieldErrors.email}
                   aria-describedby={
@@ -454,7 +533,7 @@ export function LoginPage() {
                       setDisplayName(e.target.value);
                       clearFieldError("displayName");
                     }}
-                    disabled={isLoading}
+                    disabled={isLoading || isSigninLocked}
                     required
                     aria-invalid={!!fieldErrors.displayName}
                     aria-describedby={fieldErrors.displayName ? "login-displayName-error" : undefined}
@@ -480,7 +559,7 @@ export function LoginPage() {
                       setAge(e.target.value);
                       clearFieldError("age");
                     }}
-                    disabled={isLoading}
+                    disabled={isLoading || isSigninLocked}
                     min={MIN_SIGNUP_AGE}
                     max={MAX_SIGNUP_AGE}
                     required
@@ -508,7 +587,7 @@ export function LoginPage() {
                     placeholder={t("loginPlaceholderBio")}
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
-                    disabled={isLoading}
+                    disabled={isLoading || isSigninLocked}
                     rows={3}
                   />
                 </div>
@@ -520,7 +599,7 @@ export function LoginPage() {
                     className="login-checkbox"
                     checked={isPro}
                     onChange={(e) => setIsPro(e.target.checked)}
-                    disabled={isLoading}
+                    disabled={isLoading || isSigninLocked}
                   />
                   <label htmlFor="isPro" className="login-label login-label--checkbox">
                     {t("loginProAccount")}
@@ -545,7 +624,7 @@ export function LoginPage() {
                     placeholder="••••••••"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    disabled={isLoading}
+                    disabled={isLoading || isSigninLocked}
                     required
                     minLength={6}
                     autoComplete="new-password"
@@ -562,7 +641,7 @@ export function LoginPage() {
                     placeholder="••••••••"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    disabled={isLoading}
+                    disabled={isLoading || isSigninLocked}
                     required
                     minLength={6}
                     autoComplete="new-password"
@@ -586,7 +665,7 @@ export function LoginPage() {
                     setPassword(e.target.value);
                     clearFieldError("password");
                   }}
-                  disabled={isLoading}
+                  disabled={isLoading || isSigninLocked}
                   required
                   minLength={6}
                   autoComplete={view === "signup" ? "new-password" : "current-password"}
@@ -610,7 +689,7 @@ export function LoginPage() {
                       clearPasswordResetMessage();
                       setView("forgot");
                     }}
-                    disabled={isLoading}
+                    disabled={isLoading || isSigninLocked}
                   >
                     {t("loginForgotPassword")}
                   </button>
@@ -634,7 +713,7 @@ export function LoginPage() {
                     setCaptchaAnswer(e.target.value.replace(/[^\d-]/g, ""));
                     clearFieldError("captcha");
                   }}
-                  disabled={isLoading}
+                  disabled={isLoading || isSigninLocked}
                   required
                   autoComplete="off"
                   aria-invalid={!!fieldErrors.captcha}
@@ -651,7 +730,7 @@ export function LoginPage() {
             <button
               type="submit"
               className="login-button"
-              disabled={isLoading}
+              disabled={isLoading || isSigninLocked}
             >
               {isLoading ? (
                 <span className="login-button-loading">
@@ -709,7 +788,7 @@ export function LoginPage() {
                     setIsPro(false);
                     refreshCaptcha();
                   }}
-                  disabled={isLoading}
+                  disabled={isLoading || isSigninLocked}
                 >
                   {view === "signup" ? t("loginSignIn") : t("loginSignUp")}
                 </button>

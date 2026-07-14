@@ -205,6 +205,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const [markAsBeta, setMarkAsBeta] = useState(false);
   const [isFreeEvent, setIsFreeEvent] = useState(true);
   const [priceAmount, setPriceAmount] = useState("");
+  const [joinTipEnabled, setJoinTipEnabled] = useState(false);
+  const [joinTipAmount, setJoinTipAmount] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   /** En édition : ne pas descendre sous le nombre de participants déjà inscrits. */
@@ -219,6 +221,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
       setIsPrivate(false);
       setIsFreeEvent(true);
       setPriceAmount("");
+      setJoinTipEnabled(false);
+      setJoinTipAmount(1);
       return;
     }
     const ev = getEventById(formEventId);
@@ -240,6 +244,12 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     const priceState = parseEventPriceState(ev.priceLabel ?? ev.price);
     setIsFreeEvent(priceState.isFree);
     setPriceAmount(priceState.amount);
+    setJoinTipEnabled(ev.joinTipEnabled === true);
+    setJoinTipAmount(
+      ev.joinTipAmount && ev.joinTipAmount >= 1
+        ? Math.min(5, Math.round(ev.joinTipAmount))
+        : 1,
+    );
     setParticipantFloor(
       Math.max(EVENT_PARTICIPANT_MIN_MAX, ev.participantCount),
     );
@@ -432,6 +442,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           manualApproval,
           isBeta: beta,
           priceLabel,
+          joinTipEnabled: !isFreeEvent && joinTipEnabled,
+          joinTipAmount: !isFreeEvent && joinTipEnabled ? joinTipAmount : undefined,
         });
       } else {
         const groupTitle = `${titleTrim} — ${dateLabel.split(" ")[0]}`;
@@ -452,6 +464,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           isPrivate,
           manualApproval,
           isBeta: beta,
+          joinTipEnabled: !isFreeEvent && joinTipEnabled,
+          joinTipAmount: !isFreeEvent && joinTipEnabled ? joinTipAmount : undefined,
         });
         if (!eventId) {
           reportSubmitError(t("createEventErrorGeneric"));
@@ -485,6 +499,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     markAsBeta,
     isFreeEvent,
     priceAmount,
+    joinTipEnabled,
+    joinTipAmount,
     isAdmin,
     isEditMode,
     formEventId,
@@ -705,7 +721,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           </div>
         </div>
 
-        <div className="ce-card">
+        <div className="ce-price-block">
           <div className="ce-inline-label-row">
             <Tag size={18} color="#fff" aria-hidden />
             <span className="ce-inline-label">{t("eventPriceLabel")}</span>
@@ -714,7 +730,10 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
             <button
               type="button"
               className={`ce-price-toggle-btn${isFreeEvent ? " ce-price-toggle-btn--active" : ""}`}
-              onClick={() => setIsFreeEvent(true)}
+              onClick={() => {
+                setIsFreeEvent(true);
+                setJoinTipEnabled(false);
+              }}
               aria-pressed={isFreeEvent}
             >
               {t("eventPriceFree")}
@@ -729,20 +748,52 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
             </button>
           </div>
           {!isFreeEvent ? (
-            <div className="ce-price-input-wrap">
-              <input
-                className="ce-price-input"
-                type="number"
-                min={1}
-                step={1}
-                inputMode="numeric"
-                value={priceAmount}
-                onChange={(e) => setPriceAmount(e.target.value)}
-                placeholder={t("eventPricePlaceholder")}
-                aria-label={t("eventPricePlaceholder")}
-              />
-              <span className="ce-price-currency">€</span>
-            </div>
+            <>
+              <div className="ce-price-input-wrap">
+                <input
+                  className="ce-lieu-field ce-price-amount-field"
+                  type="number"
+                  min={1}
+                  step={1}
+                  inputMode="numeric"
+                  value={priceAmount}
+                  onChange={(e) => setPriceAmount(e.target.value)}
+                  placeholder={t("eventPricePlaceholder")}
+                  aria-label={t("eventPricePlaceholder")}
+                />
+                <span className="ce-price-currency">€</span>
+              </div>
+              <label className="ce-tip-option">
+                <input
+                  type="checkbox"
+                  checked={joinTipEnabled}
+                  onChange={(e) => setJoinTipEnabled(e.target.checked)}
+                />
+                <span>{t("eventJoinTipEnable")}</span>
+              </label>
+              {joinTipEnabled ? (
+                <div
+                  className="ce-tip-amount-row"
+                  role="group"
+                  aria-label={t("eventJoinTipAmountLabel")}
+                >
+                  {[1, 2, 3, 4, 5].map((amount) => (
+                    <button
+                      key={amount}
+                      type="button"
+                      className={`ce-tip-amount-btn${joinTipAmount === amount ? " ce-tip-amount-btn--active" : ""}`}
+                      onClick={() => setJoinTipAmount(amount)}
+                      aria-pressed={joinTipAmount === amount}
+                    >
+                      {amount}€
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {joinTipEnabled ? (
+                <p className="ce-tip-hint">{t("eventJoinTipHint")}</p>
+              ) : null}
+            </>
           ) : null}
         </div>
 
