@@ -47,15 +47,6 @@ export function brevoApiKey(): string {
   );
 }
 
-/** Mailjet (legacy) — conservé si déjà configuré. */
-export function mailjetApiKey(): string {
-  return process.env.MAILJET_API_KEY?.trim() ?? "";
-}
-
-export function mailjetApiSecret(): string {
-  return process.env.MAILJET_API_SECRET?.trim() ?? "";
-}
-
 export function isBrevoApiConfigured(): boolean {
   return brevoApiKey().length > 0;
 }
@@ -64,26 +55,14 @@ export function isSmtpConfigured(): boolean {
   return smtpHost().length > 0 && smtpUser().length > 0 && smtpPass().length > 0;
 }
 
-export function isMailjetConfigured(): boolean {
-  return mailjetApiKey().length > 0 && mailjetApiSecret().length > 0;
-}
-
 export function isEmailConfigured(): boolean {
-  return isBrevoApiConfigured() || isSmtpConfigured() || isMailjetConfigured();
+  return isBrevoApiConfigured() || isSmtpConfigured();
 }
 
 export function emailTransportLabel(): string {
   if (isBrevoApiConfigured()) return "Brevo API (HTTPS)";
   if (isSmtpConfigured()) return `SMTP (${smtpHost()})`;
-  if (isMailjetConfigured()) return "Mailjet API";
   return "not-configured";
-}
-
-export function mailjetAuthHeader(): string {
-  const token = Buffer.from(`${mailjetApiKey()}:${mailjetApiSecret()}`).toString(
-    "base64",
-  );
-  return `Basic ${token}`;
 }
 
 export function parseEmailFrom(raw: string): { email: string; name: string } {

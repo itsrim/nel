@@ -7,9 +7,7 @@ import {
   emailTransportLabel,
   isBrevoApiConfigured,
   isEmailConfigured,
-  isMailjetConfigured,
   isSmtpConfigured,
-  mailjetAuthHeader,
   parseEmailFrom,
   smtpHost,
   smtpPass,
@@ -140,49 +138,6 @@ async function sendViaBrevoApi(
   }
 }
 
-async function sendViaMailjetHtml(
-  to: string,
-  displayName: string,
-  subject: string,
-  html: string,
-): Promise<void> {
-  const from = parseEmailFrom(emailFrom());
-  const res = await fetch("https://api.mailjet.com/v3.1/send", {
-    method: "POST",
-    headers: {
-      Authorization: mailjetAuthHeader(),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      Messages: [
-        {
-          From: { Email: from.email, Name: from.name },
-          To: [{ Email: to, Name: displayName.trim() || to }],
-          Subject: subject,
-          HTMLPart: html,
-        },
-      ],
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.error("[email] Mailjet API error:", res.status, body);
-    throw new Error(`Envoi email échoué (${res.status}): ${body.slice(0, 200)}`);
-  }
-
-  const data = (await res.json().catch(() => null)) as {
-    Messages?: Array<{ Status?: string; Errors?: Array<{ ErrorMessage?: string }> }>;
-  } | null;
-  const status = data?.Messages?.[0]?.Status;
-  if (status && status !== "success") {
-    const errMsg =
-      data?.Messages?.[0]?.Errors?.[0]?.ErrorMessage ?? `Statut Mailjet: ${status}`;
-    console.error("[email] Mailjet send rejected:", errMsg);
-    throw new Error(`Envoi email échoué: ${errMsg}`);
-  }
-}
-
 async function sendHtmlEmail(
   to: string,
   displayName: string,
@@ -201,23 +156,12 @@ async function sendHtmlEmail(
   }
 
   if (isSmtpConfigured()) {
-    try {
-      await sendViaSmtp({
-        from: { name: from.name, address: from.email },
-        to: { name: displayName.trim() || to, address: to },
-        subject,
-        html,
-      });
-      return;
-    } catch (err) {
-      console.error("[email] SMTP send failed:", err);
-      if (!isMailjetConfigured()) throw err;
-      console.warn("[email] Fallback Mailjet après échec SMTP");
-    }
-  }
-
-  if (isMailjetConfigured()) {
-    await sendViaMailjetHtml(to, displayName, subject, html);
+    await sendViaSmtp({
+      from: { name: from.name, address: from.email },
+      to: { name: displayName.trim() || to, address: to },
+      subject,
+      html,
+    });
     return;
   }
 

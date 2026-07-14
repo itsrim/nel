@@ -110,8 +110,6 @@ Créer un fichier `.env` à la racine de `backend/` (non versionné) ou les déf
 | `SMTP_PORT` | `587` | Port SMTP |
 | `SMTP_USER` / `SMTP_PASS` | — | Identifiants SMTP Brevo (local uniquement) |
 | `SKIP_EMAIL_VERIFICATION` | `false` | `true` = inscription sans email (secours admin) |
-| `MAILJET_API_KEY` | — | *(legacy)* Secours si SMTP échoue |
-| `MAILJET_API_SECRET` | — | *(legacy)* Secret Mailjet |
 | `APP_PUBLIC_URL` | `https://happyletsgo.fr` (prod) / `http://localhost:5173` (dev) | URL frontend pour le lien « Vérifier mon email » |
 
 Origines CORS autorisées par défaut :
