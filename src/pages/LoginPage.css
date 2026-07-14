@@ -34,6 +34,12 @@
   -webkit-text-size-adjust: 100%;
 }
 
+.login-page:not(.public-site) {
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
 .public-site-header {
   position: sticky;
   top: 0;
