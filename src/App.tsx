@@ -72,6 +72,7 @@ function App() {
   const { activeTab, detailStack } = useNavigationStore();
   const toast = useMessagingStore((s) => s.toast);
   const conversations = useMessagingStore((s) => s.conversations);
+  const adminModeActive = useMessagingStore((s) => s.isAdmin);
   const {
     setViewerProfileDisplayName,
     setViewerProfileAvatarUrl,
@@ -175,6 +176,27 @@ function App() {
       }
     })();
   }, [user?.id, user?.isAdmin]);
+
+  // Recharge tout le catalogue quand le mode admin est activé/désactivé (scope Sheets élargi).
+  useEffect(() => {
+    if (!user?.id || !isGoogleSheetsReadConfigured() || !user.isAdmin) return;
+    void (async () => {
+      try {
+        useMessagingStore.setState({ eventsLoading: true, chatLoading: true });
+        const isAdmin = resolveSheetsAdminScope(user);
+        const loaded = await loadAppStateFromSheets(user.id, isAdmin);
+        applySheetsLoadedState(loaded);
+        await refreshChatMessagesFromSheets();
+      } catch (err) {
+        console.error("Admin mode Sheets reload failed:", err);
+      } finally {
+        useMessagingStore.setState({
+          eventsLoading: false,
+          chatLoading: false,
+        });
+      }
+    })();
+  }, [user?.id, user?.isAdmin, adminModeActive]);
 
   // GET Sheets ciblé à chaque changement d'onglet footer
   useEffect(() => {
@@ -313,7 +335,9 @@ function App() {
 
           // Recharge les conversations pour voir les nouveaux messages et unreadCount
           const chatLoaded = await loadTabStateFromSheets("chat", user.id, isAdmin);
-          if (chatLoaded.conversations.length > 0) {
+          if (isAdmin) {
+            applySheetsLoadedState(chatLoaded);
+          } else if (chatLoaded.conversations.length > 0) {
             const msgStore = useMessagingStore.getState();
             const mergedConversations = chatLoaded.conversations.map((remoteConv) => {
               const local = msgStore.conversations.find((c) => c.id === remoteConv.id);
@@ -333,7 +357,6 @@ function App() {
                 updatedAt: Math.max(remoteUpdated, localUpdated),
               };
             });
-            // Ajoute les conversations distantes qui n'existent pas localement
             const localIds = new Set(msgStore.conversations.map((c) => c.id));
             const newConvs = chatLoaded.conversations.filter((c) => !localIds.has(c.id));
             useMessagingStore.setState({

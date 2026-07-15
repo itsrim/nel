@@ -54,7 +54,10 @@ import {
   mergeProfessionalsCatalog,
   viewerSettingsRowToProfessional,
 } from "./proDirectory";
-import { DEFAULT_PRO_CATEGORY, isProCategory } from "./proCategory";
+import {
+  filterOutModerationDeletedConversations,
+  isModerationDeletedConversation,
+} from "./moderationTombstones";
 
 const LS_CACHE_PREFIX = "nel_sheet_cache_";
 const GLOBAL_CACHE_USER = "__global__";
@@ -1286,6 +1289,19 @@ function mergeById<T extends { id: string }>(base: T[], remote: T[]): T[] {
   return [...map.values()];
 }
 
+/** Plusieurs lignes Sheets (1 par userId) → une conversation par id (la plus récente). */
+function dedupeConversationsById(conversations: Conversation[]): Conversation[] {
+  const map = new Map<string, Conversation>();
+  for (const c of conversations) {
+    if (isModerationDeletedConversation(c.id)) continue;
+    const prev = map.get(c.id);
+    if (!prev || (c.updatedAt ?? 0) >= (prev.updatedAt ?? 0)) {
+      map.set(c.id, c);
+    }
+  }
+  return [...map.values()];
+}
+
 function mergeFriends(base: Friend[], remote: Friend[]): Friend[] {
   if (remote.length === 0) return base;
   const map = new Map(base.map((f) => [f.profilId, f]));
@@ -1433,6 +1449,7 @@ export function mergeLoadedAppState(
     moderationHiddenProfilIds: string[];
   },
   loaded: LoadedAppSheetState,
+  sheetsAdminScope = false,
 ): Partial<typeof current> & {
   viewerProfileAvatarUrl?: string;
   viewerProfileDisplayName?: string;
@@ -1476,8 +1493,12 @@ export function mergeLoadedAppState(
   if (loaded.events.length > 0) {
     patch.events = mergeById(current.events, loaded.events);
   }
-  if (loaded.conversations.length > 0) {
-    patch.conversations = mergeById(current.conversations, loaded.conversations);
+  if (sheetsAdminScope) {
+    patch.conversations = dedupeConversationsById(loaded.conversations);
+  } else if (loaded.conversations.length > 0) {
+    patch.conversations = filterOutModerationDeletedConversations(
+      mergeById(current.conversations, loaded.conversations),
+    );
   }
   if (loaded.friends.length > 0) {
     patch.friends = mergeFriends(current.friends, loaded.friends);
@@ -1622,6 +1643,69 @@ export function syncConversationDeleteToSheets(conversationId: string): void {
   const userId = currentUserId();
   if (!userId) return;
   syncLater(() => softDeleteSheetRow("conversations", userId, conversationId));
+}
+
+function markDeletedInCache(
+  table: SheetTableName,
+  cacheUser: string,
+  match: (row: Record<string, string>) => boolean,
+): void {
+  const cached = loadLocalCache(table, cacheUser);
+  if (cached.length === 0) return;
+  const next = cached.map((r) => (match(r) ? { ...r, deleted: "true" } : r));
+  saveLocalCache(table, cacheUser, next);
+}
+
+async function softDeleteAllRowsMatching(
+  table: SheetTableName,
+  match: (row: Record<string, string>) => boolean,
+  idColumn = "id",
+): Promise<void> {
+  markDeletedInCache(table, GLOBAL_CACHE_USER, match);
+
+  if (!isGoogleSheetsReadConfigured() && !isGoogleSheetsWriteConfigured()) {
+    return;
+  }
+
+  try {
+    const rows = await sheetGet<Record<string, string>>(table);
+    const userCaches = new Set<string>();
+    for (const row of rows) {
+      if (!match(row) || isDeletedFromSheet(row.deleted)) continue;
+      const uid = row.userId?.trim();
+      const rowId = row[idColumn]?.trim();
+      if (!uid || !rowId) continue;
+      userCaches.add(uid);
+      if (isGoogleSheetsWriteConfigured()) {
+        await softDeleteSheetRow(table, uid, rowId, idColumn);
+      }
+      markDeletedInCache(table, uid, (r) => r[idColumn] === rowId);
+    }
+    for (const uid of userCaches) {
+      markDeletedInCache(table, uid, match);
+    }
+  } catch (err) {
+    console.error(`softDeleteAllRowsMatching [${table}] failed:`, err);
+  }
+}
+
+/** Suppression admin : toutes les lignes Sheets + caches pour un fil. */
+export function syncConversationDeleteGlobalToSheets(conversationId: string): void {
+  const cid = conversationId.trim();
+  if (!cid) return;
+  syncLater(() => softDeleteAllRowsMatching("conversations", (r) => r.id === cid));
+}
+
+/** Suppression admin : fil de messages associé. */
+export function syncMessageThreadDeleteToSheets(conversationId: string): void {
+  const cid = conversationId.trim();
+  if (!cid) return;
+  syncLater(() =>
+    softDeleteAllRowsMatching(
+      "messages",
+      (r) => r.id === cid || r.conversationId === cid,
+    ),
+  );
 }
 
 export function syncFriendToSheets(friend: Friend): void {

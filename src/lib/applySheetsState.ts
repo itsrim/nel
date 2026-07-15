@@ -14,6 +14,7 @@ import {
 import {
   buildMissingParticipantConversations,
   resolveMessageAccessFromStores,
+  resolveSheetsAdminScope,
   userIsAppAdmin,
 } from "./accessScope";
 import {
@@ -23,6 +24,7 @@ import {
 import { loadHistory, buildEventDateKeyByConversationId } from "./chatPersistence";
 import { writeSubscriptionPaymentRecord } from "./subscriptionPersistence";
 import { useLanguageStore } from "../store/useLanguageStore";
+import { filterOutModerationDeletedConversations } from "./moderationTombstones";
 import { enrichEventsForViewer } from "./viewerEventScope";
 import { buildSuggestionCatalog } from "./suggestionCatalog";
 
@@ -75,7 +77,8 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
         : loaded.events,
   };
 
-  const patch = mergeLoadedAppState(msgStore, enrichedLoaded);
+  const sheetsAdminScope = resolveSheetsAdminScope(authUser);
+  const patch = mergeLoadedAppState(msgStore, enrichedLoaded, sheetsAdminScope);
   const changed = filterChangedPatch(msgStore, patch);
 
   const lang = loaded.viewerSettings?.language;
@@ -88,6 +91,7 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
   if (Object.keys(changed).length === 0) {
     ensureParticipantConversationsInStore();
     ensureDerivedCatalogInStore(viewerContext);
+    pruneModerationDeletedConversationsFromStore();
     queueMicrotask(() => useMessagingStore.getState().reconcileUserBadgeCounts());
     return;
   }
@@ -208,6 +212,23 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
 
   ensureParticipantConversationsInStore();
   ensureDerivedCatalogInStore(viewerContext);
+  pruneModerationDeletedConversationsFromStore();
+}
+
+function pruneModerationDeletedConversationsFromStore(): void {
+  const msg = useMessagingStore.getState();
+  const conversations = filterOutModerationDeletedConversations(msg.conversations);
+  if (conversations.length === msg.conversations.length) return;
+  const deletedIds = new Set(
+    msg.conversations
+      .filter((c) => !conversations.some((kept) => kept.id === c.id))
+      .map((c) => c.id),
+  );
+  const messagesByConversation = { ...msg.messagesByConversation };
+  deletedIds.forEach((id) => {
+    delete messagesByConversation[id];
+  });
+  useMessagingStore.setState({ conversations, messagesByConversation });
 }
 
 /** Suggestions dérivées des profils Sheets, des inscrits viewer_settings ou des pros. */
@@ -241,16 +262,23 @@ function ensureDerivedCatalogInStore(
 function ensureParticipantConversationsInStore(): void {
   const user = useAuthStore.getState().user;
   const adminModeActive = useMessagingStore.getState().isAdmin;
-  if (adminModeActive && userIsAppAdmin(user)) return;
+  const adminView = adminModeActive && userIsAppAdmin(user);
 
   const msg = useMessagingStore.getState();
   const viewerContext = user
     ? { id: user.id, displayName: user.displayName }
     : null;
-  const missing = buildMissingParticipantConversations(msg.events, msg.conversations);
+  const missing = buildMissingParticipantConversations(
+    msg.events,
+    msg.conversations,
+    { adminView },
+  );
   if (missing.length > 0) {
     useMessagingStore.setState({
-      conversations: [...missing, ...msg.conversations],
+      conversations: [
+        ...missing,
+        ...filterOutModerationDeletedConversations(msg.conversations),
+      ],
     });
   }
   refreshLoadedEventGroupMembers(viewerContext);

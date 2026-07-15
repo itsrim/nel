@@ -320,6 +320,8 @@ export function ProfilePage() {
   useLockBodyScroll(settingsOpen || installGuideOpen);
   const userIsAdmin = isAdminAccount(user);
   const canEditBadges = canManageProfileBadges(user, isAdmin);
+  const adminModerationView = isAdmin && userIsAdmin;
+  const calendarTabAccess = viewerProAccess || adminModerationView;
 
   // Photo partagée avec EventDetail / création de sortie ; nom et âge figés après inscription.
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -401,24 +403,25 @@ export function ProfilePage() {
         a.timeShort.localeCompare(b.timeShort),
     );
   }, [events, isMyOrganizedEvent, viewerContext]);
-  /** Passés : avant aujourd'hui parmi mes sorties organisées. */
+  /** Passés : avant aujourd'hui (toutes les sorties en mode admin). */
   const historyEvents = useMemo(
     () =>
-      events.filter(
-        (e) => isMyOrganizedEvent(e) && isEventDateBeforeToday(e.dateKey),
-      ),
-    [events, isMyOrganizedEvent],
+      events.filter((e) => {
+        if (!isEventDateBeforeToday(e.dateKey)) return false;
+        return adminModerationView || isMyOrganizedEvent(e);
+      }),
+    [events, isMyOrganizedEvent, adminModerationView],
   );
 
-  /** Sorties que j’organise (onglet Calendrier Pro). */
-  const createdEvents = useMemo(
-    () => events.filter((e) => isMyOrganizedEvent(e)),
-    [events, isMyOrganizedEvent],
+  /** Calendrier Pro : mes sorties ; mode admin = toutes les sorties. */
+  const calendarEvents = useMemo(
+    () => (adminModerationView ? events : events.filter((e) => isMyOrganizedEvent(e))),
+    [events, isMyOrganizedEvent, adminModerationView],
   );
 
   const createdEventsByDateKey = useMemo(() => {
     const map = new Map<string, typeof events>();
-    for (const e of createdEvents) {
+    for (const e of calendarEvents) {
       if (!map.has(e.dateKey)) map.set(e.dateKey, []);
       map.get(e.dateKey)!.push(e);
     }
@@ -426,7 +429,7 @@ export function ProfilePage() {
       list.sort((a, b) => a.timeShort.localeCompare(b.timeShort));
     }
     return map;
-  }, [createdEvents]);
+  }, [calendarEvents]);
 
   const profileMonthCells = useMemo(
     () => buildProfileMonthCells(calendarDate),
@@ -667,7 +670,7 @@ export function ProfilePage() {
                 <span>{t("verified")}</span>
               </div>
             ) : null}
-            {viewerProAccess && (
+            {calendarTabAccess && (
               <div className="pro-badge">
                 <Award size={16} color="#FFD60A" />
                 <span>Pro</span>
@@ -939,7 +942,7 @@ export function ProfilePage() {
               ) : null}
             </div>
           </button>
-          {viewerProAccess && (
+          {calendarTabAccess && (
             <button
               type="button"
               className={`p-tab ${activeTab === "calendar" ? "p-tab--active" : ""}`}
@@ -1053,7 +1056,7 @@ export function ProfilePage() {
 
         {/* Tab Content */}
         <div className="tab-container">
-          {activeTab === "calendar" && viewerProAccess && (
+          {activeTab === "calendar" && calendarTabAccess && (
             <div className="profile-calendar">
               <div className="profile-cal-header">
                 <button

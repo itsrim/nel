@@ -340,3 +340,21 @@ export async function updateMessageInSheets(
 
 export { serializeThreadText, parseThreadText, threadAnchorMs };
 export { isGoogleSheetsReadConfigured, isGoogleSheetsWriteConfigured };
+
+/** Retire un fil du cache local (suppression admin). */
+export function removeConversationFromLocalHistory(conversationId: string): void {
+  const convId = conversationId.trim();
+  if (!convId) return;
+  const userId = getCurrentUserIdForSheets();
+  if (!userId) return;
+  try {
+    const raw = localStorage.getItem(storageKeyForUser(userId));
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Record<string, PersistedMessage[]>;
+    if (!(convId in parsed)) return;
+    const { [convId]: _drop, ...rest } = parsed;
+    localStorage.setItem(storageKeyForUser(userId), JSON.stringify(rest));
+  } catch {
+    /* ignore */
+  }
+}

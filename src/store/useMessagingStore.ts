@@ -28,11 +28,13 @@ import {
   resolveMessageAccessFromStores,
   userIsAppAdmin,
 } from "../lib/accessScope";
-import { saveHistory, buildEventDateKeyByConversationId, type PersistedMessage } from "../lib/chatPersistence";
+import { saveHistory, buildEventDateKeyByConversationId, removeConversationFromLocalHistory, type PersistedMessage } from "../lib/chatPersistence";
 import { useAuthStore } from "./useAuthStore";
 import {
   syncAllViewerStateFromStore,
   syncConversationDeleteToSheets,
+  syncConversationDeleteGlobalToSheets,
+  syncMessageThreadDeleteToSheets,
   syncConversationToSheets,
   syncEventDeleteToSheets,
   syncEventReminderToSheets,
@@ -49,6 +51,7 @@ import {
   persistAppConfigToSheets,
   syncProfessionalToSheets,
 } from "../lib/appSheetPersistence";
+import { addModerationDeletedConversation } from "../lib/moderationTombstones";
 import { viewerSettingsRowToProfessional } from "../lib/proDirectory";
 import {
   DEFAULT_PRO_CATEGORY,
@@ -1359,7 +1362,17 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       if (!get().isAdmin) return;
       const cid = conversationId.trim();
       if (!cid) return;
-      syncConversationDeleteToSheets(cid);
+
+      const linkedEvent = get().events.find((e) => e.conversationId === cid);
+      if (linkedEvent) {
+        get().adminDeleteEvent(linkedEvent.id);
+        return;
+      }
+
+      addModerationDeletedConversation(cid);
+      syncConversationDeleteGlobalToSheets(cid);
+      syncMessageThreadDeleteToSheets(cid);
+      removeConversationFromLocalHistory(cid);
       set((state) => {
         const { [cid]: _drop, ...restMsgs } = state.messagesByConversation;
         return {
@@ -1381,10 +1394,16 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       set((state) => {
         const event = state.events.find((e) => e.id === id);
         if (!event) return state;
-        const cid = event.conversationId;
+        const cid = event.conversationId?.trim() ?? "";
+        if (cid) {
+          addModerationDeletedConversation(cid);
+          syncConversationDeleteGlobalToSheets(cid);
+          syncMessageThreadDeleteToSheets(cid);
+          removeConversationFromLocalHistory(cid);
+        }
         syncEventDeleteToSheets(id, event.sheetOwnerUserId);
-        syncConversationDeleteToSheets(cid);
-        const { [cid]: _drop, ...restMsgs } = state.messagesByConversation;
+        const restMsgs = { ...state.messagesByConversation };
+        if (cid) delete restMsgs[cid];
         return {
           events: state.events.filter((e) => e.id !== id),
           conversations: state.conversations.filter((c) => c.id !== cid),

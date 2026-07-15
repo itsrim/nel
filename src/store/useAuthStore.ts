@@ -197,6 +197,13 @@ async function ensureBuiltinAccountInSheets(account: BuiltinAccount): Promise<vo
   }
 }
 
+/** Comptes staff (rim, admin@…) : mode admin activé par défaut à chaque session. */
+function restoreDefaultAdminMode(user: User | null | undefined): void {
+  if (user && isAdminAccount(user)) {
+    useMessagingStore.getState().setIsAdmin(true);
+  }
+}
+
 async function completeBuiltinLogin(
   account: BuiltinAccount,
   set: (partial: Partial<AuthState>) => void,
@@ -254,9 +261,7 @@ async function finishBuiltinSession(
   }
 
   localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
-  if (loggedInUser.isAdmin) {
-    useMessagingStore.getState().setIsAdmin(true);
-  }
+  restoreDefaultAdminMode(loggedInUser);
   set({ user: loggedInUser, isLoading: false, error: null });
 }
 
@@ -501,9 +506,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         await trySetSessionToken(loggedInUser);
       }
       localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
-      if (loggedInUser.isAdmin) {
-        useMessagingStore.getState().setIsAdmin(true);
-      }
+      restoreDefaultAdminMode(loggedInUser);
       set({
         user: loggedInUser,
         isLoading: false,
@@ -522,7 +525,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const stored = localStorage.getItem(LS_USER);
       if (stored) {
-        set({ user: JSON.parse(stored) });
+        const user = JSON.parse(stored) as User;
+        set({ user });
+        restoreDefaultAdminMode(user);
       }
     } catch (err) {
       console.error("Failed to load user from storage:", err);
@@ -570,9 +575,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           await trySetSessionToken(loggedInUser);
         }
         localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
-        if (loggedInUser.isAdmin) {
-          useMessagingStore.getState().setIsAdmin(true);
-        }
+        restoreDefaultAdminMode(loggedInUser);
         set({ user: loggedInUser, isLoading: false });
         return;
       }
@@ -697,9 +700,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
           useMessagingStore.getState().resetData();
           localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
-          if (loggedInUser.isAdmin) {
-            useMessagingStore.getState().setIsAdmin(true);
-          }
+          restoreDefaultAdminMode(loggedInUser);
           applySheetProfileToStores({
             age: age ?? "",
             bio: bio ?? "",

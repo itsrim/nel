@@ -6,6 +6,9 @@ import {
   buildEventGroupMembers,
   eventGroupMemberCount,
 } from "./eventGroupMembers";
+import {
+  isModerationDeletedConversation,
+} from "./moderationTombstones";
 import { viewerParticipatesInEvent } from "./eventVisibility";
 import type { ViewerContext } from "./eventHost";
 
@@ -63,10 +66,11 @@ export function userIsAppAdmin(
   return isAdminAccount(user ?? null);
 }
 
-/** Crée les fils groupe manquants pour les sorties où le viewer participe. */
+/** Crée les fils groupe manquants pour les sorties où le viewer participe (ou toutes en mode admin). */
 export function buildMissingParticipantConversations(
   events: Event[],
   conversations: Conversation[],
+  options?: { adminView?: boolean },
 ): Conversation[] {
   const existing = new Set(conversations.map((c) => c.id));
   const added: Conversation[] = [];
@@ -74,9 +78,11 @@ export function buildMissingParticipantConversations(
   const viewer = authViewerContext();
   const msg = useMessagingStore.getState();
   const viewerId = viewer?.id?.trim() || null;
+  const adminView = options?.adminView === true;
   for (const e of events) {
     const cid = e.conversationId?.trim();
-    if (!cid || existing.has(cid) || !viewerParticipatesInEvent(e, viewer)) continue;
+    if (!cid || existing.has(cid) || isModerationDeletedConversation(cid)) continue;
+    if (!adminView && !viewerParticipatesInEvent(e, viewer)) continue;
     existing.add(cid);
     const members = buildEventGroupMembers(e, {
       viewerId,

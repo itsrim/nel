@@ -198,8 +198,9 @@ export function ProProfilePage({ id }: ProProfilePageProps) {
       </div>
 
       <ReportModal
-        open={reportOpen}
+        isOpen={reportOpen}
         onClose={() => setReportOpen(false)}
+        title={t("reportProfile")}
         kind="profile"
         subjectId={pro.id}
         subjectLabel={name}
