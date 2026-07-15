@@ -13,10 +13,12 @@ import {
 } from "./appSheetPersistence";
 import {
   buildMissingParticipantConversations,
+  pruneUnauthorizedEventConversations,
   resolveMessageAccessFromStores,
   resolveSheetsAdminScope,
   userIsAppAdmin,
 } from "./accessScope";
+import { syncConversationDeleteToSheets } from "./appSheetPersistence";
 import {
   buildEventGroupMembers,
   eventGroupMemberCount,
@@ -271,18 +273,30 @@ function ensureParticipantConversationsInStore(): void {
   const viewerContext = user
     ? { id: user.id, displayName: user.displayName }
     : null;
+
+  const base = filterOutModerationDeletedConversations(msg.conversations);
+  const pruned = pruneUnauthorizedEventConversations(base, msg.events, {
+    adminView,
+  });
+  if (!adminView && pruned.length < base.length) {
+    const kept = new Set(pruned.map((c) => c.id));
+    for (const c of base) {
+      if (!kept.has(c.id) && msg.events.some((e) => e.conversationId === c.id)) {
+        syncConversationDeleteToSheets(c.id);
+      }
+    }
+  }
   const missing = buildMissingParticipantConversations(
     msg.events,
-    msg.conversations,
+    pruned,
     { adminView },
   );
-  if (missing.length > 0) {
-    useMessagingStore.setState({
-      conversations: [
-        ...missing,
-        ...filterOutModerationDeletedConversations(msg.conversations),
-      ],
-    });
+  const nextConversations =
+    missing.length > 0 || pruned.length !== msg.conversations.length
+      ? [...missing, ...pruned]
+      : null;
+  if (nextConversations) {
+    useMessagingStore.setState({ conversations: nextConversations });
   }
   refreshLoadedEventGroupMembers(viewerContext);
 }

@@ -119,6 +119,7 @@ import {
   todayDateKey,
 } from "../lib/eventDateKey";
 import { eventHostedByViewer, eventOrganizerUserId } from "../lib/eventHost";
+import { viewerHasEventChatAccess } from "../lib/eventVisibility";
 import {
   buildEventGroupMembers,
   eventGroupMemberCount,
@@ -245,8 +246,14 @@ function refreshEventGroupConversationMembers(
   const cid = event.conversationId?.trim();
   if (!cid) return;
 
+  const viewerId = currentAuthUserId();
+  const canAccess =
+    state.isAdmin || viewerHasEventChatAccess(event, viewerId);
+  const existing = state.conversations.find((c) => c.id === cid);
+  if (!existing && !canAccess) return;
+
   const members = buildEventGroupMembers(event, {
-    viewerId: currentAuthUserId(),
+    viewerId,
     viewerDisplayName: state.viewerProfileDisplayName,
     viewerAvatarUrl: state.viewerProfileAvatarUrl,
     friends: state.friends,
@@ -256,30 +263,35 @@ function refreshEventGroupConversationMembers(
   const memberCount = eventGroupMemberCount(event, members);
 
   set((s) => {
-    const existing = s.conversations.find((c) => c.id === cid);
-    if (existing) {
+    const found = s.conversations.find((c) => c.id === cid);
+    if (found) {
       return {
         conversations: s.conversations.map((c) =>
           c.id === cid ? { ...c, members, memberCount } : c,
         ),
       };
     }
-    const newConv: Conversation = {
-      id: cid,
-      title: event.title,
-      type: "group",
-      lastMessagePreview: "",
-      avatarGradient: ["#4a5568", "#2d3748"] as const,
-      unreadCount: 0,
-      updatedAt: Date.now(),
-      isFavorite: false,
-      members,
-      memberCount,
+    if (!canAccess) return {};
+    return {
+      conversations: [
+        {
+          id: cid,
+          title: event.title,
+          type: "group" as const,
+          lastMessagePreview: "",
+          avatarGradient: ["#4a5568", "#2d3748"] as const,
+          unreadCount: 0,
+          updatedAt: Date.now(),
+          isFavorite: false,
+          members,
+          memberCount,
+        },
+        ...s.conversations,
+      ],
     };
-    return { conversations: [newConv, ...s.conversations] };
   });
 
-  if (options?.syncSheets !== false) {
+  if (options?.syncSheets !== false && canAccess) {
     const updated = get().conversations.find((c) => c.id === cid);
     if (updated) syncConversationToSheets(updated);
   }
@@ -2716,6 +2728,12 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         (e) => e.conversationId === conversationId,
       );
       if (!event) return;
+      if (
+        !get().isAdmin &&
+        !viewerHasEventChatAccess(event, currentAuthUserId())
+      ) {
+        return;
+      }
       refreshEventGroupConversationMembers(event, set, get, {
         syncSheets: true,
       });
@@ -3052,10 +3070,14 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
       const ev = get().events.find((e) => e.id === eventId);
       if (ev) {
-        refreshEventGroupConversationMembers(ev, set, get, {
-          markViewerAsSelf: false,
-        });
         syncEventToSheets(ev);
+        const cid = ev.conversationId?.trim();
+        if (cid) {
+          syncConversationDeleteToSheets(cid);
+          set((s) => ({
+            conversations: s.conversations.filter((c) => c.id !== cid),
+          }));
+        }
       }
 
       const paidIds = event.karmaJoinPaidProfilIds ?? [];
@@ -3355,10 +3377,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       const accessible =
         scope === null
           ? state.conversations
-          : state.conversations.filter(
-              (c) =>
-                isConversationAccessible(c.id, scope) &&
-                (c.members.length === 0 || c.members.some((m) => m.isSelf)),
+          : state.conversations.filter((c) =>
+              isConversationAccessible(c.id, scope),
             );
       for (const c of accessible) {
         if (c.unreadCount > 0) get().markAsRead(c.id);

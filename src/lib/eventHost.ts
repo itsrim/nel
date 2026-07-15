@@ -20,19 +20,19 @@ export function eventHostedByViewer(
   const viewerId = viewer?.id?.trim();
   const viewerName = viewer?.displayName?.trim();
 
+  // Compte connecté : uniquement les ids (pas le displayName — collision = faux « organisateur »).
   if (viewerId) {
     const organizerId = eventOrganizerUserId(event);
     if (organizerId && organizerId === viewerId) return true;
     if (event.sheetOwnerUserId?.trim() === viewerId) return true;
     if (event.creatorId?.trim() === viewerId) return true;
+    return false;
   }
+
+  // Session locale sans userId : repli nom (démо / hors auth).
   if (viewerName) {
     if (event.creatorId?.trim() === viewerName) return true;
     if (event.hostName?.trim() === viewerName) return true;
-  }
-  if (viewerId && event.hostName === "Moi") {
-    if (event.sheetOwnerUserId?.trim() === viewerId) return true;
-    if (event.creatorId?.trim() === viewerId) return true;
   }
   return false;
 }

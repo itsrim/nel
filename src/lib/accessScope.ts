@@ -9,12 +9,10 @@ import {
 import {
   isModerationDeletedConversation,
 } from "./moderationTombstones";
-import { viewerParticipatesInEvent } from "./eventVisibility";
-import type { ViewerContext } from "./eventHost";
+import { viewerHasEventChatAccess } from "./eventVisibility";
 
-function authViewerContext(): ViewerContext | null {
-  const user = useAuthStore.getState().user;
-  return user ? { id: user.id, displayName: user.displayName } : null;
+function currentUserId(): string | null {
+  return useAuthStore.getState().user?.id?.trim() || null;
 }
 
 /** `null` = accès total (mode admin actif). */
@@ -29,7 +27,6 @@ export function viewerIsConversationMember(conversation: Conversation): boolean 
 }
 
 export function resolveConversationAccessScope(input: {
-  /** Mode admin UI (pas seulement compte staff). */
   adminModeActive: boolean;
   isStaffAccount: boolean;
   conversations: Conversation[];
@@ -37,19 +34,49 @@ export function resolveConversationAccessScope(input: {
 }): ConversationAccessScope {
   if (input.adminModeActive && input.isStaffAccount) return null;
 
+  const userId = currentUserId();
+  const eventByCid = new Map(
+    input.events
+      .filter((e) => e.conversationId?.trim())
+      .map((e) => [e.conversationId!.trim(), e] as const),
+  );
+
   const ids = new Set<string>();
   for (const c of input.conversations) {
     const cid = c.id?.trim();
     if (!cid) continue;
+    const event = eventByCid.get(cid);
+    if (event) {
+      if (viewerHasEventChatAccess(event, userId)) ids.add(cid);
+      continue;
+    }
     if (viewerIsConversationMember(c)) ids.add(cid);
   }
-  const viewer = authViewerContext();
   for (const e of input.events) {
-    if (!viewerParticipatesInEvent(e, viewer)) continue;
+    if (!viewerHasEventChatAccess(e, userId)) continue;
     const cid = e.conversationId?.trim();
     if (cid) ids.add(cid);
   }
   return ids;
+}
+
+/** Retire les fils sortie où le userId n’est pas organisateur / inscrit. */
+export function pruneUnauthorizedEventConversations(
+  conversations: Conversation[],
+  events: Event[],
+  options?: { adminView?: boolean },
+): Conversation[] {
+  if (options?.adminView) return conversations;
+  const userId = currentUserId();
+  const eventByCid = new Map(
+    events
+      .filter((e) => e.conversationId?.trim())
+      .map((e) => [e.conversationId!.trim(), e] as const),
+  );
+  return conversations.filter((c) => {
+    const event = eventByCid.get(c.id.trim());
+    return !event || viewerHasEventChatAccess(event, userId);
+  });
 }
 
 export function isConversationAccessible(
@@ -60,13 +87,27 @@ export function isConversationAccessible(
   return scope.has(conversationId.trim());
 }
 
+export function listAccessibleConversationIds(input: {
+  adminModeActive: boolean;
+  isStaffAccount: boolean;
+  conversations: Conversation[];
+  events: Event[];
+}): string[] {
+  const scope = resolveConversationAccessScope(input);
+  const list =
+    scope === null
+      ? input.conversations
+      : input.conversations.filter((c) => isConversationAccessible(c.id, scope));
+  return list.map((c) => c.id).filter(Boolean);
+}
+
 export function userIsAppAdmin(
   user: { id?: string; email?: string; isAdmin?: boolean } | null | undefined,
 ): boolean {
   return isAdminAccount(user ?? null);
 }
 
-/** Crée les fils groupe manquants pour les sorties où le viewer participe (ou toutes en mode admin). */
+/** Crée les fils groupe manquants pour les sorties où le viewer est inscrit (ou admin). */
 export function buildMissingParticipantConversations(
   events: Event[],
   conversations: Conversation[],
@@ -74,18 +115,17 @@ export function buildMissingParticipantConversations(
 ): Conversation[] {
   const existing = new Set(conversations.map((c) => c.id));
   const added: Conversation[] = [];
-
-  const viewer = authViewerContext();
+  const userId = currentUserId();
   const msg = useMessagingStore.getState();
-  const viewerId = viewer?.id?.trim() || null;
   const adminView = options?.adminView === true;
+
   for (const e of events) {
     const cid = e.conversationId?.trim();
     if (!cid || existing.has(cid) || isModerationDeletedConversation(cid)) continue;
-    if (!adminView && !viewerParticipatesInEvent(e, viewer)) continue;
+    if (!adminView && !viewerHasEventChatAccess(e, userId)) continue;
     existing.add(cid);
     const members = buildEventGroupMembers(e, {
-      viewerId,
+      viewerId: userId,
       viewerDisplayName: msg.viewerProfileDisplayName,
       viewerAvatarUrl: msg.viewerProfileAvatarUrl,
       friends: msg.friends,

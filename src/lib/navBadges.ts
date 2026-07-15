@@ -103,10 +103,8 @@ export function countUnreadChatMessages(input: {
   const accessible =
     scope === null
       ? input.conversations
-      : input.conversations.filter(
-          (c) =>
-            isConversationAccessible(c.id, scope) &&
-            (c.members.length === 0 || c.members.some((m) => m.isSelf)),
+      : input.conversations.filter((c) =>
+          isConversationAccessible(c.id, scope),
         );
 
   return accessible.reduce((sum, c) => sum + (c.unreadCount ?? 0), 0);

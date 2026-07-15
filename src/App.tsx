@@ -26,7 +26,11 @@ import {
   refreshChatMessagesFromSheets,
 } from "./lib/applySheetsState";
 import { isGoogleSheetsReadConfigured } from "./lib/googleSheetsDb";
-import { resolveSheetsAdminScope } from "./lib/accessScope";
+import {
+  listAccessibleConversationIds,
+  resolveSheetsAdminScope,
+  userIsAppAdmin,
+} from "./lib/accessScope";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { ChatPage } from "./pages/ChatPage";
 import { EventsPage } from "./pages/EventsPage";
@@ -76,6 +80,7 @@ function App() {
   const { activeTab, detailStack } = useNavigationStore();
   const toast = useMessagingStore((s) => s.toast);
   const conversations = useMessagingStore((s) => s.conversations);
+  const events = useMessagingStore((s) => s.events);
   const adminModeActive = useMessagingStore((s) => s.isAdmin);
   const {
     setViewerProfileDisplayName,
@@ -281,13 +286,14 @@ function App() {
     setActiveChatConversationId(openChat?.id ?? null);
   }, [detailStack]);
 
-  const conversationIdsKey =
-    conversations.length > 0
-      ? conversations
-          .map((c) => c.id)
-          .sort()
-          .join(",")
-      : "";
+  const conversationIdsKey = listAccessibleConversationIds({
+    adminModeActive,
+    isStaffAccount: userIsAppAdmin(user),
+    conversations,
+    events,
+  })
+    .sort()
+    .join(",");
 
   // Connexion Socket.IO — uniquement au changement de compte (pas à chaque message reçu).
   useEffect(() => {
@@ -305,19 +311,23 @@ function App() {
         displayName: user.displayName,
         emailVerified: user.emailVerified,
       });
-      const ids = useMessagingStore
-        .getState()
-        .conversations.map((c) => c.id)
-        .filter(Boolean);
-      initGlobalChatSync(ids);
+      const msg = useMessagingStore.getState();
+      initGlobalChatSync(
+        listAccessibleConversationIds({
+          adminModeActive: msg.isAdmin,
+          isStaffAccount: userIsAppAdmin(user),
+          conversations: msg.conversations,
+          events: msg.events,
+        }),
+      );
       void registerPushNotifications();
     })();
   }, [user?.id]);
 
-  // Rejoindre les rooms quand la liste de conversations change (sans couper le socket).
+  // Rejoindre les rooms quand la liste de conversations accessibles change (sans couper le socket).
   useEffect(() => {
-    if (!user || !isChatApiConfigured() || !conversationIdsKey) return;
-    const ids = conversationIdsKey.split(",");
+    if (!user || !isChatApiConfigured()) return;
+    const ids = conversationIdsKey ? conversationIdsKey.split(",") : [];
     const s = getChatSocket();
     if (s && s.connected) {
       s.emit("user:sync", { conversationIds: ids });
@@ -351,7 +361,18 @@ function App() {
             applySheetsLoadedState(chatLoaded);
           } else if (chatLoaded.conversations.length > 0) {
             const msgStore = useMessagingStore.getState();
-            const mergedConversations = chatLoaded.conversations.map((remoteConv) => {
+            const allowedIds = new Set(
+              listAccessibleConversationIds({
+                adminModeActive: msgStore.isAdmin,
+                isStaffAccount: userIsAppAdmin(user),
+                conversations: chatLoaded.conversations,
+                events: msgStore.events,
+              }),
+            );
+            const remoteAllowed = chatLoaded.conversations.filter((c) =>
+              allowedIds.has(c.id),
+            );
+            const mergedConversations = remoteAllowed.map((remoteConv) => {
               const local = msgStore.conversations.find((c) => c.id === remoteConv.id);
               if (!local) return remoteConv;
               const remoteUpdated = remoteConv.updatedAt ?? 0;
@@ -370,7 +391,7 @@ function App() {
               };
             });
             const localIds = new Set(msgStore.conversations.map((c) => c.id));
-            const newConvs = chatLoaded.conversations.filter((c) => !localIds.has(c.id));
+            const newConvs = remoteAllowed.filter((c) => !localIds.has(c.id));
             useMessagingStore.setState({
               conversations: [...newConvs, ...mergedConversations],
             });

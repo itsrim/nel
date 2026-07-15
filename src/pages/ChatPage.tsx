@@ -417,11 +417,9 @@ export function ChatPage() {
     () =>
       conversationAccessScope === null
         ? conversations
-        : conversations.filter(
-          (c) =>
-            isConversationAccessible(c.id, conversationAccessScope) &&
-            (c.members.length === 0 || c.members.some((m) => m.isSelf)),
-        ),
+        : conversations.filter((c) =>
+            isConversationAccessible(c.id, conversationAccessScope),
+          ),
     [conversations, conversationAccessScope],
   );
 

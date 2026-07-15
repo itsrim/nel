@@ -2,6 +2,7 @@ import type { Event } from "../data/mockData";
 import { VIEWER_KARMA_PARTICIPANT_ID } from "./karma";
 import {
   eventHostedByViewer,
+  eventOrganizerUserId,
   viewerIsRegisteredParticipant,
   type ViewerContext,
 } from "./eventHost";
@@ -38,6 +39,19 @@ export function viewerParticipatesInEvent(
   if ((e.invitedProfilIds ?? []).includes(viewerId)) return true;
 
   return false;
+}
+
+/** Chat sortie : `userId` = organisateur ou inscrit. */
+export function viewerHasEventChatAccess(
+  e: Event,
+  userId?: string | null,
+): boolean {
+  const id = userId?.trim();
+  if (!id) return false;
+  return (
+    eventOrganizerUserId(e) === id ||
+    (e.registeredParticipantIds ?? []).includes(id)
+  );
 }
 
 /**

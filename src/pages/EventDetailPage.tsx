@@ -238,7 +238,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     useMessagingStore
       .getState()
       .ensureEventConversationRoster(event.conversationId);
-  }, [event?.id, event?.conversationId, event?.registeredParticipantIds]);
+  }, [event?.id, event?.conversationId, event?.registeredParticipantIds, user?.id]);
 
   if (!event) return null;
 
