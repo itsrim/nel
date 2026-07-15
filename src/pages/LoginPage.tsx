@@ -92,10 +92,6 @@ export function LoginPage() {
   const [lockoutRemainingMs, setLockoutRemainingMs] = useState(0);
   const authSectionRef = useRef<HTMLDivElement>(null);
 
-  const scrollToAuth = useCallback(() => {
-    authSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
-
   const clearFieldError = useCallback((field: SignupBlockerId) => {
     setFieldErrors((prev) => {
       if (!prev[field]) return prev;
@@ -128,6 +124,14 @@ export function LoginPage() {
     setCaptchaAnswer("");
     clearFieldError("captcha");
   }, [clearFieldError]);
+
+  const openSignupForm = useCallback(() => {
+    setView("signup");
+    setLocalError("");
+    setFieldErrors({});
+    refreshCaptcha();
+    authSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [refreshCaptcha]);
 
   const formatLockoutMessage = useCallback(
     (remainingMs: number) =>
@@ -412,7 +416,7 @@ export function LoginPage() {
           <a href="#decouvrir">{t("landingNavDiscover")}</a>
           <a href="#comment">{t("landingNavHow")}</a>
           <a href="#professionnels">{t("landingNavPros")}</a>
-          <button type="button" className="public-site-nav-cta" onClick={scrollToAuth}>
+          <button type="button" className="public-site-nav-cta" onClick={openSignupForm}>
             {t("landingNavJoin")}
           </button>
         </nav>
@@ -427,7 +431,7 @@ export function LoginPage() {
             <p className="public-hero-lead">{t("landingHeroLead")}</p>
             <p className="public-hero-sub">{t("landingHeroSub")}</p>
             <div className="public-hero-actions">
-              <button type="button" className="landing-cta-btn" onClick={scrollToAuth}>
+              <button type="button" className="landing-cta-btn" onClick={openSignupForm}>
                 {t("landingCtaJoin")}
               </button>
               <a href="#decouvrir" className="public-hero-link">
@@ -798,7 +802,7 @@ export function LoginPage() {
           </div>
         </section>
 
-        <PublicLandingSections onScrollToAuth={scrollToAuth} />
+        <PublicLandingSections onScrollToAuth={openSignupForm} />
       </main>
     </div>
   );

@@ -584,6 +584,9 @@ export const translations = {
     moodSubtitle: "Choisissez l'emoji qui vous ressemble le plus aujourd'hui.",
     mindSubtitle: "Sélectionnez un thème qui a marqué votre journée.",
     noteSubtitle: "C'est privé, juste une note pour vous plus tard.",
+    questionnaireRecentNotes: "Vos notes récentes",
+    questionnaireLastWeekMood: "Votre état d'esprit la semaine dernière",
+    questionnaireLastWeekTag: "Semaine dernière",
     incomingFriendRequests: "Demandes reçues",
     pendingFriendRequests: "Demandes envoyées",
     acceptFriendRequest: "Accepter",
@@ -1356,6 +1359,7 @@ export const translations = {
     calm: "Calm",
     nature: "Nature",
     creativity: "Creativity",
+    sex: "Sexuality",
 
     // QuestionnaireModal questions
     moodQuestion: "What is your mood?",
@@ -1364,6 +1368,9 @@ export const translations = {
     moodSubtitle: "Choose the emoji that best describes you today.",
     mindSubtitle: "Select a theme that marked your day.",
     noteSubtitle: "It's private, just a note for you later.",
+    questionnaireRecentNotes: "Your recent notes",
+    questionnaireLastWeekMood: "Your mood last week",
+    questionnaireLastWeekTag: "Last week",
     incomingFriendRequests: "Incoming requests",
     pendingFriendRequests: "Sent requests",
     acceptFriendRequest: "Accept",

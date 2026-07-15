@@ -43,7 +43,9 @@ import { QuestionnaireModal } from "./components/QuestionnaireModal";
 import { resolveAvatarUrl, DEFAULT_AVATAR_URL } from "./lib/avatarUrl";
 import {
   markDailyQuestionnaireShown,
+  saveQuestionnaireResponse,
   shouldShowDailyQuestionnaire,
+  type QuestionnaireResponse,
 } from "./lib/questionnaireDaily";
 import { useNotificationSoundEffect } from "./hooks/useNotificationSoundEffect";
 import "./App.css";
@@ -87,10 +89,16 @@ function App() {
 
   useNotificationSoundEffect(user?.id);
 
-  const closeQuestionnaire = useCallback(() => {
-    if (user?.id) markDailyQuestionnaireShown(user.id);
-    setQuestionnaireOpen(false);
-  }, [user?.id]);
+  const closeQuestionnaire = useCallback(
+    (response?: QuestionnaireResponse) => {
+      if (user?.id) {
+        markDailyQuestionnaireShown(user.id);
+        if (response) saveQuestionnaireResponse(user.id, response);
+      }
+      setQuestionnaireOpen(false);
+    },
+    [user?.id],
+  );
 
   // Recalcule les pastilles dès que les données source changent (notifs, chat, visites…)
   useEffect(() => {
@@ -467,6 +475,7 @@ function App() {
       ) : null}
       <QuestionnaireModal
         isOpen={questionnaireOpen}
+        userId={user?.id}
         onClose={closeQuestionnaire}
       />
     </div>
