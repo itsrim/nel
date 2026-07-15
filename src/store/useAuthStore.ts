@@ -482,7 +482,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       if (!isGoogleSheetsReadConfigured()) {
-        set({ isLoading: false, error: Database problem });
+        set({ isLoading: false, error: "Database problem" });
         return;
       }
       if (password.length < 6) {
