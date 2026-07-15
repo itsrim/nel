@@ -35,6 +35,7 @@ import { formatBadgeCount } from '../data/mockData';
 import type { Event } from '../data/mockData';
 import './ProfilePage.css';
 import './OtherProfilePage.css';
+import './ProProfilePage.css';
 import '../components/ProContactLinks.css';
 
 interface OtherProfilePageProps {
@@ -63,13 +64,14 @@ type AdminProfileDraft = {
 export function OtherProfilePage({ id }: OtherProfilePageProps) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const { closeDetail, openDetail } = useNavigationStore();
+  const { closeDetail, openDetail, setActiveTab } = useNavigationStore();
   const {
     suggestions,
     profileVisits,
     friends,
     sendFriendRequest,
     removeMutualFriend,
+    openOrCreateDmConversation,
     friendRequestSentProfilIds,
     friendRequestRejectedProfilIds,
     friendRequestDailySentDateKey,
@@ -128,7 +130,8 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
 
   const p = profile as unknown as Record<string, unknown>;
   const displayName = (p.pseudo as string | undefined) || (p.name as string);
-  const messageConversationId = friendRecord?.mainChatConversationId;
+  const profileAvatarUrl =
+    ('imageUrl' in profile ? profile.imageUrl : profile.avatarUrl) as string;
   const profileKarma = friendRecord?.karma ?? KARMA_DEFAULT;
 
   const friendsBadgeCount = useMemo(() => {
@@ -177,6 +180,16 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
   const selectOpTab = useCallback((next: OtherProfileTab) => {
     setActiveOpTab((cur) => (cur === next ? cur : next));
   }, []);
+
+  const handleContact = useCallback(() => {
+    const conversationId = openOrCreateDmConversation({
+      profilId: id,
+      displayName,
+      avatarUrl: profileAvatarUrl,
+    });
+    setActiveTab('chat');
+    openDetail('chat', conversationId);
+  }, [openOrCreateDmConversation, id, displayName, profileAvatarUrl, setActiveTab, openDetail]);
 
   const buildAdminDraft = useCallback((): AdminProfileDraft => {
     const stats = (p.stats as { events?: number; friends?: number } | undefined);
@@ -518,6 +531,17 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
           chipClassName="op-badge-pill"
         />
 
+        {isMutualFriend ? (
+          <button
+            type="button"
+            className="pro-profile-contact-btn"
+            onClick={handleContact}
+          >
+            <MessageCircle size={20} aria-hidden />
+            {t('proContactButton')}
+          </button>
+        ) : null}
+
         {showInsightTabs ? (
           <>
             <div id="op-profile-tabs-anchor" className="profile-tabs op-profile-tabs">
@@ -678,30 +702,18 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
 
         <div className="op-actions">
           {isMutualFriend ? (
-            <>
-              {messageConversationId ? (
-                <button
-                  type="button"
-                  className="op-btn-message"
-                  onClick={() => openDetail('chat', messageConversationId)}
-                >
-                  <MessageCircle size={20} />
-                  <span>Message</span>
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className="op-btn-remove"
-                onClick={() => {
-                  if (window.confirm('Retirer cette personne de vos amis ?')) {
-                    removeMutualFriend(id);
-                  }
-                }}
-              >
-                <UserMinus size={20} />
-                <span>Retirer des amis</span>
-              </button>
-            </>
+            <button
+              type="button"
+              className="op-btn-remove"
+              onClick={() => {
+                if (window.confirm('Retirer cette personne de vos amis ?')) {
+                  removeMutualFriend(id);
+                }
+              }}
+            >
+              <UserMinus size={20} />
+              <span>Retirer des amis</span>
+            </button>
           ) : requestRejected ? (
             <button type="button" className="op-btn-friend-state op-btn-friend-state--rejected" disabled>
               <HeartCrack size={20} color="#FF9F0A" />
