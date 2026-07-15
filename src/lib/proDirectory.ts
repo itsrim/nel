@@ -12,8 +12,11 @@ import type { ViewerEntitlementState } from "./viewerEntitlements";
 /** Exclut les comptes staff / admin de l’annuaire public des professionnels. */
 export function filterPublicProfessionals(
   professionals: readonly MockProfessional[],
+  emailByUserId?: ReadonlyMap<string, string>,
 ): MockProfessional[] {
-  return professionals.filter((p) => !isAdminAccount({ id: p.id }));
+  return professionals.filter(
+    (p) => !shouldExcludeFromPublicCatalog(p.id, emailByUserId?.get(p.id)),
+  );
 }
 
 /** Le profil connecté apparaît dans l’annuaire seulement s’il est Pro (pas staff admin). */
@@ -104,15 +107,17 @@ export function viewerSettingsRowToProfessional(
 export function mergeProfessionalsCatalog(
   fromProfessionalsTable: MockProfessional[],
   fromProMembers: MockProfessional[],
+  emailByUserId?: ReadonlyMap<string, string>,
 ): MockProfessional[] {
   const map = new Map<string, MockProfessional>();
 
   for (const pro of fromProMembers) {
-    if (!isAdminAccount({ id: pro.id })) map.set(pro.id, pro);
+    if (shouldExcludeFromPublicCatalog(pro.id, emailByUserId?.get(pro.id))) continue;
+    map.set(pro.id, pro);
   }
 
   for (const pro of fromProfessionalsTable) {
-    if (isAdminAccount({ id: pro.id })) continue;
+    if (shouldExcludeFromPublicCatalog(pro.id, emailByUserId?.get(pro.id))) continue;
     const prev = map.get(pro.id);
     if (!prev) {
       map.set(pro.id, pro);
@@ -132,5 +137,5 @@ export function mergeProfessionalsCatalog(
     });
   }
 
-  return filterPublicProfessionals([...map.values()]);
+  return filterPublicProfessionals([...map.values()], emailByUserId);
 }

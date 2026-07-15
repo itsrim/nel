@@ -39,7 +39,9 @@ import { toAppUser } from "../lib/authApi";
 import { fetchClientIp } from "../lib/clientIp";
 import { isAdminAccount } from "../lib/accountRoles";
 import { enforceLoginIpSecurity } from "../lib/loginIpSecurity";
-import { resolveAvatarUrl } from "../lib/avatarUrl";
+import { DEFAULT_AVATAR_URL, resolveAvatarUrl } from "../lib/avatarUrl";
+import { clearNelProfileImageKitBrowserKey } from "../lib/imagekitUpload";
+import { refreshRemoteAssetUrlForDisplay } from "../lib/versionRemoteAssetUrl";
 import { buildLocalSignupAuth, buildPasswordResetAuth, generateVerificationToken } from "../lib/signupAuth";
 import { isValidSignupAge } from "../lib/signupValidation";
 import { boolFromSheet } from "../lib/sheetRowCodec";
@@ -139,14 +141,24 @@ function applySignupProEntitlement(isPro: boolean): void {
 function applySheetProfileToStores(
   sheetUser: Pick<SheetAuthUser, "age" | "bio" | "language" | "avatarUrl">,
 ): void {
-  useMessagingStore.getState().hydrateViewerProfileFields({
+  clearNelProfileImageKitBrowserKey();
+  const msg = useMessagingStore.getState();
+  msg.hydrateViewerProfileFields({
     age: sheetUser.age,
     bio: sheetUser.bio,
   });
-  if (sheetUser.avatarUrl?.trim()) {
-    useMessagingStore
-      .getState()
-      .setViewerProfileAvatarUrl(sheetUser.avatarUrl.trim());
+  const rawAvatar = sheetUser.avatarUrl?.trim();
+  if (rawAvatar) {
+    msg.setViewerProfileAvatarUrl(
+      refreshRemoteAssetUrlForDisplay(resolveAvatarUrl(rawAvatar)),
+    );
+  } else {
+    try {
+      localStorage.removeItem("nel_viewer_profile_avatar_url");
+    } catch {
+      /* ignore */
+    }
+    msg.setViewerProfileAvatarUrl(DEFAULT_AVATAR_URL);
   }
   const lang = sheetUser.language;
   if (lang === "fr" || lang === "en") {

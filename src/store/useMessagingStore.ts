@@ -2519,6 +2519,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     },
 
     addMemberToGroup: (conversationId, member) => {
+      if (get().getEventByConversationId(conversationId)) return;
       set((state) => ({
         conversations: state.conversations.map((c) =>
           c.id === conversationId

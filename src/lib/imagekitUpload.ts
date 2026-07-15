@@ -158,8 +158,26 @@ export async function uploadLocalImageToImageKitEventCover(
 
 const STORAGE_KEY = 'nel_imagekit_user_key';
 
-/** Clé stable par navigateur (un avatar ImageKit écrasé par session « compte » locale). */
-export function getNelProfileImageKitUserKey(): string {
+function sanitizeImageKitUserKey(raw: string): string {
+  return raw.trim().replace(/[^a-zA-Z0-9_-]/g, '_') || 'nel_user';
+}
+
+/** Supprime l’ancienne clé navigateur (avatars partagés entre comptes sur le même appareil). */
+export function clearNelProfileImageKitBrowserKey(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Clé ImageKit par compte (`userId`) — un fichier avatar distinct par utilisateur.
+ * Sans session, repli sur une clé locale éphémère (upload avant connexion).
+ */
+export function getNelProfileImageKitUserKey(userId?: string | null): string {
+  const fromAuth = userId?.trim();
+  if (fromAuth) return sanitizeImageKitUserKey(fromAuth);
   try {
     let v = localStorage.getItem(STORAGE_KEY);
     if (!v) {

@@ -88,6 +88,7 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
   if (!conversation) return null;
 
   const isGroup = conversation.type === "group";
+  const isEventGroup = !!linkedEvent;
 
   const muteSounds = !!conversation.muteSounds;
   const blockNotifications = !!conversation.blockNotifications;
@@ -203,7 +204,7 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
               <span className="cs-section-title">
                 {t("membersTitle")} ({members.length})
               </span>
-              {isGroup && (
+              {isGroup && !isEventGroup && (
                 <button
                   className="cs-add-btn"
                   onClick={() => setInviteSectionOpen(!inviteSectionOpen)}
@@ -219,7 +220,7 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
               )}
             </div>
 
-            {isGroup && inviteSectionOpen && (
+            {isGroup && !isEventGroup && inviteSectionOpen && (
               <div className="cs-invite-block">
                 <p className="cs-invite-title">{t("inviteMembersTitle")}</p>
                 {invitableFriends.length === 0 ? (

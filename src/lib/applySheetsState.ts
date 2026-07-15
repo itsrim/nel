@@ -26,7 +26,8 @@ import { writeSubscriptionPaymentRecord } from "./subscriptionPersistence";
 import { useLanguageStore } from "../store/useLanguageStore";
 import { filterOutModerationDeletedConversations } from "./moderationTombstones";
 import { enrichEventsForViewer } from "./viewerEventScope";
-import { buildSuggestionCatalog } from "./suggestionCatalog";
+import { buildSuggestionCatalog, filterPublicSuggestions } from "./suggestionCatalog";
+import { refreshRemoteAssetUrlForDisplay } from "./versionRemoteAssetUrl";
 
 export function dataEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -122,7 +123,9 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
   const msg = useMessagingStore.getState();
 
   if ("viewerProfileAvatarUrl" in changed && changed.viewerProfileAvatarUrl) {
-    msg.setViewerProfileAvatarUrl(changed.viewerProfileAvatarUrl);
+    msg.setViewerProfileAvatarUrl(
+      refreshRemoteAssetUrlForDisplay(changed.viewerProfileAvatarUrl),
+    );
     const authUser = useAuthStore.getState().user;
     if (authUser) {
       const nextUser = {
@@ -251,7 +254,7 @@ function ensureDerivedCatalogInStore(
       msg.profileVisits,
       useProsStore.getState().professionals,
     );
-    if (built.length > 0) patch.suggestions = built;
+    if (built.length > 0) patch.suggestions = filterPublicSuggestions(built);
   }
 
   if (Object.keys(patch).length > 0) {

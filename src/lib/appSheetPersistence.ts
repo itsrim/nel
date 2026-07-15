@@ -48,7 +48,7 @@ import {
   type AdminAppInfo,
 } from "./adminAppInfo";
 import { ADMIN_USER_ID, shouldExcludeFromPublicCatalog } from "./accountRoles";
-import { buildSuggestionCatalog } from "./suggestionCatalog";
+import { buildSuggestionCatalog, filterPublicSuggestions } from "./suggestionCatalog";
 import { shouldSkipEmailVerificationFromSheets } from "./sheetAuth";
 import {
   isActiveProMemberRow,
@@ -1241,6 +1241,12 @@ async function loadMergedProfessionalsCatalog(
       sheetGet<Record<string, string>>("viewer_settings"),
       shouldSkipEmailVerificationFromSheets(),
     ]);
+    const emailByUserId = new Map<string, string>();
+    for (const row of viewerRows) {
+      const id = row.id?.trim() || row.userId?.trim();
+      const email = row.email?.trim().toLowerCase();
+      if (id && email) emailByUserId.set(id, email);
+    }
     const memberPros = viewerRows
       .filter((row) => {
         const id = row.id?.trim() || row.userId?.trim();
@@ -1252,8 +1258,12 @@ async function loadMergedProfessionalsCatalog(
       })
       .map(viewerSettingsRowToProfessional)
       .filter((p): p is MockProfessional => p != null);
-    const tablePros = professionalRows.map(rowToProfessional);
-    const merged = mergeProfessionalsCatalog(tablePros, memberPros);
+    const tablePros = professionalRows
+      .map(rowToProfessional)
+      .filter(
+        (p) => !shouldExcludeFromPublicCatalog(p.id, emailByUserId.get(p.id)),
+      );
+    const merged = mergeProfessionalsCatalog(tablePros, memberPros, emailByUserId);
     const tableIds = new Set(tablePros.map((p) => p.id));
     for (const pro of memberPros) {
       if (!tableIds.has(pro.id)) {
@@ -1295,7 +1305,7 @@ export async function loadTabStateFromSheets(
         {
           ...emptyLoadedState(),
           conversations: convRows.map(rowToConversation),
-          suggestions: suggestionRows.map(rowToSuggestion),
+          suggestions: filterPublicSuggestions(suggestionRows.map(rowToSuggestion)),
           friends: friendsFromProfileRows(profileRows, userId),
           profileVisits,
           professionals,
@@ -1586,9 +1596,11 @@ export function mergeLoadedAppState(
     patch.friends = mergeFriends(current.friends, loaded.friends);
   }
   if (loaded.suggestions.length > 0) {
-    patch.suggestions = mergeById(current.suggestions, loaded.suggestions);
+    patch.suggestions = filterPublicSuggestions(
+      mergeById(current.suggestions, loaded.suggestions),
+    );
   } else if (loaded.registeredMemberSuggestions?.length) {
-    patch.suggestions = loaded.registeredMemberSuggestions;
+    patch.suggestions = filterPublicSuggestions(loaded.registeredMemberSuggestions);
   }
   if (loaded.profileVisits.length > 0) {
     patch.profileVisits = mergeById(current.profileVisits, loaded.profileVisits);

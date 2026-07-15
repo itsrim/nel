@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { MockProfessional } from "../data/mockProfessionals";
+import { filterPublicProfessionals } from "../lib/proDirectory";
+import { shouldExcludeFromPublicCatalog } from "../lib/accountRoles";
 import { buildViewerProfessional, VIEWER_PRO_ID } from "../lib/proLocation";
 import { useMessagingStore } from "./useMessagingStore";
 
@@ -15,21 +17,23 @@ export const useProsStore = create<ProsState>((set, get) => ({
 
   hydrateProfessionals: (remote) => {
     if (remote.length === 0) return;
+    const filtered = filterPublicProfessionals(remote);
     set((state) => {
       const map = new Map(state.professionals.map((p) => [p.id, p]));
-      remote.forEach((p) => {
+      filtered.forEach((p) => {
         const prev = map.get(p.id);
         map.set(p.id, prev ? { ...prev, ...p } : p);
       });
-      return { professionals: [...map.values()] };
+      return { professionals: filterPublicProfessionals([...map.values()]) };
     });
   },
 
   upsertProfessional: (pro) => {
+    if (shouldExcludeFromPublicCatalog(pro.id)) return;
     set((state) => {
       const map = new Map(state.professionals.map((p) => [p.id, p]));
       map.set(pro.id, pro);
-      return { professionals: [...map.values()] };
+      return { professionals: filterPublicProfessionals([...map.values()]) };
     });
   },
 

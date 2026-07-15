@@ -41,6 +41,8 @@ import { ChatSettingsPage } from "./pages/ChatSettingsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { QuestionnaireModal } from "./components/QuestionnaireModal";
 import { resolveAvatarUrl, DEFAULT_AVATAR_URL } from "./lib/avatarUrl";
+import { clearNelProfileImageKitBrowserKey } from "./lib/imagekitUpload";
+import { refreshRemoteAssetUrlForDisplay } from "./lib/versionRemoteAssetUrl";
 import {
   markDailyQuestionnaireShown,
   saveQuestionnaireResponse,
@@ -146,12 +148,14 @@ function App() {
       clearViewerSession();
       resetData();
     }
+    clearNelProfileImageKitBrowserKey();
     setViewerProfileDisplayName(user.displayName);
     setViewerProfileIsPro(!!user.isPro);
-    const fromUser = resolveAvatarUrl(user.avatarUrl);
-    if (fromUser !== DEFAULT_AVATAR_URL) {
-      setViewerProfileAvatarUrl(fromUser);
-    }
+    const rawAvatar = user.avatarUrl?.trim();
+    const avatarForSession = rawAvatar
+      ? refreshRemoteAssetUrlForDisplay(resolveAvatarUrl(rawAvatar))
+      : DEFAULT_AVATAR_URL;
+    setViewerProfileAvatarUrl(avatarForSession);
   }, [
     user?.id,
     user?.displayName,

@@ -517,7 +517,7 @@ export function ProfilePage() {
 
     setUploadingPhoto(true);
     try {
-      const userKey = getNelProfileImageKitUserKey();
+      const userKey = getNelProfileImageKitUserKey(user?.id);
       const url = await uploadLocalImageToImageKit({
         webFile: file,
         mimeType: file.type || null,

@@ -36,7 +36,7 @@ export function buildSuggestionCatalog(
 
   for (const pro of professionals) {
     const id = pro.id.trim();
-    if (!id || map.has(id)) continue;
+    if (!id || map.has(id) || shouldExcludeFromPublicCatalog(id)) continue;
     map.set(id, {
       id,
       pseudo: `${pro.firstName} ${pro.lastName.charAt(0)}.`.trim(),
@@ -51,4 +51,11 @@ export function buildSuggestionCatalog(
     .sort((a, b) => b.score - a.score || a.pseudo.localeCompare(b.pseudo, "fr"))
     .map(({ score: _score, ...profile }) => profile)
     .filter((p) => !shouldExcludeFromPublicCatalog(p.id));
+}
+
+/** Exclut les comptes staff / admin d’une liste suggestions (Sheets ou dérivée). */
+export function filterPublicSuggestions(
+  profiles: readonly SuggestionProfile[],
+): SuggestionProfile[] {
+  return profiles.filter((p) => !shouldExcludeFromPublicCatalog(p.id));
 }

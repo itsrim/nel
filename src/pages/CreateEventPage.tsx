@@ -353,7 +353,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
 
       setUploadingEventCover(true);
       try {
-        const userKey = getNelProfileImageKitUserKey();
+        const userKey = getNelProfileImageKitUserKey(user?.id);
         const uploadedUrl = await uploadLocalImageToImageKitEventCover({
           webFile: file,
           mimeType: file.type || null,
