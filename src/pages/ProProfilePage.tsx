@@ -94,7 +94,7 @@ export function ProProfilePage({ id }: ProProfilePageProps) {
             onClick={closeDetail}
             aria-label={t("back")}
           >
-            <ChevronLeft size={28} color="#fff" />
+            <ChevronLeft size={28} color="currentColor" />
           </button>
           <button
             type="button"

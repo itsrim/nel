@@ -284,7 +284,7 @@ export const translations = {
 
     // ChatPage
     newGroup: "Nouveau groupe",
-    addGroup: "+ Groupe",
+    addGroup: "+ Chat",
     createGroupNamePrompt: "Nom du groupe :",
     noChatRooms: "Aucune conversation pour le moment.",
     favoriteChatConversations: "Conversations favoris",
@@ -729,6 +729,9 @@ export const translations = {
     directMessageLabel: "Message direct",
     viewEventButton: "Voir",
     messageInputHint: "Écrivez un message…",
+    chatThreadClosedHint:
+      "Cette discussion est fermée (plus de 7 jours). Consultation seule.",
+    chatThreadClosedPlaceholder: "Discussion fermée",
 
     // ChatSettingsPage - Missing strings
     chatSettingsTitle: "PARAMÈTRES DE DISCUSSION",
@@ -1510,6 +1513,9 @@ export const translations = {
     directMessageLabel: "Direct message",
     viewEventButton: "View",
     messageInputHint: "Write a message…",
+    chatThreadClosedHint:
+      "This conversation is closed (over 7 days old). Read-only.",
+    chatThreadClosedPlaceholder: "Conversation closed",
 
     // ChatSettingsPage - Missing strings
     chatSettingsTitle: "CHAT SETTINGS",

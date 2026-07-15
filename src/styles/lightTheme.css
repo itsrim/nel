@@ -9,7 +9,6 @@
 [data-theme="light"] .conv-preview,
 [data-theme="light"] .conv-time,
 [data-theme="light"] .cr-title,
-[data-theme="light"] .cr-back-btn,
 [data-theme="light"] .cr-icon-btn,
 [data-theme="light"] .cr-text,
 [data-theme="light"] .cr-author,
@@ -323,4 +322,10 @@
 
 [data-theme="light"] .pro-verify-admin-hint {
   color: var(--text-secondary);
+}
+
+[data-theme="light"] .cr-back-btn,
+[data-theme="light"] .op-back-btn,
+[data-theme="light"] .ed-back-btn {
+  color: #fbbf24;
 }

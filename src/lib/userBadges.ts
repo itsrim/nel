@@ -87,6 +87,7 @@ export function computeUserBadgeCounts(
     suggestions: input.suggestions,
     friendRequestSentProfilIds: input.friendRequestSentProfilIds,
     friendRequestRejectedProfilIds: input.friendRequestRejectedProfilIds,
+    viewerId: input.user?.id,
   });
 
   let friendsBadge = countIncomingFriendRequests(friendEntries);

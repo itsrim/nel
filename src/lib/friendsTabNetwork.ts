@@ -1,5 +1,6 @@
 import type { Friend, ProfileVisit, SuggestionProfile } from "../data/mockData";
 import { DEFAULT_AVATAR_URL } from "./avatarUrl";
+import { isSelfProfilId } from "./friendGuards";
 
 export type FriendNetworkStatus = "mutual" | "incoming" | "sent" | "rejected";
 
@@ -53,6 +54,7 @@ export function buildFriendNetworkEntries(input: {
   suggestions: SuggestionProfile[];
   friendRequestSentProfilIds: string[];
   friendRequestRejectedProfilIds: string[];
+  viewerId?: string | null;
 }): FriendNetworkEntry[] {
   const {
     friends,
@@ -60,11 +62,13 @@ export function buildFriendNetworkEntries(input: {
     suggestions,
     friendRequestSentProfilIds,
     friendRequestRejectedProfilIds,
+    viewerId,
   } = input;
 
   const map = new Map<string, FriendNetworkEntry>();
 
   const upsert = (id: string, status: FriendNetworkStatus) => {
+    if (isSelfProfilId(id, viewerId)) return;
     if (isMutualFriend(id, friends)) {
       status = "mutual";
     }

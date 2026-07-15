@@ -56,6 +56,10 @@
   cursor: pointer;
 }
 
+.ed-back-btn {
+  color: #fbbf24;
+}
+
 .ed-header-actions {
   display: flex;
   gap: 10px;

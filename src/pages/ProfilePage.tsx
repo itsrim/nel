@@ -244,6 +244,7 @@ export function ProfilePage() {
         suggestions,
         friendRequestSentProfilIds,
         friendRequestRejectedProfilIds,
+        viewerId: user?.id,
       }),
     [
       friends,
@@ -251,6 +252,7 @@ export function ProfilePage() {
       suggestions,
       friendRequestSentProfilIds,
       friendRequestRejectedProfilIds,
+      user?.id,
     ],
   );
 

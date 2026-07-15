@@ -271,7 +271,7 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
 
         <header className="op-header">
           <button type="button" className="op-back-btn" onClick={closeDetail} aria-label="Retour">
-            <ChevronLeft size={28} color="#fff" />
+            <ChevronLeft size={28} color="currentColor" />
           </button>
           <button
             type="button"

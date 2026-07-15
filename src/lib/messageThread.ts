@@ -29,6 +29,16 @@ export function isThreadActive(anchorMs: number, now = Date.now()): boolean {
   return now <= anchorMs + THREAD_TTL_MS;
 }
 
+/** Peut-on encore envoyer un message dans ce fil ? */
+export function canWriteToConversationThread(input: {
+  messages: readonly MessageThreadEntry[];
+  eventDateKey?: string;
+  now?: number;
+}): boolean {
+  const anchor = threadAnchorMs(input.messages, input.eventDateKey);
+  return isThreadActive(anchor, input.now);
+}
+
 /** Messages conservés dans la fenêtre [ancre, ancre + 7 j]. */
 export function filterMessagesInThreadWindow(
   messages: readonly MessageThreadEntry[],

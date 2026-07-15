@@ -29,7 +29,13 @@ import {
   userIsAppAdmin,
 } from "../lib/accessScope";
 import { saveHistory, buildEventDateKeyByConversationId, removeConversationFromLocalHistory, type PersistedMessage } from "../lib/chatPersistence";
+import { canWriteToConversationThread } from "../lib/messageThread";
 import { useAuthStore } from "./useAuthStore";
+import {
+  buildMutualFriendRecord,
+  filterOutSelfFriends,
+  isSelfProfilId,
+} from "../lib/friendGuards";
 import {
   syncAllViewerStateFromStore,
   syncConversationDeleteToSheets,
@@ -1695,6 +1701,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     sendFriendRequest: (profilId) => {
       const id = profilId.trim();
       if (!id) return;
+      const viewerId = useAuthStore.getState().user?.id?.trim() ?? "";
+      if (isSelfProfilId(id, viewerId)) return;
       const {
         friends,
         friendRequestSentProfilIds,
@@ -1768,6 +1776,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     acceptFriendRequest: (profilId) => {
       const id = profilId.trim();
       if (!id) return;
+      const accepterId = useAuthStore.getState().user?.id?.trim() ?? "";
+      if (isSelfProfilId(id, accepterId)) return;
       const { friends } = get();
       if (friends.find((f) => f.profilId === id)?.mutualFriend === true) return;
 
@@ -1803,7 +1813,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         }
 
         return {
-          friends: nextFriends,
+          friends: filterOutSelfFriends(nextFriends, accepterId),
           profileVisits: state.profileVisits.map((v) =>
             v.id === id ? { ...v, friendRequest: false } : v,
           ),
@@ -1823,9 +1833,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       syncViewerSettingsFromState(get());
       get().showToast("Demande acceptée.");
 
-      const accepter = useAuthStore.getState().user;
-      const accepterId = accepter?.id?.trim() ?? "";
       if (accepterId && accepterId !== id) {
+        const accepter = useAuthStore.getState().user;
         const accepterName =
           get().viewerProfileDisplayName.trim() ||
           accepter?.displayName?.trim() ||
@@ -1845,11 +1854,16 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           notification: notif,
         });
 
-        // Synchronise l'ami accepté dans le profil du destinataire (compte B)
-        // pour que sa liste d'amis se mette à jour via le polling
-        if (updated) {
-          syncFriendToSheetsForUser(updated, id);
-        }
+        const state = get();
+        const ageParsed = parseInt(state.viewerProfileAge, 10);
+        const accepterFriend = buildMutualFriendRecord({
+          profilId: accepterId,
+          name: accepterName,
+          avatarUrl: state.viewerProfileAvatarUrl,
+          age: Number.isFinite(ageParsed) ? ageParsed : null,
+          city: state.viewerProfileCity,
+        });
+        syncFriendToSheetsForUser(accepterFriend, id);
       }
     },
     rejectFriendRequest: (profilId) => {
@@ -2324,7 +2338,27 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       get().events.find((e) => e.conversationId === conversationId),
 
     sendMessage: (conversationId, text) => {
-      const { viewerProfileDisplayName: authorName } = get();
+      const trimmed = text.trim();
+      if (!trimmed) return;
+
+      const state = get();
+      const linkedEvent = state.events.find(
+        (e) => e.conversationId === conversationId,
+      );
+      const threadMessages = state.messagesByConversation[conversationId] ?? [];
+      if (
+        !canWriteToConversationThread({
+          messages: threadMessages,
+          eventDateKey: linkedEvent?.dateKey,
+        })
+      ) {
+        get().showToast(
+          "Cette discussion est fermée (plus de 7 jours). Consultation seule.",
+        );
+        return;
+      }
+
+      const { viewerProfileDisplayName: authorName } = state;
       const authorId = useAuthStore.getState().user?.id;
 
       const newMessage: PersistedMessage = {
@@ -2332,13 +2366,13 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         conversationId,
         authorId: authorId ?? useAuthStore.getState().user?.id,
         authorName,
-        text,
+        text: trimmed,
         sentAt: Date.now(),
       };
 
-      set((state) => {
+      set((s) => {
         const currentMessages =
-          state.messagesByConversation[conversationId] || [];
+          s.messagesByConversation[conversationId] || [];
         const next = {
           ...state.messagesByConversation,
           [conversationId]: [
@@ -2349,9 +2383,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         persistLocalMessages(next);
         return {
           messagesByConversation: next,
-          conversations: state.conversations.map((c) =>
+          conversations: s.conversations.map((c) =>
             c.id === conversationId
-              ? { ...c, lastMessagePreview: text, updatedAt: Date.now() }
+              ? { ...c, lastMessagePreview: trimmed, updatedAt: Date.now() }
               : c,
           ),
         };

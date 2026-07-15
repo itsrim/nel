@@ -219,7 +219,7 @@ function NewGroupStripItem() {
       onClick={handleCreateGroup}
     >
       <div className="story-new-ring">
-        <Plus size={26} color="rgba(255,255,255,0.92)" />
+        <Plus size={26} color="rgba(0,0,0,0.92)" />
       </div>
       <span className="story-label-new">{t("addGroup")}</span>
     </button>
@@ -297,7 +297,10 @@ function ListAvatar({ item }: { item: Conversation }) {
 
 function ConversationRow({ item }: { item: Conversation }) {
   const { openDetail } = useNavigationStore();
+  const { getEventByConversationId } = useMessagingStore();
+  const { t } = useTranslation();
   const isGroup = item.type === "group";
+  const linkedEvent = isGroup ? getEventByConversationId(item.id) : undefined;
   return (
     <button
       className="conv-row"
@@ -312,7 +315,13 @@ function ConversationRow({ item }: { item: Conversation }) {
           <div className="row-top">
             <div className="name-row">
               <span className="conv-name">{item.title}</span>
-              {isGroup && <span className="groupe-tag">Groupe</span>}
+              {isGroup ? (
+                linkedEvent ? (
+                  <span className="conv-type-tag sortie-tag">{t("event")}</span>
+                ) : (
+                  <span className="conv-type-tag groupe-tag">{t("chatSearchGroupTag")}</span>
+                )
+              ) : null}
             </div>
             <span className="conv-time">
               {formatRelativeTime(conversationRecency(item))}
@@ -571,16 +580,21 @@ export function ChatPage() {
   const searchableGroups = useMemo((): Extract<ChatSearchHit, { kind: "group" }>[] => {
     return accessibleConversations
       .filter((c) => c.type === "group")
-      .map((c) => ({
-        kind: "group" as const,
-        id: `group-${c.id}`,
-        conversationId: c.id,
-        label: c.title,
-        subtitle: c.lastMessagePreview?.trim() || t("chatSearchGroupTag"),
-        conversation: c,
-      }))
+      .map((c) => {
+        const linkedEvent = getEventByConversationId(c.id);
+        return {
+          kind: "group" as const,
+          id: `group-${c.id}`,
+          conversationId: c.id,
+          label: c.title,
+          subtitle:
+            c.lastMessagePreview?.trim() ||
+            (linkedEvent ? t("event") : t("chatSearchGroupTag")),
+          conversation: c,
+        };
+      })
       .sort((a, b) => a.label.localeCompare(b.label, "fr"));
-  }, [accessibleConversations, t]);
+  }, [accessibleConversations, getEventByConversationId, t]);
 
   const userSearchResults = useMemo((): ChatSearchHit[] => {
     const q = foldSearch(userSearchQuery.trim());

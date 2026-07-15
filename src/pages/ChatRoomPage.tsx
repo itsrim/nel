@@ -15,6 +15,8 @@ import { buildConversationMiniSlots } from "../lib/conversationMiniSlots";
 import { buildEventGroupMembers } from "../lib/eventGroupMembers";
 import { getProfessionalById } from "../store/useProsStore";
 import { getChatSocket, setActiveChatConversationId } from "../lib/chatSync";
+import { canWriteToConversationThread } from "../lib/messageThread";
+import { ChatMessageText } from "../components/ChatMessageText";
 import "./ChatRoomPage.css";
 
 interface ChatRoomPageProps {
@@ -103,8 +105,13 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
     },
   );
 
+  const canWrite = canWriteToConversationThread({
+    messages,
+    eventDateKey: linkedEvent?.dateKey,
+  });
+
   const handleSend = () => {
-    if (!draft.trim()) return;
+    if (!canWrite || !draft.trim()) return;
     sendMessage(id, draft);
     setDraft("");
   };
@@ -233,7 +240,7 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
     <div className="chat-room-page">
       <header className="cr-header">
         <button className="cr-back-btn" onClick={closeDetail}>
-          <ChevronLeft size={28} />
+          <ChevronLeft size={28} color="currentColor" />
         </button>
 
         {canOpenHeaderTarget ? (
@@ -288,7 +295,7 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
           >
             {!m.isOwn && <span className="cr-author">{m.authorName}</span>}
             <div className="cr-bubble">
-              <p className="cr-text">{m.text}</p>
+              <ChatMessageText text={m.text} />
               <span className="cr-time">
                 {new Date(m.sentAt).toLocaleTimeString([], {
                   hour: "2-digit",
@@ -300,16 +307,24 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
         ))}
       </div>
 
-      <footer className="cr-input-bar">
-        <button className="cr-attach-btn">
+      <footer className={`cr-input-bar${canWrite ? "" : " cr-input-bar--locked"}`}>
+        {!canWrite ? (
+          <p className="cr-thread-closed-hint">{t("chatThreadClosedHint")}</p>
+        ) : null}
+        <button className="cr-attach-btn" disabled={!canWrite}>
           <ImageIcon size={24} />
         </button>
         <textarea
           className="cr-input"
-          placeholder={t("messageInputHint")}
+          placeholder={
+            canWrite ? t("messageInputHint") : t("chatThreadClosedPlaceholder")
+          }
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          disabled={!canWrite}
+          readOnly={!canWrite}
+          onChange={(e) => canWrite && setDraft(e.target.value)}
           onKeyDown={(e) =>
+            canWrite &&
             e.key === "Enter" &&
             !e.shiftKey &&
             (e.preventDefault(), handleSend())
@@ -318,7 +333,7 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
         <button
           className="cr-send-btn"
           onClick={handleSend}
-          disabled={!draft.trim()}
+          disabled={!canWrite || !draft.trim()}
         >
           <Send size={20} />
         </button>

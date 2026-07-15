@@ -424,7 +424,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             onClick={closeDetail}
             aria-label={t("backButton")}
           >
-            <ChevronLeft size={28} color="#fff" />
+            <ChevronLeft size={28} color="currentColor" />
           </button>
           <div className="ed-header-actions">
             <button

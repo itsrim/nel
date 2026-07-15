@@ -4,6 +4,7 @@ import type { UserBadgeSeenPayload } from "./userBadges";
 import { useAuthStore } from "../store/useAuthStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { resolveMessageAccessFromStores } from "./accessScope";
+import { filterOutSelfFriends } from "./friendGuards";
 import { saveHistory, buildEventDateKeyByConversationId } from "./chatPersistence";
 import {
   connectChatSocket,
@@ -222,6 +223,8 @@ function applyIncomingFriendRequest(
 function applyFriendRequestAccepted(notif: AppNotification): void {
   const accepterId = notif.inviteeProfilId?.trim();
   if (!accepterId) return;
+  const viewerId = useAuthStore.getState().user?.id?.trim() ?? "";
+  if (viewerId && accepterId === viewerId) return;
   const accepterName =
     notif.senderName?.trim() || notif.inviteeName?.trim() || "Quelqu'un";
 
@@ -257,8 +260,9 @@ function applyFriendRequestAccepted(notif: AppNotification): void {
     }
 
     const already = s.appNotifications.some((n) => n.id === notif.id);
+    const viewerId = useAuthStore.getState().user?.id?.trim() ?? "";
     return {
-      friends: nextFriends,
+      friends: filterOutSelfFriends(nextFriends, viewerId),
       friendRequestSentProfilIds: s.friendRequestSentProfilIds.filter(
         (pid) => pid !== accepterId,
       ),

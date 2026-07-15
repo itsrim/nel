@@ -18,6 +18,7 @@ import type { MockProfessional } from "../data/mockProfessionals";
 import type { SubscriptionPaymentRecord } from "./subscriptionPersistence";
 import { parseUserBadgeLastSeen } from "./userBadges";
 import { resolveAvatarUrl } from "./avatarUrl";
+import { filterOutSelfFriends, isSelfProfilId } from "./friendGuards";
 import { buildEventPublicUrl, resolveEventPublicUrl } from "./eventPublicUrl";
 import { proCoordinates } from "./proCoordinates";
 import {
@@ -1295,7 +1296,7 @@ export async function loadTabStateFromSheets(
           ...emptyLoadedState(),
           conversations: convRows.map(rowToConversation),
           suggestions: suggestionRows.map(rowToSuggestion),
-          friends: profileRows.map(rowToFriend),
+          friends: friendsFromProfileRows(profileRows, userId),
           profileVisits,
           professionals,
           hasRemoteData:
@@ -1365,10 +1366,28 @@ function dedupeConversationsById(conversations: Conversation[]): Conversation[] 
   return [...map.values()];
 }
 
+function friendsFromProfileRows(
+  rows: Record<string, string>[],
+  userId: string,
+): Friend[] {
+  const friends = rows.map(rowToFriend);
+  const filtered = filterOutSelfFriends(friends, userId);
+  if (filtered.length < friends.length) {
+    syncProfileDeleteToSheets(userId);
+  }
+  return filtered;
+}
+
 function mergeFriends(base: Friend[], remote: Friend[]): Friend[] {
-  if (remote.length === 0) return base;
-  const map = new Map(base.map((f) => [f.profilId, f]));
-  remote.forEach((f) => map.set(f.profilId, f));
+  const viewerId = currentUserId();
+  const safeBase = filterOutSelfFriends(base, viewerId);
+  if (remote.length === 0) return safeBase;
+  const safeRemote = filterOutSelfFriends(remote, viewerId);
+  if (viewerId && safeRemote.length < remote.length) {
+    syncProfileDeleteToSheets(viewerId);
+  }
+  const map = new Map(safeBase.map((f) => [f.profilId, f]));
+  safeRemote.forEach((f) => map.set(f.profilId, f));
   return [...map.values()];
 }
 
@@ -1479,7 +1498,7 @@ export async function loadAppStateFromSheets(
     {
       events: eventRows.map(rowToEvent),
       conversations: convRows.map(rowToConversation),
-      friends: profileRows.map(rowToFriend),
+      friends: friendsFromProfileRows(profileRows, userId),
       suggestions: suggestionRows.map(rowToSuggestion),
       profileVisits: visitRows.map(rowToVisit),
       appNotifications: notificationsFromUserRows(notifRows),
@@ -1773,7 +1792,7 @@ export function syncMessageThreadDeleteToSheets(conversationId: string): void {
 
 export function syncFriendToSheets(friend: Friend): void {
   const userId = currentUserId();
-  if (!userId) return;
+  if (!userId || isSelfProfilId(friend.profilId, userId)) return;
   syncLater(() =>
     upsertSheetRow("profiles", friend.profilId, friendToRow(friend, userId), "id"),
   );
@@ -1781,7 +1800,7 @@ export function syncFriendToSheets(friend: Friend): void {
 
 export function syncFriendToSheetsForUser(friend: Friend, targetUserId: string): void {
   const uid = targetUserId.trim();
-  if (!uid) return;
+  if (!uid || isSelfProfilId(friend.profilId, uid)) return;
   syncLater(() =>
     upsertSheetRow("profiles", friend.profilId, friendToRow(friend, uid), "id"),
   );
