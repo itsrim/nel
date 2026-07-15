@@ -8,6 +8,7 @@ import type {
   AppNotification,
   Conversation,
   Event,
+  EventReminder,
   Friend,
   GroupMember,
   ProfileVisit,
@@ -15,19 +16,23 @@ import type {
 } from "../data/mockData";
 import type { MockProfessional } from "../data/mockProfessionals";
 import type { SubscriptionPaymentRecord } from "./subscriptionPersistence";
+import { parseUserBadgeLastSeen } from "./userBadges";
 import { resolveAvatarUrl } from "./avatarUrl";
+import { filterOutSelfFriends, isSelfProfilId } from "./friendGuards";
 import { buildEventPublicUrl, resolveEventPublicUrl } from "./eventPublicUrl";
 import { proCoordinates } from "./proCoordinates";
 import {
   isGoogleSheetsReadConfigured,
   isGoogleSheetsWriteConfigured,
   sheetGet,
+  sheetMutate,
   sheetPost,
   sheetPut,
   type SheetTableName,
 } from "./googleSheetsDb";
 import {
   boolFromSheet,
+  isDeletedFromSheet,
   boolToSheet,
   jsonFromSheet,
   jsonToSheet,
@@ -42,11 +47,64 @@ import {
   writeAdminAppInfo,
   type AdminAppInfo,
 } from "./adminAppInfo";
-import { ADMIN_USER_ID } from "./accountRoles";
+import { ADMIN_USER_ID, shouldExcludeFromPublicCatalog } from "./accountRoles";
+import { buildSuggestionCatalog, filterPublicSuggestions } from "./suggestionCatalog";
+import { shouldSkipEmailVerificationFromSheets } from "./sheetAuth";
+import {
+  isActiveProMemberRow,
+  mergeProfessionalsCatalog,
+  viewerSettingsRowToProfessional,
+} from "./proDirectory";
+import {
+  buildNotificationInboxRow,
+  isNotificationInboxRow,
+  mergeNotificationInbox,
+  parseNotificationInbox,
+} from "./notificationInbox";
+import {
+  filterOutModerationDeletedConversations,
+  isModerationDeletedConversation,
+} from "./moderationTombstones";
 
 const LS_CACHE_PREFIX = "nel_sheet_cache_";
 const GLOBAL_CACHE_USER = "__global__";
 const syncedRowKeys = new Set<string>();
+
+/** Override optimiste amitié : survit aux GET Sheets tant que le remote n’a pas catch-up. */
+const PENDING_FRIEND_MUTUAL_TTL_MS = 120_000;
+const pendingFriendMutual = new Map<string, { value: boolean; at: number }>();
+const pendingVisitFriendRequest = new Map<string, { value: boolean; at: number }>();
+
+export function notePendingFriendMutual(
+  profilId: string,
+  mutual: boolean,
+): void {
+  const id = profilId.trim();
+  if (!id) return;
+  pendingFriendMutual.set(id, { value: mutual, at: Date.now() });
+}
+
+export function notePendingVisitFriendRequest(
+  profilId: string,
+  friendRequest: boolean,
+): void {
+  const id = profilId.trim();
+  if (!id) return;
+  pendingVisitFriendRequest.set(id, { value: friendRequest, at: Date.now() });
+}
+
+function readPendingFlag(
+  map: Map<string, { value: boolean; at: number }>,
+  id: string,
+): boolean | undefined {
+  const entry = map.get(id);
+  if (!entry) return undefined;
+  if (Date.now() - entry.at > PENDING_FRIEND_MUTUAL_TTL_MS) {
+    map.delete(id);
+    return undefined;
+  }
+  return entry.value;
+}
 
 function cacheKey(table: SheetTableName, userId: string): string {
   return `${LS_CACHE_PREFIX}${table}_${userId}`;
@@ -84,14 +142,119 @@ function loadLocalCache(table: SheetTableName, userId: string): Record<string, s
 }
 
 function rowsForUser(rows: Record<string, string>[], userId: string): Record<string, string>[] {
-  return rows.filter((r) => r.userId === userId && r.deleted !== "true");
+  return rows.filter((r) => r.userId === userId && !isDeletedFromSheet(r.deleted));
 }
 
-async function readTable(table: SheetTableName, userId: string): Promise<Record<string, string>[]> {
+/** Conserve readAt du cache local si le GET Sheets ne l’a pas encore (sync en cours ou colonne absente). */
+function mergeReadAtRowsFromCache(
+  fresh: Record<string, string>[],
+  cached: Record<string, string>[],
+): Record<string, string>[] {
+  if (cached.length === 0) return fresh;
+  const cacheById = new Map(cached.map((r) => [r.id, r]));
+  return fresh.map((row) => {
+    const cachedRow = cacheById.get(row.id);
+    if (!cachedRow) return row;
+    const freshRead = row.readAt?.trim() ?? "";
+    const cachedRead = cachedRow.readAt?.trim() ?? "";
+    if (!cachedRead) return row;
+    if (!freshRead) return { ...row, readAt: cachedRead };
+    const merged = Math.max(numFromSheet(freshRead, 0), numFromSheet(cachedRead, 0));
+    return merged > 0 ? { ...row, readAt: String(merged) } : row;
+  });
+}
+
+function mergeNotifications(
+  base: AppNotification[],
+  remote: AppNotification[],
+): AppNotification[] {
+  if (remote.length === 0) return base;
+  const map = new Map(base.map((n) => [n.id, n]));
+  remote.forEach((remoteN) => {
+    const prev = map.get(remoteN.id);
+    if (!prev) {
+      map.set(remoteN.id, remoteN);
+      return;
+    }
+    const readAt =
+      prev.readAt != null && remoteN.readAt != null
+        ? Math.max(prev.readAt, remoteN.readAt)
+        : prev.readAt ?? remoteN.readAt;
+    map.set(remoteN.id, { ...remoteN, readAt });
+  });
+  return [...map.values()];
+}
+
+function mergeEventReminders(
+  base: EventReminder[],
+  remote: EventReminder[],
+): EventReminder[] {
+  if (remote.length === 0) return base;
+  const map = new Map(base.map((r) => [r.id, r]));
+  remote.forEach((remoteR) => {
+    const prev = map.get(remoteR.id);
+    if (!prev) {
+      map.set(remoteR.id, remoteR);
+      return;
+    }
+    const readAt =
+      prev.readAt != null && remoteR.readAt != null
+        ? Math.max(prev.readAt, remoteR.readAt)
+        : prev.readAt ?? remoteR.readAt;
+    map.set(remoteR.id, { ...remoteR, readAt });
+  });
+  return [...map.values()];
+}
+
+/** Catalogue partagé (ex. `events`) : toutes les lignes actives, pas filtrées par userId. */
+async function readSharedCatalogTable(
+  table: SheetTableName,
+): Promise<Record<string, string>[]> {
+  const markActiveRows = (rows: Record<string, string>[]) => {
+    rows.forEach((r) => {
+      const id = r.id ?? r.profilId ?? r.userId;
+      if (id) markSynced(table, id);
+    });
+  };
+
   if (isGoogleSheetsReadConfigured()) {
     try {
       const rows = await sheetGet<Record<string, string>>(table);
-      const mine = rowsForUser(rows, userId);
+      const active = rows.filter((r) => !isDeletedFromSheet(r.deleted));
+      saveLocalCache(table, GLOBAL_CACHE_USER, active);
+      markActiveRows(active);
+      return active;
+    } catch (err) {
+      console.error(`Sheets read [${table}] catalog failed, fallback cache:`, err);
+    }
+  }
+
+  const cached = loadLocalCache(table, GLOBAL_CACHE_USER);
+  markActiveRows(cached);
+  return cached;
+}
+
+function patchSharedCatalogCache(
+  table: SheetTableName,
+  idColumn: string,
+  fullRow: Record<string, string>,
+): void {
+  const cached = loadLocalCache(table, GLOBAL_CACHE_USER);
+  const idx = cached.findIndex((r) => r[idColumn] === fullRow[idColumn]);
+  const next =
+    idx >= 0 ? cached.map((r, i) => (i === idx ? fullRow : r)) : [...cached, fullRow];
+  saveLocalCache(table, GLOBAL_CACHE_USER, next);
+}
+
+async function readTable(table: SheetTableName, userId: string): Promise<Record<string, string>[]> {
+  const cached = loadLocalCache(table, userId);
+  if (isGoogleSheetsReadConfigured()) {
+    try {
+      const rows = await sheetGet<Record<string, string>>(table);
+      let mine = rowsForUser(rows, userId);
+      if (table === "notifications" || table === "event_reminders") {
+        mine = mergeReadAtRowsFromCache(mine, cached);
+      }
       saveLocalCache(table, userId, mine);
       mine.forEach((r) => {
         const id = r.id ?? r.profilId ?? r.userId;
@@ -102,7 +265,6 @@ async function readTable(table: SheetTableName, userId: string): Promise<Record<
       console.error(`Sheets read [${table}] failed, fallback cache:`, err);
     }
   }
-  const cached = loadLocalCache(table, userId);
   cached.forEach((r) => {
     const id = r.id ?? r.profilId ?? r.userId;
     if (id) markSynced(table, id);
@@ -126,22 +288,37 @@ export async function upsertSheetRow(
     const next = idx >= 0 ? cached.map((r, i) => (i === idx ? fullRow : r)) : [...cached, fullRow];
     saveLocalCache(table, cacheUserId, next);
   }
+  if (table === "events") {
+    patchSharedCatalogCache(table, idColumn, fullRow);
+  }
 
   if (!isGoogleSheetsWriteConfigured()) return;
 
+  const writePost = () => sheetPost(table, fullRow);
+  const writePut = () => sheetPut(table, id, fullRow);
+
   try {
     if (isSynced(table, id)) {
-      await sheetPut(table, id, fullRow);
+      await writePut();
       return;
     }
-    await sheetPost(table, fullRow);
+    const postResult = await sheetMutate("post", table, { row: fullRow });
+    if (postResult.skipped) {
+      await writePut();
+    }
     markSynced(table, id);
-  } catch (postErr) {
+  } catch (firstErr) {
     try {
-      await sheetPut(table, id, fullRow);
+      await writePost();
       markSynced(table, id);
-    } catch (putErr) {
-      console.error(`Sheets upsert [${table}] ${id}:`, postErr, putErr);
+    } catch (postErr) {
+      try {
+        await writePut();
+        markSynced(table, id);
+      } catch (putErr) {
+        console.error(`Sheets upsert [${table}] ${id}:`, firstErr, postErr, putErr);
+        throw putErr;
+      }
     }
   }
 }
@@ -195,7 +372,15 @@ export function eventToRow(event: Event, userId: string): Record<string, string>
     karmaOrganizerDenied: boolToSheet(event.karmaOrganizerDenied),
     organizerRatingsJson: jsonToSheet(event.organizerRatings ?? []),
     karmaJoinPaidProfilIdsJson: jsonToSheet(event.karmaJoinPaidProfilIds ?? []),
+    registeredParticipantIdsJson: jsonToSheet(event.registeredParticipantIds ?? []),
+    registeredParticipantMetaJson: jsonToSheet(event.registeredParticipantMeta ?? {}),
     karmaOrganizePaid: boolToSheet(event.karmaOrganizePaid),
+    joinTipEnabled: boolToSheet(event.joinTipEnabled),
+    joinTipAmount:
+      event.joinTipEnabled && event.joinTipAmount
+        ? String(event.joinTipAmount)
+        : "",
+    joinTipPaidProfilIdsJson: jsonToSheet(event.joinTipPaidProfilIds ?? []),
     deleted: "false",
   };
 }
@@ -237,7 +422,21 @@ export function rowToEvent(row: Record<string, string>): Event {
     karmaOrganizerDenied: boolFromSheet(row.karmaOrganizerDenied),
     organizerRatings: jsonFromSheet(row.organizerRatingsJson, []),
     karmaJoinPaidProfilIds: jsonFromSheet(row.karmaJoinPaidProfilIdsJson, []),
+    registeredParticipantIds: jsonFromSheet(row.registeredParticipantIdsJson, []),
+    registeredParticipantMeta: jsonFromSheet<
+      Record<string, { name?: string; imageUrl?: string }>
+    >(row.registeredParticipantMetaJson, {}),
     karmaOrganizePaid: boolFromSheet(row.karmaOrganizePaid),
+    joinTipEnabled: boolFromSheet(row.joinTipEnabled),
+    joinTipAmount: (() => {
+      const raw = row.joinTipAmount?.trim();
+      if (!raw) return undefined;
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return undefined;
+      return Math.min(5, Math.max(1, Math.round(n)));
+    })(),
+    joinTipPaidProfilIds: jsonFromSheet(row.joinTipPaidProfilIdsJson, []),
+    sheetOwnerUserId: row.userId?.trim() || undefined,
   };
 }
 
@@ -392,7 +591,7 @@ function rowToProfessional(row: Record<string, string>): MockProfessional {
     mapY,
     lat: str(row.lat) ? numFromSheet(row.lat) : undefined,
     lng: str(row.lng) ? numFromSheet(row.lng) : undefined,
-    verified: row.verified != null ? boolFromSheet(row.verified) : undefined,
+    verified: row.verified != null ? boolFromSheet(row.verified) : false,
     websiteUrl: str(row.websiteUrl) || undefined,
     socialUrl: str(row.socialUrl) || undefined,
     phone: str(row.phone) || undefined,
@@ -455,10 +654,24 @@ export function rowToVisit(row: Record<string, string>): ProfileVisit {
 
 // ── Viewer settings ────────────────────────────────────────────────────────
 
+/** Colonnes auth de viewer_settings (après emailVerified). */
+export interface ViewerSettingsAuthFields {
+  passwordHash?: string;
+  verificationToken?: string;
+  verificationExpiresAt?: number | null;
+  passwordResetToken?: string;
+  passwordResetExpiresAt?: number | null;
+}
+
 export interface ViewerSettingsRow {
   userId: string;
   email: string;
   emailVerified: boolean;
+  passwordHash?: string;
+  verificationToken?: string;
+  verificationExpiresAt?: number | null;
+  passwordResetToken?: string;
+  passwordResetExpiresAt?: number | null;
   avatarUrl: string;
   displayName: string;
   isPro: boolean;
@@ -474,6 +687,8 @@ export interface ViewerSettingsRow {
   moderationHiddenProfilIdsJson: string;
   badgesJson?: string;
   profileBadgeSuggestionsJson?: string;
+  userBadgeCountsJson?: string;
+  userBadgeLastSeenJson?: string;
   signupIp?: string;
   lastLoginIp?: string;
 }
@@ -514,6 +729,26 @@ function subscriptionPaymentToRowFields(
   };
 }
 
+/** N’inclut que les champs auth explicitement fournis (évite d’effacer passwordHash / tokens au sync profil). */
+function authFieldsToRow(auth?: ViewerSettingsAuthFields): Record<string, string> {
+  if (!auth) return {};
+  const row: Record<string, string> = {};
+  if (auth.passwordHash !== undefined) row.passwordHash = str(auth.passwordHash);
+  if (auth.verificationToken !== undefined) row.verificationToken = str(auth.verificationToken);
+  if (auth.verificationExpiresAt !== undefined) {
+    row.verificationExpiresAt =
+      auth.verificationExpiresAt != null ? String(auth.verificationExpiresAt) : "";
+  }
+  if (auth.passwordResetToken !== undefined) {
+    row.passwordResetToken = str(auth.passwordResetToken);
+  }
+  if (auth.passwordResetExpiresAt !== undefined) {
+    row.passwordResetExpiresAt =
+      auth.passwordResetExpiresAt != null ? String(auth.passwordResetExpiresAt) : "";
+  }
+  return row;
+}
+
 export function viewerSettingsToRow(
   userId: string,
   data: {
@@ -521,6 +756,9 @@ export function viewerSettingsToRow(
     emailVerified?: boolean;
     avatarUrl: string;
     displayName: string;
+    age?: string;
+    bio?: string;
+    language?: string;
     isPro: boolean;
     isPremium?: boolean;
     premiumExpiresAt?: number | null;
@@ -534,6 +772,7 @@ export function viewerSettingsToRow(
     proAddress?: string;
     proLat?: number | null;
     proLng?: number | null;
+    proCategory?: string;
     karma?: number;
     friendRequestSentProfilIds: string[];
     friendRequestRejectedProfilIds: string[];
@@ -543,17 +782,23 @@ export function viewerSettingsToRow(
     moderationHiddenProfilIds: string[];
     viewerProfileBadges?: string[];
     profileBadgeSuggestions?: string[];
+    userBadgeCountsJson?: string;
+    userBadgeLastSeenJson?: string;
     signupIp?: string;
     lastLoginIp?: string;
-  },
+  } & ViewerSettingsAuthFields,
 ): Record<string, string> {
   return {
     userId,
     id: userId,
     email: data.email ?? "",
     emailVerified: boolToSheet(data.emailVerified),
+    ...authFieldsToRow(data),
     avatarUrl: data.avatarUrl,
     displayName: data.displayName,
+    age: str(data.age),
+    bio: str(data.bio),
+    language: str(data.language),
     isPro: boolToSheet(data.isPro),
     isPremium: boolToSheet(data.isPremium),
     premiumExpiresAt:
@@ -568,6 +813,7 @@ export function viewerSettingsToRow(
     proAddress: str(data.proAddress),
     proLat: data.proLat != null ? String(data.proLat) : "",
     proLng: data.proLng != null ? String(data.proLng) : "",
+    proCategory: str(data.proCategory),
     karma: data.karma != null ? String(data.karma) : "",
     friendRequestSentJson: jsonToSheet(data.friendRequestSentProfilIds),
     friendRequestRejectedJson: jsonToSheet(data.friendRequestRejectedProfilIds),
@@ -577,6 +823,8 @@ export function viewerSettingsToRow(
     moderationHiddenProfilIdsJson: jsonToSheet(data.moderationHiddenProfilIds),
     badgesJson: jsonToSheet(data.viewerProfileBadges ?? []),
     profileBadgeSuggestionsJson: jsonToSheet(data.profileBadgeSuggestions ?? []),
+    userBadgeCountsJson: str(data.userBadgeCountsJson),
+    userBadgeLastSeenJson: str(data.userBadgeLastSeenJson),
     ...(data.signupIp != null ? { signupIp: str(data.signupIp) } : {}),
     ...(data.lastLoginIp != null ? { lastLoginIp: str(data.lastLoginIp) } : {}),
     deleted: "false",
@@ -598,11 +846,13 @@ export function notificationToRow(n: AppNotification, userId: string): Record<st
     conversationId: n.conversationId ?? "",
     senderName: n.senderName ?? "",
     messagePreview: n.messagePreview ?? "",
+    readAt: n.readAt != null ? String(n.readAt) : "",
     deleted: "false",
   };
 }
 
 export function rowToNotification(row: Record<string, string>): AppNotification {
+  const readRaw = row.readAt?.trim();
   return {
     id: row.id,
     createdAt: numFromSheet(row.createdAt, Date.now()),
@@ -614,7 +864,65 @@ export function rowToNotification(row: Record<string, string>): AppNotification 
     conversationId: row.conversationId?.trim() || undefined,
     senderName: row.senderName?.trim() || undefined,
     messagePreview: row.messagePreview?.trim() || undefined,
+    readAt: readRaw ? numFromSheet(row.readAt, 0) : undefined,
   };
+}
+
+/** Boîte JSON (kind=inbox) + lignes legacy encore présentes. */
+export function notificationsFromUserRows(
+  rows: Record<string, string>[],
+): AppNotification[] {
+  const active = rows.filter((r) => !isDeletedFromSheet(r.deleted));
+  const inboxRow = active.find((r) => isNotificationInboxRow(r));
+  const fromInbox = inboxRow
+    ? parseNotificationInbox(inboxRow.messagePreview ?? "")
+    : [];
+  const legacy = active
+    .filter((r) => !isNotificationInboxRow(r))
+    .map(rowToNotification)
+    .filter((n) => n.readAt == null);
+  return mergeNotificationInbox(fromInbox, legacy);
+}
+
+async function loadNotificationsForUser(userId: string): Promise<AppNotification[]> {
+  const uid = userId.trim();
+  if (!uid) return [];
+  try {
+    const rows = await sheetGet<Record<string, string>>("notifications");
+    return notificationsFromUserRows(rows.filter((r) => r.userId === uid));
+  } catch (err) {
+    console.error("loadNotificationsForUser failed:", err);
+    const cached = loadLocalCache("notifications", uid);
+    return notificationsFromUserRows(cached);
+  }
+}
+
+async function softDeleteLegacyNotificationRows(userId: string): Promise<void> {
+  const uid = userId.trim();
+  if (!uid || !isGoogleSheetsWriteConfigured()) return;
+  try {
+    const rows = await sheetGet<Record<string, string>>("notifications");
+    for (const row of rows) {
+      if (row.userId !== uid || isNotificationInboxRow(row)) continue;
+      if (isDeletedFromSheet(row.deleted)) continue;
+      const id = row.id?.trim();
+      if (!id) continue;
+      await softDeleteSheetRow("notifications", uid, id);
+    }
+  } catch (err) {
+    console.error("softDeleteLegacyNotificationRows failed:", err);
+  }
+}
+
+async function writeNotificationInbox(
+  userId: string,
+  notifications: AppNotification[],
+): Promise<void> {
+  const uid = userId.trim();
+  if (!uid) return;
+  const row = buildNotificationInboxRow(uid, notifications);
+  await upsertSheetRow("notifications", uid, row);
+  await softDeleteLegacyNotificationRows(uid);
 }
 
 export function reportToRow(r: AdminReportEntry, userId: string): Record<string, string> {
@@ -640,6 +948,33 @@ export function rowToReport(row: Record<string, string>): AdminReportEntry {
     subjectLabel: row.subjectLabel,
     explanation: row.explanation,
     read: boolFromSheet(row.read),
+  };
+}
+
+export function eventReminderToRow(r: EventReminder, userId: string): Record<string, string> {
+  return {
+    userId,
+    id: r.id,
+    eventId: r.eventId,
+    eventTitle: r.eventTitle,
+    participantId: r.participantId,
+    participantName: r.participantName,
+    sentAt: String(r.sentAt),
+    readAt: r.readAt != null ? String(r.readAt) : "",
+    deleted: "false",
+  };
+}
+
+export function rowToEventReminder(row: Record<string, string>): EventReminder {
+  const readRaw = str(row.readAt);
+  return {
+    id: row.id,
+    eventId: row.eventId,
+    eventTitle: row.eventTitle ?? "",
+    participantId: row.participantId ?? "",
+    participantName: row.participantName ?? "",
+    sentAt: numFromSheet(row.sentAt, Date.now()),
+    readAt: readRaw !== "" ? numFromSheet(row.readAt, 0) : undefined,
   };
 }
 
@@ -683,7 +1018,17 @@ function cacheGlobalAppConfigRow(row: Record<string, string>): void {
   const next =
     idx >= 0 ? cached.map((r, i) => (i === idx ? row : r)) : [...cached, row];
   saveLocalCache("app_config", GLOBAL_CACHE_USER, next);
-  markSynced("app_config", APP_CONFIG_GLOBAL_ID);
+}
+
+export async function persistAppConfigToSheets(info: AdminAppInfo): Promise<void> {
+  const row = adminAppInfoToRow(info);
+  cacheGlobalAppConfigRow(row);
+  if (!isGoogleSheetsWriteConfigured()) return;
+  await upsertSheetRow("app_config", APP_CONFIG_GLOBAL_ID, row);
+}
+
+export function syncAppConfigToSheets(info: AdminAppInfo): void {
+  syncLater(() => persistAppConfigToSheets(info));
 }
 
 export async function loadAdminAppInfoFromSheets(): Promise<AdminAppInfo | null> {
@@ -707,13 +1052,6 @@ export async function hydrateAdminAppInfoFromSheets(): Promise<AdminAppInfo> {
   }
 }
 
-export function syncAppConfigToSheets(info: AdminAppInfo): void {
-  const row = adminAppInfoToRow(info);
-  cacheGlobalAppConfigRow(row);
-  if (!isGoogleSheetsWriteConfigured()) return;
-  syncLater(() => upsertSheetRow("app_config", APP_CONFIG_GLOBAL_ID, row));
-}
-
 // ── Load / sync API ────────────────────────────────────────────────────────
 
 export interface LoadedAppSheetState {
@@ -724,13 +1062,19 @@ export interface LoadedAppSheetState {
   profileVisits: ProfileVisit[];
   appNotifications: AppNotification[];
   adminReports: AdminReportEntry[];
+  eventReminders: EventReminder[];
   professionals: MockProfessional[];
   adminAppInfo?: AdminAppInfo;
+  /** Suggestions dérivées de tous les comptes viewer_settings (si suggestions/profiles vides). */
+  registeredMemberSuggestions?: SuggestionProfile[];
   viewerSettings?: {
     email: string;
     emailVerified: boolean;
     avatarUrl: string;
     displayName: string;
+    age?: string;
+    bio?: string;
+    language?: string;
     isPro: boolean;
     isPremium?: boolean;
     premiumExpiresAt?: number | null;
@@ -744,6 +1088,7 @@ export interface LoadedAppSheetState {
     proAddress?: string;
     proLat?: number | null;
     proLng?: number | null;
+    proCategory?: string;
     karma?: number;
     friendRequestSentProfilIds: string[];
     friendRequestRejectedProfilIds: string[];
@@ -753,6 +1098,8 @@ export interface LoadedAppSheetState {
     moderationHiddenProfilIds: string[];
     viewerProfileBadges?: string[];
     profileBadgeSuggestions?: string[];
+    userBadgeCountsJson?: string;
+    userBadgeLastSeenJson?: string;
     signupIp?: string;
     lastLoginIp?: string;
   };
@@ -766,6 +1113,285 @@ export async function loadViewerSettingsRow(
   return rows[0];
 }
 
+function parseViewerSettingsFromRow(
+  viewerRow: Record<string, string>,
+): NonNullable<LoadedAppSheetState["viewerSettings"]> {
+  return {
+    email: viewerRow.email ?? "",
+    emailVerified: boolFromSheet(viewerRow.emailVerified),
+    avatarUrl: viewerRow.avatarUrl ?? "",
+    displayName: viewerRow.displayName ?? "",
+    age: str(viewerRow.age) || undefined,
+    bio: str(viewerRow.bio) || undefined,
+    language: str(viewerRow.language) || undefined,
+    isPro: boolFromSheet(viewerRow.isPro),
+    isPremium: boolFromSheet(viewerRow.isPremium),
+    premiumExpiresAt: viewerRow.premiumExpiresAt
+      ? numFromSheet(viewerRow.premiumExpiresAt, 0) || null
+      : null,
+    proExpiresAt: viewerRow.proExpiresAt
+      ? numFromSheet(viewerRow.proExpiresAt, 0) || null
+      : null,
+    premiumSubscriptionPayment: subscriptionPaymentFromRow(viewerRow, "premium"),
+    proSubscriptionPayment: subscriptionPaymentFromRow(viewerRow, "pro"),
+    city: str(viewerRow.city) || undefined,
+    websiteUrl: str(viewerRow.websiteUrl) || undefined,
+    socialUrl: str(viewerRow.socialUrl) || undefined,
+    phone: str(viewerRow.phone) || undefined,
+    proAddress: str(viewerRow.proAddress) || undefined,
+    proLat: str(viewerRow.proLat) ? numFromSheet(viewerRow.proLat) : null,
+    proLng: str(viewerRow.proLng) ? numFromSheet(viewerRow.proLng) : null,
+    proCategory: str(viewerRow.proCategory) || undefined,
+    karma:
+      str(viewerRow.karma) !== "" ? numFromSheet(viewerRow.karma, 5) : undefined,
+    friendRequestSentProfilIds: jsonFromSheet(viewerRow.friendRequestSentJson, []),
+    friendRequestRejectedProfilIds: jsonFromSheet(
+      viewerRow.friendRequestRejectedJson,
+      [],
+    ),
+    friendRequestDailySentDateKey:
+      str(viewerRow.friendRequestDailySentDateKey) || null,
+    favoriteConversationIds: jsonFromSheet(viewerRow.favoriteConversationIdsJson, []),
+    moderationHiddenEventIds: jsonFromSheet(viewerRow.moderationHiddenEventIdsJson, []),
+    moderationHiddenProfilIds: jsonFromSheet(
+      viewerRow.moderationHiddenProfilIdsJson,
+      [],
+    ),
+    viewerProfileBadges: jsonFromSheet(viewerRow.badgesJson, []),
+    profileBadgeSuggestions: jsonFromSheet(viewerRow.profileBadgeSuggestionsJson, []),
+    userBadgeCountsJson: str(viewerRow.userBadgeCountsJson) || undefined,
+    userBadgeLastSeenJson: str(viewerRow.userBadgeLastSeenJson) || undefined,
+    signupIp: str(viewerRow.signupIp) || undefined,
+    lastLoginIp: str(viewerRow.lastLoginIp) || undefined,
+  };
+}
+
+function emptyLoadedState(): LoadedAppSheetState {
+  return {
+    events: [],
+    conversations: [],
+    friends: [],
+    suggestions: [],
+    profileVisits: [],
+    appNotifications: [],
+    adminReports: [],
+    eventReminders: [],
+    professionals: [],
+    hasRemoteData: false,
+  };
+}
+
+/** Onglets footer → GET Sheets ciblé à chaque navigation. */
+export type SheetsTabId = "chat" | "events" | "pro" | "profile";
+
+async function readScopedUserTable(
+  table: SheetTableName,
+  userId: string,
+  isAdmin: boolean,
+): Promise<Record<string, string>[]> {
+  return isAdmin ? readGlobalTable(table) : readTable(table, userId);
+}
+
+function isEligibleRegisteredMember(
+  row: Record<string, string>,
+  excludeUserId: string,
+  skipEmailVerification: boolean,
+): boolean {
+  const id = row.id?.trim() || row.userId?.trim();
+  if (!id || id === excludeUserId) return false;
+  if (shouldExcludeFromPublicCatalog(id, row.email)) return false;
+  if (isDeletedFromSheet(row.deleted)) return false;
+  const label = row.displayName?.trim() || row.email?.trim();
+  if (!label) return false;
+  if (skipEmailVerification || boolFromSheet(row.emailVerified)) return true;
+  return !!row.passwordHash?.trim();
+}
+
+function viewerSettingsRowToFriend(row: Record<string, string>): Friend {
+  const id = row.id?.trim() || row.userId?.trim() || "";
+  const name = row.displayName?.trim() || row.email?.trim() || id;
+  const ageRaw = row.age?.trim();
+  return {
+    profilId: id,
+    name,
+    age: ageRaw ? numFromSheet(ageRaw) : null,
+    city: row.city?.trim() ?? "",
+    imageUrl: resolveAvatarUrl(row.avatarUrl),
+    eventsInCommon: 0,
+    mainChatConversationId: "",
+    pseudo: name.split(/\s+/)[0] || undefined,
+    verified: boolFromSheet(row.emailVerified),
+    isPro: boolFromSheet(row.isPro),
+  };
+}
+
+/** Annuaire découverte : tous les inscrits actifs dans viewer_settings (hors soi). */
+export async function loadRegisteredMemberSuggestions(
+  excludeUserId: string,
+  profileVisits: ProfileVisit[],
+  professionals: MockProfessional[],
+): Promise<SuggestionProfile[]> {
+  if (!isGoogleSheetsReadConfigured()) return [];
+  try {
+    const [rows, skipEmailVerification] = await Promise.all([
+      sheetGet<Record<string, string>>("viewer_settings"),
+      shouldSkipEmailVerificationFromSheets(),
+    ]);
+    const friends = rows
+      .filter((row) =>
+        isEligibleRegisteredMember(row, excludeUserId, skipEmailVerification),
+      )
+      .map(viewerSettingsRowToFriend);
+    return buildSuggestionCatalog(friends, profileVisits, professionals);
+  } catch (err) {
+    console.error("loadRegisteredMemberSuggestions failed:", err);
+    return [];
+  }
+}
+
+async function attachRegisteredMemberSuggestions(
+  state: LoadedAppSheetState,
+  excludeUserId: string,
+): Promise<LoadedAppSheetState> {
+  if (state.suggestions.length > 0) return state;
+  const registeredMemberSuggestions = await loadRegisteredMemberSuggestions(
+    excludeUserId,
+    state.profileVisits,
+    state.professionals,
+  );
+  if (registeredMemberSuggestions.length === 0) return state;
+  return {
+    ...state,
+    registeredMemberSuggestions,
+    hasRemoteData: true,
+  };
+}
+
+async function loadMergedProfessionalsCatalog(
+  excludeUserId: string,
+): Promise<MockProfessional[]> {
+  if (!isGoogleSheetsReadConfigured()) return [];
+  try {
+    const [professionalRows, viewerRows, skipEmailVerification] = await Promise.all([
+      readGlobalTable("professionals"),
+      sheetGet<Record<string, string>>("viewer_settings"),
+      shouldSkipEmailVerificationFromSheets(),
+    ]);
+    const emailByUserId = new Map<string, string>();
+    for (const row of viewerRows) {
+      const id = row.id?.trim() || row.userId?.trim();
+      const email = row.email?.trim().toLowerCase();
+      if (id && email) emailByUserId.set(id, email);
+    }
+    const memberPros = viewerRows
+      .filter((row) => {
+        const id = row.id?.trim() || row.userId?.trim();
+        return (
+          id &&
+          id !== excludeUserId &&
+          isActiveProMemberRow(row, skipEmailVerification)
+        );
+      })
+      .map(viewerSettingsRowToProfessional)
+      .filter((p): p is MockProfessional => p != null);
+    const tablePros = professionalRows
+      .map(rowToProfessional)
+      .filter(
+        (p) => !shouldExcludeFromPublicCatalog(p.id, emailByUserId.get(p.id)),
+      );
+    const merged = mergeProfessionalsCatalog(tablePros, memberPros, emailByUserId);
+    const tableIds = new Set(tablePros.map((p) => p.id));
+    for (const pro of memberPros) {
+      if (!tableIds.has(pro.id)) {
+        syncProfessionalToSheets(pro);
+      }
+    }
+    return merged;
+  } catch (err) {
+    console.error("loadMergedProfessionalsCatalog failed:", err);
+    return [];
+  }
+}
+
+export async function loadTabStateFromSheets(
+  tab: SheetsTabId,
+  userId: string,
+  isAdmin = false,
+): Promise<LoadedAppSheetState> {
+  switch (tab) {
+    case "events": {
+      const eventRows = await readSharedCatalogTable("events");
+      return {
+        ...emptyLoadedState(),
+        events: eventRows.map(rowToEvent),
+        hasRemoteData: eventRows.length > 0,
+      };
+    }
+    case "chat": {
+      const [convRows, suggestionRows, profileRows, visitRows, professionals] =
+        await Promise.all([
+        readScopedUserTable("conversations", userId, isAdmin),
+        readScopedUserTable("suggestions", userId, isAdmin),
+        readScopedUserTable("profiles", userId, isAdmin),
+        readScopedUserTable("profile_visits", userId, isAdmin),
+        loadMergedProfessionalsCatalog(userId),
+      ]);
+      const profileVisits = visitRows.map(rowToVisit);
+      return attachRegisteredMemberSuggestions(
+        {
+          ...emptyLoadedState(),
+          conversations: convRows.map(rowToConversation),
+          suggestions: filterPublicSuggestions(suggestionRows.map(rowToSuggestion)),
+          friends: friendsFromProfileRows(profileRows, userId),
+          profileVisits,
+          professionals,
+          hasRemoteData:
+            convRows.length > 0 ||
+            suggestionRows.length > 0 ||
+            profileRows.length > 0 ||
+            visitRows.length > 0,
+        },
+        userId,
+      );
+    }
+    case "pro": {
+      const professionals = await loadMergedProfessionalsCatalog(userId);
+      return {
+        ...emptyLoadedState(),
+        professionals,
+        hasRemoteData: professionals.length > 0,
+      };
+    }
+    case "profile": {
+      const [viewerRows, notifRows, reportRows, reminderRows, appConfigRows] =
+        await Promise.all([
+        readTable("viewer_settings", userId),
+        readTable("notifications", userId),
+        readTable("admin_reports", userId),
+        readTable("event_reminders", userId),
+        readGlobalTable("app_config"),
+      ]);
+      const viewerRow = viewerRows[0];
+      const appConfigRow = appConfigRows.find((r) => r.id === APP_CONFIG_GLOBAL_ID);
+      return {
+        ...emptyLoadedState(),
+        appNotifications: notificationsFromUserRows(notifRows),
+        adminReports: reportRows.map(rowToReport),
+        eventReminders: reminderRows.map(rowToEventReminder),
+        adminAppInfo: appConfigRow ? rowToAdminAppInfo(appConfigRow) : undefined,
+        viewerSettings: viewerRow ? parseViewerSettingsFromRow(viewerRow) : undefined,
+        hasRemoteData: !!(
+          viewerRow ||
+          notifRows.length > 0 ||
+          reportRows.length > 0 ||
+          reminderRows.length > 0 ||
+          appConfigRow
+        ),
+      };
+    }
+  }
+}
+
 function mergeById<T extends { id: string }>(base: T[], remote: T[]): T[] {
   if (remote.length === 0) return base;
   const map = new Map(base.map((item) => [item.id, item]));
@@ -773,10 +1399,79 @@ function mergeById<T extends { id: string }>(base: T[], remote: T[]): T[] {
   return [...map.values()];
 }
 
+/** Plusieurs lignes Sheets (1 par userId) → une conversation par id (la plus récente). */
+function dedupeConversationsById(conversations: Conversation[]): Conversation[] {
+  const map = new Map<string, Conversation>();
+  for (const c of conversations) {
+    if (isModerationDeletedConversation(c.id)) continue;
+    const prev = map.get(c.id);
+    if (!prev || (c.updatedAt ?? 0) >= (prev.updatedAt ?? 0)) {
+      map.set(c.id, c);
+    }
+  }
+  return [...map.values()];
+}
+
+function friendsFromProfileRows(
+  rows: Record<string, string>[],
+  userId: string,
+): Friend[] {
+  const friends = rows.map(rowToFriend);
+  const filtered = filterOutSelfFriends(friends, userId);
+  if (filtered.length < friends.length) {
+    syncProfileDeleteToSheets(userId);
+  }
+  return filtered;
+}
+
 function mergeFriends(base: Friend[], remote: Friend[]): Friend[] {
+  const viewerId = currentUserId();
+  const safeBase = filterOutSelfFriends(base, viewerId);
+  if (remote.length === 0) return safeBase;
+  const safeRemote = filterOutSelfFriends(remote, viewerId);
+  if (viewerId && safeRemote.length < remote.length) {
+    syncProfileDeleteToSheets(viewerId);
+  }
+  const map = new Map(safeBase.map((f) => [f.profilId, f]));
+  safeRemote.forEach((f) => {
+    const pending = readPendingFlag(pendingFriendMutual, f.profilId);
+    if (pending !== undefined && Boolean(f.mutualFriend) !== pending) {
+      map.set(f.profilId, { ...f, mutualFriend: pending });
+      return;
+    }
+    if (pending !== undefined && Boolean(f.mutualFriend) === pending) {
+      pendingFriendMutual.delete(f.profilId);
+    }
+    map.set(f.profilId, f);
+  });
+  // Conserve les amis locaux pas encore présents côté Sheets.
+  for (const [id, pending] of pendingFriendMutual) {
+    const existing = map.get(id);
+    if (!existing) continue;
+    if (Boolean(existing.mutualFriend) !== pending.value) {
+      map.set(id, { ...existing, mutualFriend: pending.value });
+    }
+  }
+  return [...map.values()];
+}
+
+function mergeProfileVisits(
+  base: ProfileVisit[],
+  remote: ProfileVisit[],
+): ProfileVisit[] {
   if (remote.length === 0) return base;
-  const map = new Map(base.map((f) => [f.profilId, f]));
-  remote.forEach((f) => map.set(f.profilId, f));
+  const map = new Map(base.map((v) => [v.id, v]));
+  for (const visit of remote) {
+    const pending = readPendingFlag(pendingVisitFriendRequest, visit.id);
+    if (pending !== undefined && Boolean(visit.friendRequest) !== pending) {
+      map.set(visit.id, { ...visit, friendRequest: pending });
+      continue;
+    }
+    if (pending !== undefined && Boolean(visit.friendRequest) === pending) {
+      pendingVisitFriendRequest.delete(visit.id);
+    }
+    map.set(visit.id, visit);
+  }
   return [...map.values()];
 }
 
@@ -791,7 +1486,7 @@ async function readGlobalTable(table: SheetTableName): Promise<Record<string, st
   if (isGoogleSheetsReadConfigured()) {
     try {
       const rows = await sheetGet<Record<string, string>>(table);
-      const active = rows.filter((r) => r.deleted !== "true");
+      const active = rows.filter((r) => !isDeletedFromSheet(r.deleted));
       saveLocalCache(table, GLOBAL_CACHE_USER, active);
       markActiveRows(active);
       return active;
@@ -808,7 +1503,7 @@ async function readGlobalTable(table: SheetTableName): Promise<Record<string, st
 
   try {
     const rows = await sheetGet<Record<string, string>>(table);
-    const active = rows.filter((r) => r.deleted !== "true");
+    const active = rows.filter((r) => !isDeletedFromSheet(r.deleted));
     if (active.length > 0) {
       saveLocalCache(table, GLOBAL_CACHE_USER, active);
       markActiveRows(active);
@@ -834,7 +1529,10 @@ function mergeProfessionals(
   return [...map.values()];
 }
 
-export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppSheetState> {
+export async function loadAppStateFromSheets(
+  userId: string,
+  isAdmin = false,
+): Promise<LoadedAppSheetState> {
   const [
     eventRows,
     convRows,
@@ -844,17 +1542,19 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     viewerRows,
     notifRows,
     reportRows,
+    reminderRows,
     professionalRows,
     appConfigRows,
   ] = await Promise.all([
-    readTable("events", userId),
-    readTable("conversations", userId),
-    readTable("profiles", userId),
-    readTable("suggestions", userId),
-    readTable("profile_visits", userId),
+    readSharedCatalogTable("events"),
+    readScopedUserTable("conversations", userId, isAdmin),
+    readScopedUserTable("profiles", userId, isAdmin),
+    readScopedUserTable("suggestions", userId, isAdmin),
+    readScopedUserTable("profile_visits", userId, isAdmin),
     readTable("viewer_settings", userId),
     readTable("notifications", userId),
     readTable("admin_reports", userId),
+    readTable("event_reminders", userId),
     readGlobalTable("professionals"),
     readGlobalTable("app_config"),
   ]);
@@ -869,69 +1569,32 @@ export async function loadAppStateFromSheets(userId: string): Promise<LoadedAppS
     viewerRow != null ||
     notifRows.length > 0 ||
     reportRows.length > 0 ||
+    reminderRows.length > 0 ||
     professionalRows.length > 0 ||
     appConfigRows.length > 0;
 
   const appConfigRow = appConfigRows.find((r) => r.id === APP_CONFIG_GLOBAL_ID);
   const adminAppInfo = appConfigRow ? rowToAdminAppInfo(appConfigRow) : undefined;
 
-  const professionals = professionalRows.map(rowToProfessional);
+  const professionals = await loadMergedProfessionalsCatalog(userId);
 
-  return {
-    events: eventRows.map(rowToEvent),
-    conversations: convRows.map(rowToConversation),
-    friends: profileRows.map(rowToFriend),
-    suggestions: suggestionRows.map(rowToSuggestion),
-    profileVisits: visitRows.map(rowToVisit),
-    appNotifications: notifRows.map(rowToNotification),
-    adminReports: reportRows.map(rowToReport),
-    professionals,
-    adminAppInfo,
-    viewerSettings: viewerRow
-      ? {
-          email: viewerRow.email ?? "",
-          emailVerified: boolFromSheet(viewerRow.emailVerified),
-          avatarUrl: viewerRow.avatarUrl ?? "",
-          displayName: viewerRow.displayName ?? "",
-          isPro: boolFromSheet(viewerRow.isPro),
-          isPremium: boolFromSheet(viewerRow.isPremium),
-          premiumExpiresAt: viewerRow.premiumExpiresAt
-            ? numFromSheet(viewerRow.premiumExpiresAt, 0) || null
-            : null,
-          proExpiresAt: viewerRow.proExpiresAt
-            ? numFromSheet(viewerRow.proExpiresAt, 0) || null
-            : null,
-          premiumSubscriptionPayment: subscriptionPaymentFromRow(viewerRow, "premium"),
-          proSubscriptionPayment: subscriptionPaymentFromRow(viewerRow, "pro"),
-          city: str(viewerRow.city) || undefined,
-          websiteUrl: str(viewerRow.websiteUrl) || undefined,
-          socialUrl: str(viewerRow.socialUrl) || undefined,
-          phone: str(viewerRow.phone) || undefined,
-          proAddress: str(viewerRow.proAddress) || undefined,
-          proLat: str(viewerRow.proLat) ? numFromSheet(viewerRow.proLat) : null,
-          proLng: str(viewerRow.proLng) ? numFromSheet(viewerRow.proLng) : null,
-          karma:
-            str(viewerRow.karma) !== ""
-              ? numFromSheet(viewerRow.karma, 5)
-              : undefined,
-          friendRequestSentProfilIds: jsonFromSheet(viewerRow.friendRequestSentJson, []),
-          friendRequestRejectedProfilIds: jsonFromSheet(viewerRow.friendRequestRejectedJson, []),
-          friendRequestDailySentDateKey:
-            str(viewerRow.friendRequestDailySentDateKey) || null,
-          favoriteConversationIds: jsonFromSheet(viewerRow.favoriteConversationIdsJson, []),
-          moderationHiddenEventIds: jsonFromSheet(viewerRow.moderationHiddenEventIdsJson, []),
-          moderationHiddenProfilIds: jsonFromSheet(viewerRow.moderationHiddenProfilIdsJson, []),
-          viewerProfileBadges: jsonFromSheet(viewerRow.badgesJson, []),
-          profileBadgeSuggestions: jsonFromSheet(
-            viewerRow.profileBadgeSuggestionsJson,
-            [],
-          ),
-          signupIp: str(viewerRow.signupIp) || undefined,
-          lastLoginIp: str(viewerRow.lastLoginIp) || undefined,
-        }
-      : undefined,
-    hasRemoteData,
-  };
+  return attachRegisteredMemberSuggestions(
+    {
+      events: eventRows.map(rowToEvent),
+      conversations: convRows.map(rowToConversation),
+      friends: friendsFromProfileRows(profileRows, userId),
+      suggestions: suggestionRows.map(rowToSuggestion),
+      profileVisits: visitRows.map(rowToVisit),
+      appNotifications: notificationsFromUserRows(notifRows),
+      adminReports: reportRows.map(rowToReport),
+      eventReminders: reminderRows.map(rowToEventReminder),
+      professionals,
+      adminAppInfo,
+      viewerSettings: viewerRow ? parseViewerSettingsFromRow(viewerRow) : undefined,
+      hasRemoteData,
+    },
+    userId,
+  );
 }
 
 export function mergeLoadedAppState(
@@ -943,6 +1606,7 @@ export function mergeLoadedAppState(
     profileVisits: ProfileVisit[];
     appNotifications: AppNotification[];
     adminReports: AdminReportEntry[];
+    eventReminders: EventReminder[];
     favoriteConversationIds: string[];
     friendRequestSentProfilIds: string[];
     friendRequestRejectedProfilIds: string[];
@@ -951,6 +1615,7 @@ export function mergeLoadedAppState(
     moderationHiddenProfilIds: string[];
   },
   loaded: LoadedAppSheetState,
+  sheetsAdminScope = false,
 ): Partial<typeof current> & {
   viewerProfileAvatarUrl?: string;
   viewerProfileDisplayName?: string;
@@ -963,14 +1628,19 @@ export function mergeLoadedAppState(
   viewerProfileBadges?: string[];
   profileBadgeSuggestions?: string[];
   viewerProfileCity?: string;
+  viewerProfileAge?: string;
+  viewerProfileBio?: string;
+  viewerPreferredLanguage?: "fr" | "en";
   viewerProWebsiteUrl?: string;
   viewerProSocialUrl?: string;
   viewerProPhone?: string;
   viewerProAddress?: string;
   viewerProLat?: number | null;
   viewerProLng?: number | null;
+  viewerProCategory?: import("./proCategory").ProCategory;
   viewerKarma?: number;
   adminAppInfo?: AdminAppInfo;
+  userBadgeLastSeenAt?: import("./userBadges").UserBadgeLastSeen;
 } {
   const patch: Partial<typeof current> & {
     adminAppInfo?: AdminAppInfo;
@@ -989,36 +1659,60 @@ export function mergeLoadedAppState(
   if (loaded.events.length > 0) {
     patch.events = mergeById(current.events, loaded.events);
   }
-  if (loaded.conversations.length > 0) {
-    patch.conversations = mergeById(current.conversations, loaded.conversations);
+  if (sheetsAdminScope) {
+    patch.conversations = dedupeConversationsById(loaded.conversations);
+  } else if (loaded.conversations.length > 0) {
+    patch.conversations = filterOutModerationDeletedConversations(
+      mergeById(current.conversations, loaded.conversations),
+    );
   }
   if (loaded.friends.length > 0) {
     patch.friends = mergeFriends(current.friends, loaded.friends);
   }
   if (loaded.suggestions.length > 0) {
-    patch.suggestions = mergeById(current.suggestions, loaded.suggestions);
+    patch.suggestions = filterPublicSuggestions(
+      mergeById(current.suggestions, loaded.suggestions),
+    );
+  } else if (loaded.registeredMemberSuggestions?.length) {
+    patch.suggestions = filterPublicSuggestions(loaded.registeredMemberSuggestions);
   }
   if (loaded.profileVisits.length > 0) {
-    patch.profileVisits = mergeById(current.profileVisits, loaded.profileVisits);
+    patch.profileVisits = mergeProfileVisits(
+      current.profileVisits,
+      loaded.profileVisits,
+    );
   }
   if (loaded.appNotifications.length > 0) {
-    patch.appNotifications = mergeById(current.appNotifications, loaded.appNotifications);
+    patch.appNotifications = mergeNotifications(
+      current.appNotifications,
+      loaded.appNotifications,
+    );
   }
   if (loaded.adminReports.length > 0) {
     patch.adminReports = mergeById(current.adminReports, loaded.adminReports);
   }
-
-  if (loaded.adminAppInfo) {
-    const localInfo = readAdminAppInfo();
-    const merged = mergeAdminAppInfo(localInfo, loaded.adminAppInfo);
-    writeAdminAppInfo(merged);
-    patch.adminAppInfo = merged;
+  if (loaded.eventReminders.length > 0) {
+    patch.eventReminders = mergeEventReminders(
+      current.eventReminders,
+      loaded.eventReminders,
+    );
   }
+
+    if (loaded.adminAppInfo) {
+      const localInfo = readAdminAppInfo();
+      const merged = mergeAdminAppInfo(localInfo, loaded.adminAppInfo);
+      patch.adminAppInfo = merged;
+    }
 
   if (loaded.viewerSettings) {
     const vs = loaded.viewerSettings;
     if (vs.avatarUrl) patch.viewerProfileAvatarUrl = resolveAvatarUrl(vs.avatarUrl);
     if (vs.displayName) patch.viewerProfileDisplayName = vs.displayName;
+    if (vs.age != null) patch.viewerProfileAge = vs.age;
+    if (vs.bio != null) patch.viewerProfileBio = vs.bio;
+    if (vs.language === "fr" || vs.language === "en") {
+      patch.viewerPreferredLanguage = vs.language;
+    }
     patch.viewerProfileIsPro = vs.isPro;
     patch.nelDemoIsPremium = vs.isPremium;
     if (vs.premiumExpiresAt != null) {
@@ -1046,6 +1740,11 @@ export function mergeLoadedAppState(
     if (vs.proAddress != null) patch.viewerProAddress = vs.proAddress;
     if (vs.proLat != null) patch.viewerProLat = vs.proLat;
     if (vs.proLng != null) patch.viewerProLng = vs.proLng;
+    if (vs.proCategory != null) {
+      patch.viewerProCategory = isProCategory(vs.proCategory)
+        ? vs.proCategory
+        : DEFAULT_PRO_CATEGORY;
+    }
     if (vs.karma != null) patch.viewerKarma = vs.karma;
     if (vs.friendRequestSentProfilIds.length > 0) {
       patch.friendRequestSentProfilIds = vs.friendRequestSentProfilIds;
@@ -1064,6 +1763,9 @@ export function mergeLoadedAppState(
     }
     if (vs.moderationHiddenProfilIds.length > 0) {
       patch.moderationHiddenProfilIds = vs.moderationHiddenProfilIds;
+    }
+    if (vs.userBadgeLastSeenJson) {
+      patch.userBadgeLastSeenAt = parseUserBadgeLastSeen(vs.userBadgeLastSeenJson);
     }
   }
 
@@ -1088,13 +1790,16 @@ function syncLater(fn: () => Promise<void>): void {
 }
 
 export function syncEventToSheets(event: Event): void {
-  const userId = currentUserId();
+  const userId = event.sheetOwnerUserId?.trim() || currentUserId();
   if (!userId) return;
   syncLater(() => upsertSheetRow("events", event.id, eventToRow(event, userId)));
 }
 
-export function syncEventDeleteToSheets(eventId: string): void {
-  const userId = currentUserId();
+export function syncEventDeleteToSheets(
+  eventId: string,
+  ownerUserId?: string,
+): void {
+  const userId = ownerUserId?.trim() || currentUserId();
   if (!userId) return;
   syncLater(() => softDeleteSheetRow("events", userId, eventId));
 }
@@ -1111,11 +1816,82 @@ export function syncConversationDeleteToSheets(conversationId: string): void {
   syncLater(() => softDeleteSheetRow("conversations", userId, conversationId));
 }
 
+function markDeletedInCache(
+  table: SheetTableName,
+  cacheUser: string,
+  match: (row: Record<string, string>) => boolean,
+): void {
+  const cached = loadLocalCache(table, cacheUser);
+  if (cached.length === 0) return;
+  const next = cached.map((r) => (match(r) ? { ...r, deleted: "true" } : r));
+  saveLocalCache(table, cacheUser, next);
+}
+
+async function softDeleteAllRowsMatching(
+  table: SheetTableName,
+  match: (row: Record<string, string>) => boolean,
+  idColumn = "id",
+): Promise<void> {
+  markDeletedInCache(table, GLOBAL_CACHE_USER, match);
+
+  if (!isGoogleSheetsReadConfigured() && !isGoogleSheetsWriteConfigured()) {
+    return;
+  }
+
+  try {
+    const rows = await sheetGet<Record<string, string>>(table);
+    const userCaches = new Set<string>();
+    for (const row of rows) {
+      if (!match(row) || isDeletedFromSheet(row.deleted)) continue;
+      const uid = row.userId?.trim();
+      const rowId = row[idColumn]?.trim();
+      if (!uid || !rowId) continue;
+      userCaches.add(uid);
+      if (isGoogleSheetsWriteConfigured()) {
+        await softDeleteSheetRow(table, uid, rowId, idColumn);
+      }
+      markDeletedInCache(table, uid, (r) => r[idColumn] === rowId);
+    }
+    for (const uid of userCaches) {
+      markDeletedInCache(table, uid, match);
+    }
+  } catch (err) {
+    console.error(`softDeleteAllRowsMatching [${table}] failed:`, err);
+  }
+}
+
+/** Suppression admin : toutes les lignes Sheets + caches pour un fil. */
+export function syncConversationDeleteGlobalToSheets(conversationId: string): void {
+  const cid = conversationId.trim();
+  if (!cid) return;
+  syncLater(() => softDeleteAllRowsMatching("conversations", (r) => r.id === cid));
+}
+
+/** Suppression admin : fil de messages associé. */
+export function syncMessageThreadDeleteToSheets(conversationId: string): void {
+  const cid = conversationId.trim();
+  if (!cid) return;
+  syncLater(() =>
+    softDeleteAllRowsMatching(
+      "messages",
+      (r) => r.id === cid || r.conversationId === cid,
+    ),
+  );
+}
+
 export function syncFriendToSheets(friend: Friend): void {
   const userId = currentUserId();
-  if (!userId) return;
+  if (!userId || isSelfProfilId(friend.profilId, userId)) return;
   syncLater(() =>
     upsertSheetRow("profiles", friend.profilId, friendToRow(friend, userId), "id"),
+  );
+}
+
+export function syncFriendToSheetsForUser(friend: Friend, targetUserId: string): void {
+  const uid = targetUserId.trim();
+  if (!uid || isSelfProfilId(friend.profilId, uid)) return;
+  syncLater(() =>
+    upsertSheetRow("profiles", friend.profilId, friendToRow(friend, uid), "id"),
   );
 }
 
@@ -1145,6 +1921,8 @@ export function syncViewerSettingsToSheets(data: {
   proLng?: number | null;
   viewerProfileBadges?: string[];
   profileBadgeSuggestions?: string[];
+  userBadgeCountsJson?: string;
+  userBadgeLastSeenJson?: string;
   friendRequestSentProfilIds: string[];
   friendRequestRejectedProfilIds: string[];
   friendRequestDailySentDateKey?: string | null;
@@ -1161,8 +1939,64 @@ export function syncViewerSettingsToSheets(data: {
 
 export function syncNotificationToSheets(n: AppNotification): void {
   const userId = currentUserId();
+  if (!userId || n.readAt != null) return;
+  syncLater(async () => {
+    const existing = await loadNotificationsForUser(userId);
+    await writeNotificationInbox(userId, mergeNotificationInbox(existing, [n]));
+  });
+}
+
+export function syncNotificationToSheetsForUser(
+  n: AppNotification,
+  userId: string,
+): void {
+  const owner = userId?.trim();
+  if (!owner || n.readAt != null) return;
+  syncLater(async () => {
+    const existing = await loadNotificationsForUser(owner);
+    await writeNotificationInbox(owner, mergeNotificationInbox(existing, [n]));
+  });
+}
+
+export function syncUserUnreadNotificationsToSheets(
+  userId: string,
+  notifications: AppNotification[],
+): void {
+  const owner = userId.trim();
+  if (!owner) return;
+  const unread = notifications.filter((n) => n.readAt == null);
+  syncLater(() => writeNotificationInbox(owner, unread));
+}
+
+export function syncNotificationReadToSheets(notificationId: string): void {
+  const userId = currentUserId();
+  const id = notificationId.trim();
+  if (!userId || !id) return;
+  syncLater(async () => {
+    const existing = await loadNotificationsForUser(userId);
+    await writeNotificationInbox(
+      userId,
+      existing.filter((n) => n.id !== id),
+    );
+  });
+}
+
+export function syncProfileVisitToSheetsForUser(
+  visit: ProfileVisit,
+  ownerUserId: string,
+): void {
+  const owner = ownerUserId?.trim();
+  if (!owner) return;
+  syncLater(() =>
+    upsertSheetRow("profile_visits", visit.id, visitToRow(visit, owner), "id"),
+  );
+}
+
+
+export function syncEventReminderToSheets(r: EventReminder): void {
+  const userId = currentUserId();
   if (!userId) return;
-  syncLater(() => upsertSheetRow("notifications", n.id, notificationToRow(n, userId)));
+  syncLater(() => upsertSheetRow("event_reminders", r.id, eventReminderToRow(r, userId)));
 }
 
 export function syncReportToSheets(r: AdminReportEntry): void {
@@ -1200,6 +2034,9 @@ export function syncAllViewerStateFromStore(state: {
   emailVerified?: boolean;
   viewerProfileAvatarUrl: string;
   viewerProfileDisplayName: string;
+  viewerProfileAge?: string;
+  viewerProfileBio?: string;
+  language?: string;
   viewerProfileIsPro: boolean;
   nelDemoIsPremium?: boolean;
   viewerPremiumExpiresAt?: number | null;
@@ -1208,13 +2045,19 @@ export function syncAllViewerStateFromStore(state: {
   proSubscriptionPayment?: SubscriptionPaymentRecord;
   viewerProfileBadges: string[];
   profileBadgeSuggestions: string[];
+  userBadgeCountsJson?: string;
+  userBadgeLastSeenJson?: string;
   viewerProfileCity?: string;
+  viewerProfileAge?: string;
+  viewerProfileBio?: string;
+  viewerPreferredLanguage?: "fr" | "en";
   viewerProWebsiteUrl?: string;
   viewerProSocialUrl?: string;
   viewerProPhone?: string;
   viewerProAddress?: string;
   viewerProLat?: number | null;
   viewerProLng?: number | null;
+  viewerProCategory?: import("./proCategory").ProCategory;
   viewerKarma?: number;
   friendRequestSentProfilIds: string[];
   friendRequestRejectedProfilIds: string[];
@@ -1228,6 +2071,9 @@ export function syncAllViewerStateFromStore(state: {
     emailVerified: state.emailVerified,
     avatarUrl: state.viewerProfileAvatarUrl,
     displayName: state.viewerProfileDisplayName,
+    age: state.viewerProfileAge,
+    bio: state.viewerProfileBio,
+    language: state.language,
     isPro: state.viewerProfileIsPro,
     isPremium: state.nelDemoIsPremium,
     premiumExpiresAt: state.viewerPremiumExpiresAt,
@@ -1243,6 +2089,7 @@ export function syncAllViewerStateFromStore(state: {
     proAddress: state.viewerProAddress,
     proLat: state.viewerProLat,
     proLng: state.viewerProLng,
+    proCategory: state.viewerProCategory,
     karma: state.viewerKarma,
     friendRequestSentProfilIds: state.friendRequestSentProfilIds,
     friendRequestRejectedProfilIds: state.friendRequestRejectedProfilIds,
@@ -1250,32 +2097,209 @@ export function syncAllViewerStateFromStore(state: {
     favoriteConversationIds: state.favoriteConversationIds,
     moderationHiddenEventIds: state.moderationHiddenEventIds,
     moderationHiddenProfilIds: state.moderationHiddenProfilIds,
+    userBadgeCountsJson: state.userBadgeCountsJson,
+    userBadgeLastSeenJson: state.userBadgeLastSeenJson,
   });
 }
 
-/** À l'inscription — profil uniquement (auth : passwordHash, emailVerified → backend). */
+/** À l'inscription — profil + colonnes auth dans viewer_settings (attendre la fin). */
+export async function persistPendingSignupToSheets(
+  userId: string,
+  email: string,
+  displayName: string,
+  isPro: boolean,
+  auth: ViewerSettingsAuthFields & { emailVerified: boolean; passwordHash: string },
+  signupIp?: string,
+  profileExtras?: { age?: string; bio?: string; language?: string },
+): Promise<void> {
+  const viewerRow = viewerSettingsToRow(userId, {
+    email,
+    emailVerified: auth.emailVerified,
+    passwordHash: auth.passwordHash,
+    verificationToken: auth.verificationToken ?? "",
+    verificationExpiresAt: auth.verificationExpiresAt ?? null,
+    passwordResetToken: auth.passwordResetToken ?? "",
+    passwordResetExpiresAt: auth.passwordResetExpiresAt ?? null,
+    avatarUrl: "",
+    displayName,
+    age: profileExtras?.age ?? "",
+    bio: profileExtras?.bio ?? "",
+    language: profileExtras?.language ?? "fr",
+    isPro,
+    signupIp,
+    friendRequestSentProfilIds: [],
+    friendRequestRejectedProfilIds: [],
+    favoriteConversationIds: [],
+    moderationHiddenEventIds: [],
+    moderationHiddenProfilIds: [],
+  });
+  await upsertSheetRow("viewer_settings", userId, viewerRow);
+  if (isPro) {
+    try {
+      const pro = viewerSettingsRowToProfessional(viewerRow);
+      if (pro) {
+        await upsertSheetRow("professionals", pro.id, professionalToRow(pro));
+      }
+    } catch (err) {
+      console.error("persistPendingSignupToSheets: professionals upsert failed:", err);
+    }
+  }
+}
+
+/** @deprecated Préférer persistPendingSignupToSheets (await). */
 export function syncPendingSignupToSheets(
   userId: string,
   email: string,
   displayName: string,
   isPro: boolean,
+  auth: ViewerSettingsAuthFields & { emailVerified: boolean; passwordHash: string },
   signupIp?: string,
+  profileExtras?: { age?: string; bio?: string; language?: string },
+): void {
+  syncLater(() =>
+    persistPendingSignupToSheets(
+      userId,
+      email,
+      displayName,
+      isPro,
+      auth,
+      signupIp,
+      profileExtras,
+    ),
+  );
+}
+
+/** Renvoi email de vérification — met à jour les tokens (attendre la fin). */
+export async function persistVerificationTokenToSheets(
+  userId: string,
+  verificationToken: string,
+  verificationExpiresAt: number | null,
+): Promise<void> {
+  await upsertSheetRow("viewer_settings", userId, {
+    userId,
+    id: userId,
+    verificationToken,
+    verificationExpiresAt:
+      verificationExpiresAt != null ? String(verificationExpiresAt) : "",
+  });
+}
+
+/** Renvoi email de vérification — met à jour les tokens. */
+export function syncVerificationTokenToSheets(
+  userId: string,
+  verificationToken: string,
+  verificationExpiresAt: number | null,
 ): void {
   syncLater(() =>
     upsertSheetRow("viewer_settings", userId, {
       userId,
       id: userId,
-      email,
-      displayName,
-      isPro: boolToSheet(isPro),
-      avatarUrl: "",
-      ...(signupIp != null ? { signupIp: str(signupIp) } : {}),
-      deleted: "false",
+      verificationToken,
+      verificationExpiresAt:
+        verificationExpiresAt != null ? String(verificationExpiresAt) : "",
+    }),
+  );
+}
+
+/** Demande reset mot de passe — enregistre les tokens reset (attendre la fin). */
+export async function persistPasswordResetTokenToSheets(
+  userId: string,
+  passwordResetToken: string,
+  passwordResetExpiresAt: number | null,
+): Promise<void> {
+  await upsertSheetRow("viewer_settings", userId, {
+    userId,
+    id: userId,
+    passwordResetToken,
+    passwordResetExpiresAt:
+      passwordResetExpiresAt != null ? String(passwordResetExpiresAt) : "",
+  });
+}
+
+/** Demande reset mot de passe — enregistre les tokens reset. */
+export function syncPasswordResetTokenToSheets(
+  userId: string,
+  passwordResetToken: string,
+  passwordResetExpiresAt: number | null,
+): void {
+  syncLater(() =>
+    upsertSheetRow("viewer_settings", userId, {
+      userId,
+      id: userId,
+      passwordResetToken,
+      passwordResetExpiresAt:
+        passwordResetExpiresAt != null ? String(passwordResetExpiresAt) : "",
+    }),
+  );
+}
+
+/** Après reset mot de passe — nouveau hash, tokens reset effacés. */
+export async function persistPasswordHashToSheets(
+  userId: string,
+  passwordHash: string,
+): Promise<void> {
+  await upsertSheetRow("viewer_settings", userId, {
+    userId,
+    id: userId,
+    passwordHash,
+    passwordResetToken: "",
+    passwordResetExpiresAt: "",
+  });
+}
+
+/** Après reset mot de passe — nouveau hash, tokens reset effacés. */
+export function syncPasswordHashToSheets(userId: string, passwordHash: string): void {
+  syncLater(() =>
+    upsertSheetRow("viewer_settings", userId, {
+      userId,
+      id: userId,
+      passwordHash,
+      passwordResetToken: "",
+      passwordResetExpiresAt: "",
     }),
   );
 }
 
 /** Après vérification email — sync Sheets sans dépendre du store messaging. */
+export async function persistEmailVerifiedToSheets(
+  userId: string,
+  email: string,
+  displayName: string,
+  avatarUrl: string,
+  isPro: boolean,
+  websiteUrl?: string,
+  socialUrl?: string,
+  phone?: string,
+  signupIp?: string,
+): Promise<void> {
+  await upsertSheetRow(
+    "viewer_settings",
+    userId,
+    viewerSettingsToRow(userId, {
+      email,
+      emailVerified: true,
+      verificationToken: "",
+      verificationExpiresAt: null,
+      passwordResetToken: "",
+      passwordResetExpiresAt: null,
+      avatarUrl,
+      displayName,
+      isPro,
+      websiteUrl,
+      socialUrl,
+      phone,
+      signupIp,
+      lastLoginIp: signupIp,
+      friendRequestSentProfilIds: [],
+      friendRequestRejectedProfilIds: [],
+      favoriteConversationIds: [],
+      moderationHiddenEventIds: [],
+      moderationHiddenProfilIds: [],
+    }),
+  );
+}
+
+/** @deprecated Préférer persistEmailVerifiedToSheets (await). */
 export function syncEmailVerifiedToSheets(
   userId: string,
   email: string,
@@ -1288,26 +2312,16 @@ export function syncEmailVerifiedToSheets(
   signupIp?: string,
 ): void {
   syncLater(() =>
-    upsertSheetRow(
-      "viewer_settings",
+    persistEmailVerifiedToSheets(
       userId,
-      viewerSettingsToRow(userId, {
-        email,
-        emailVerified: true,
-        avatarUrl,
-        displayName,
-        isPro,
-        websiteUrl,
-        socialUrl,
-        phone,
-        signupIp,
-        lastLoginIp: signupIp,
-        friendRequestSentProfilIds: [],
-        friendRequestRejectedProfilIds: [],
-        favoriteConversationIds: [],
-        moderationHiddenEventIds: [],
-        moderationHiddenProfilIds: [],
-      }),
+      email,
+      displayName,
+      avatarUrl,
+      isPro,
+      websiteUrl,
+      socialUrl,
+      phone,
+      signupIp,
     ),
   );
 }

@@ -7,7 +7,11 @@ import { useTranslation } from "../i18n/useTranslation";
 import { ProsMapView } from "../components/ProsMapView";
 import { mapCenterForCity } from "../lib/proCoordinates";
 import { buildViewerProfessional, VIEWER_PRO_ID } from "../lib/proLocation";
-import { hasViewerProAccess } from "../lib/viewerEntitlements";
+import {
+  filterPublicProfessionals,
+  shouldShowViewerInProsDirectory,
+} from "../lib/proDirectory";
+import { useAuthStore } from "../store/useAuthStore";
 import {
   PRO_CATEGORY_OPTIONS,
   proFullName,
@@ -78,8 +82,19 @@ export function ProsPage() {
     viewerProWebsiteUrl,
     viewerProSocialUrl,
     viewerProPhone,
+    viewerProCategory,
+    viewerProfileBio,
   } = useMessagingStore();
-  const viewerProAccess = useMessagingStore(hasViewerProAccess);
+  const user = useAuthStore((s) => s.user);
+  const viewerProAccess = useMessagingStore((s) =>
+    shouldShowViewerInProsDirectory(user, {
+      isAdmin: s.isAdmin,
+      nelDemoIsPremium: s.nelDemoIsPremium,
+      viewerPremiumExpiresAt: s.viewerPremiumExpiresAt,
+      viewerProfileIsPro: s.viewerProfileIsPro,
+      viewerProExpiresAt: s.viewerProExpiresAt,
+    }),
+  );
   const mapCenter = useMemo(
     () => mapCenterForCity(viewerProfileCity),
     [viewerProfileCity],
@@ -90,27 +105,49 @@ export function ProsPage() {
   const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
 
   const professionalsWithViewer = useMemo(() => {
+    const publicPros = filterPublicProfessionals(professionals);
+    const viewerUserId = user?.id?.trim();
+    const storedViewer = publicPros.find(
+      (p) =>
+        p.id === VIEWER_PRO_ID || (viewerUserId != null && p.id === viewerUserId),
+    );
+    const [fallbackLat, fallbackLng] = mapCenterForCity(viewerProfileCity);
     const viewerPro = viewerProAccess
       ? buildViewerProfessional({
           displayName: viewerProfileDisplayName,
           avatarUrl: viewerProfileAvatarUrl,
           city: viewerProfileCity,
           address: viewerProAddress,
-          lat: viewerProLat,
-          lng: viewerProLng,
+          lat: viewerProLat ?? fallbackLat,
+          lng: viewerProLng ?? fallbackLng,
           websiteUrl: viewerProWebsiteUrl,
           socialUrl: viewerProSocialUrl,
           phone: viewerProPhone,
+          proCategory: viewerProCategory,
+          bio: viewerProfileBio,
         })
       : null;
-    if (!viewerPro) return professionals;
+    if (!viewerPro) return publicPros;
+    const mergedViewer = storedViewer
+      ? {
+          ...viewerPro,
+          ...storedViewer,
+          category: viewerPro.category,
+          categoryLabel: viewerPro.categoryLabel,
+          description: viewerPro.description || storedViewer.description,
+          verified: storedViewer.verified === true,
+        }
+      : { ...viewerPro, verified: false };
     return [
-      viewerPro,
-      ...professionals.filter((p) => p.id !== VIEWER_PRO_ID),
+      mergedViewer,
+      ...publicPros.filter(
+        (p) => p.id !== VIEWER_PRO_ID && p.id !== viewerUserId,
+      ),
     ];
   }, [
     professionals,
     viewerProAccess,
+    user?.id,
     viewerProfileDisplayName,
     viewerProfileAvatarUrl,
     viewerProfileCity,
@@ -120,6 +157,8 @@ export function ProsPage() {
     viewerProWebsiteUrl,
     viewerProSocialUrl,
     viewerProPhone,
+    viewerProCategory,
+    viewerProfileBio,
   ]);
 
   const filtered = useMemo(() => {

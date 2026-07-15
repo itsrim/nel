@@ -1,5 +1,6 @@
 import CryptoJS from 'crypto-js';
 
+import { compressImageFile } from './compressImage';
 import {
   IMAGEKIT_EVENT_COVERS_FOLDER,
   IMAGEKIT_SPLASH_FOLDER,
@@ -111,10 +112,11 @@ async function postImageKitUpload(p: {
  * Avatar profil : même `fileName` + overwrite (un fichier par compte).
  */
 export async function uploadLocalImageToImageKit(options: UploadImageKitOptions): Promise<string> {
-  const mime = resolveUploadMime(options);
+  const webFile = await compressImageFile(options.webFile, 'avatar');
+  const mime = resolveUploadMime({ ...options, webFile });
   const fileName = imageKitProfileAvatarFileName(options.userKey, mime);
   return postImageKitUpload({
-    webFile: options.webFile,
+    webFile,
     fileName,
     folder: IMAGEKIT_UPLOAD_FOLDER,
     useUniqueFileName: false,
@@ -127,10 +129,11 @@ export async function uploadLocalImageToImageKit(options: UploadImageKitOptions)
  */
 /** Splash screen global (admin) — un fichier écrasé pour toute l'application. */
 export async function uploadSplashImageToImageKit(webFile: File, mimeType?: string | null): Promise<string> {
-  const mime = mimeType?.trim() || webFile.type?.trim() || 'image/jpeg';
+  const compressed = await compressImageFile(webFile, 'splash');
+  const mime = mimeType?.trim() || compressed.type?.trim() || 'image/jpeg';
   const fileName = imageKitSplashFileName(mime);
   return postImageKitUpload({
-    webFile,
+    webFile: compressed,
     fileName,
     folder: IMAGEKIT_SPLASH_FOLDER,
     useUniqueFileName: false,
@@ -141,10 +144,11 @@ export async function uploadSplashImageToImageKit(webFile: File, mimeType?: stri
 export async function uploadLocalImageToImageKitEventCover(
   options: UploadImageKitOptions,
 ): Promise<string> {
-  const mime = resolveUploadMime(options);
+  const webFile = await compressImageFile(options.webFile, 'eventCover');
+  const mime = resolveUploadMime({ ...options, webFile });
   const fileName = imageKitEventCoverFileName(options.userKey, mime);
   return postImageKitUpload({
-    webFile: options.webFile,
+    webFile,
     fileName,
     folder: IMAGEKIT_EVENT_COVERS_FOLDER,
     useUniqueFileName: false,
@@ -154,8 +158,26 @@ export async function uploadLocalImageToImageKitEventCover(
 
 const STORAGE_KEY = 'nel_imagekit_user_key';
 
-/** Clé stable par navigateur (un avatar ImageKit écrasé par session « compte » locale). */
-export function getNelProfileImageKitUserKey(): string {
+function sanitizeImageKitUserKey(raw: string): string {
+  return raw.trim().replace(/[^a-zA-Z0-9_-]/g, '_') || 'nel_user';
+}
+
+/** Supprime l’ancienne clé navigateur (avatars partagés entre comptes sur le même appareil). */
+export function clearNelProfileImageKitBrowserKey(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Clé ImageKit par compte (`userId`) — un fichier avatar distinct par utilisateur.
+ * Sans session, repli sur une clé locale éphémère (upload avant connexion).
+ */
+export function getNelProfileImageKitUserKey(userId?: string | null): string {
+  const fromAuth = userId?.trim();
+  if (fromAuth) return sanitizeImageKitUserKey(fromAuth);
   try {
     let v = localStorage.getItem(STORAGE_KEY);
     if (!v) {

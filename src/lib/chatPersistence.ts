@@ -1,15 +1,25 @@
 /**
- * Persistance chat : localStorage (cache) + Google Sheets (source distante).
- * Format CSV : conversationId,id,authorId,authorName,text,sentAt
+ * Persistance chat : cache local + Google Sheets.
+ * - Une ligne Sheets par conversation (`text` = JSON de tous les messages).
+ * - Fenêtre active : 7 jours après la création du fil ou la date de l'événement lié.
  */
 
+import type { MessageLoadScope } from "./accessScope";
+import { upsertSheetRow } from "./appSheetPersistence";
 import {
   isGoogleSheetsReadConfigured,
   isGoogleSheetsWriteConfigured,
-  sheetBatchPost,
   sheetGet,
-  sheetPut,
 } from "./googleSheetsDb";
+import {
+  buildMessageThreadRow,
+  mergeThreadMessages,
+  messagesFromSheetRow,
+  parseThreadText,
+  serializeThreadText,
+  threadAnchorMs,
+  type MessageThreadEntry,
+} from "./messageThread";
 
 export interface PersistedMessage {
   conversationId: string;
@@ -20,12 +30,14 @@ export interface PersistedMessage {
   sentAt: number;
 }
 
-const STORAGE_KEY = "nel_chat_history_csv";
-const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
-const CSV_HEADER = "conversationId,id,authorId,authorName,text,sentAt";
+export type { MessageThreadEntry };
 
-/** IDs déjà synchronisés vers Google Sheets (session). */
-const syncedSheetIds = new Set<string>();
+const STORAGE_KEY_PREFIX = "nel_chat_history_threads";
+/** Ancien cache (1 message / ligne CSV). */
+const LEGACY_STORAGE_KEY_PREFIX = "nel_chat_history_csv";
+
+/** conversationId → dernier updatedAt synchronisé vers Sheets. */
+const syncedThreadUpdatedAt = new Map<string, number>();
 
 function getCurrentUserIdForSheets(): string {
   try {
@@ -38,217 +50,237 @@ function getCurrentUserIdForSheets(): string {
   }
 }
 
-function escapeCSV(val: string | number): string {
-  const str = String(val);
-  if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
-    return `"${str.replace(/"/g, '""')}"`;
+function storageKeyForUser(userId?: string): string {
+  const id = (userId ?? getCurrentUserIdForSheets()).trim();
+  return id ? `${STORAGE_KEY_PREFIX}_${id}` : STORAGE_KEY_PREFIX;
+}
+
+function legacyStorageKeyForUser(userId?: string): string {
+  const id = (userId ?? getCurrentUserIdForSheets()).trim();
+  return id ? `${LEGACY_STORAGE_KEY_PREFIX}_${id}` : LEGACY_STORAGE_KEY_PREFIX;
+}
+
+function isConversationInScope(conversationId: string, scope: MessageLoadScope): boolean {
+  if (scope.mode === "admin") return true;
+  const ids = scope.conversationIds;
+  if (!ids) return false;
+  return ids.has(conversationId.trim());
+}
+
+function filterMessagesForScope(
+  messagesByConversation: Record<string, unknown[]>,
+  scope: MessageLoadScope,
+): Record<string, PersistedMessage[]> {
+  const out: Record<string, PersistedMessage[]> = {};
+  for (const [convId, messages] of Object.entries(messagesByConversation)) {
+    if (!isConversationInScope(convId, scope)) continue;
+    const kept = messages.map((m) => m as PersistedMessage);
+    if (kept.length > 0) out[convId] = kept;
   }
-  return str;
+  return out;
 }
 
-export function serializeMessagesToCSV(messagesByConversation: Record<string, unknown[]>): string {
-  const now = Date.now();
-  const rows: string[] = [CSV_HEADER];
-
-  Object.entries(messagesByConversation).forEach(([convId, messages]) => {
-    messages.forEach((m) => {
-      const msg = m as PersistedMessage;
-      if (now - msg.sentAt > RETENTION_MS) return;
-
-      rows.push(
-        [
-          escapeCSV(convId),
-          escapeCSV(msg.id),
-          escapeCSV(msg.authorId ?? ""),
-          escapeCSV(msg.authorName),
-          escapeCSV(msg.text),
-          String(msg.sentAt),
-        ].join(","),
-      );
-    });
-  });
-
-  return rows.join("\n");
+function filterMessageListForScope(
+  messages: PersistedMessage[],
+  scope: MessageLoadScope,
+): PersistedMessage[] {
+  return messages.filter((m) => isConversationInScope(m.conversationId, scope));
 }
 
-export function deserializeCSVToMessages(csv: string): PersistedMessage[] {
-  if (!csv?.trim()) return [];
-
-  const lines = csv.split(/\r?\n/);
-  if (lines.length <= 1) return [];
-
-  const messages: PersistedMessage[] = [];
-  const now = Date.now();
-  const header = lines[0].split(",").map((h) => h.trim());
-  const hasAuthorId = header.includes("authorId");
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-
-    const parts: string[] = [];
-    let current = "";
-    let inQuotes = false;
-
-    for (let j = 0; j < line.length; j++) {
-      const char = line[j];
-      const nextChar = line[j + 1];
-
-      if (char === '"') {
-        if (inQuotes && nextChar === '"') {
-          current += '"';
-          j++;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === "," && !inQuotes) {
-        parts.push(current);
-        current = "";
-      } else {
-        current += char;
-      }
-    }
-    parts.push(current);
-
-    if (hasAuthorId && parts.length >= 6) {
-      const sentAt = parseInt(parts[5], 10);
-      if (now - sentAt <= RETENTION_MS) {
-        messages.push({
-          conversationId: parts[0],
-          id: parts[1],
-          authorId: parts[2] || undefined,
-          authorName: parts[3],
-          text: parts[4],
-          sentAt,
-        });
-      }
-    } else if (parts.length >= 5) {
-      const sentAt = parseInt(parts[4], 10);
-      if (now - sentAt <= RETENTION_MS) {
-        messages.push({
-          conversationId: parts[0],
-          id: parts[1],
-          authorName: parts[2],
-          text: parts[3],
-          sentAt,
-        });
-      }
-    }
+function groupMessagesByConversation(
+  messages: PersistedMessage[],
+): Record<string, PersistedMessage[]> {
+  const out: Record<string, PersistedMessage[]> = {};
+  for (const m of messages) {
+    if (!out[m.conversationId]) out[m.conversationId] = [];
+    out[m.conversationId].push(m);
   }
-
-  return messages;
+  return out;
 }
 
-function saveHistoryLocal(messagesByConversation: Record<string, unknown[]>): void {
+function saveHistoryLocal(
+  messagesByConversation: Record<string, PersistedMessage[]>,
+  userId?: string,
+): void {
   try {
-    const csv = serializeMessagesToCSV(messagesByConversation);
-    localStorage.setItem(STORAGE_KEY, csv);
+    localStorage.setItem(
+      storageKeyForUser(userId),
+      JSON.stringify(messagesByConversation),
+    );
   } catch (err) {
     console.error("Failed to save chat history to localStorage:", err);
   }
 }
 
-function loadHistoryLocal(): PersistedMessage[] {
+function loadLegacyCsvMessages(userId: string): PersistedMessage[] {
   try {
-    const csv = localStorage.getItem(STORAGE_KEY);
-    if (!csv) return [];
-    return deserializeCSVToMessages(csv);
-  } catch (err) {
-    console.error("Failed to load chat history from localStorage:", err);
+    const csv = localStorage.getItem(legacyStorageKeyForUser(userId));
+    if (!csv?.trim()) return [];
+    const lines = csv.split(/\r?\n/).slice(1);
+    const messages: PersistedMessage[] = [];
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const parts = line.split(",");
+      if (parts.length < 6) continue;
+      const sentAt = parseInt(parts[5], 10);
+      if (!Number.isFinite(sentAt)) continue;
+      messages.push({
+        conversationId: parts[0],
+        id: parts[1],
+        authorId: parts[2] || undefined,
+        authorName: parts[3],
+        text: parts[4],
+        sentAt,
+      });
+    }
+    return messages;
+  } catch {
     return [];
   }
 }
 
-function rowToMessage(row: Record<string, string>): PersistedMessage | null {
-  const sentAt = parseInt(row.sentAt ?? "", 10);
-  if (!row.conversationId || !row.id || !row.authorName || !row.text || !Number.isFinite(sentAt)) {
-    return null;
+function loadHistoryLocal(userId: string, scope: MessageLoadScope): PersistedMessage[] {
+  try {
+    const raw = localStorage.getItem(storageKeyForUser(userId));
+    if (raw) {
+      const parsed = JSON.parse(raw) as Record<string, PersistedMessage[]>;
+      const flat = Object.values(parsed).flat();
+      return filterMessageListForScope(flat, scope);
+    }
+  } catch (err) {
+    console.error("Failed to load chat threads from localStorage:", err);
   }
-  const now = Date.now();
-  if (now - sentAt > RETENTION_MS) return null;
-
-  return {
-    conversationId: row.conversationId,
-    id: row.id,
-    authorId: row.authorId?.trim() || undefined,
-    authorName: row.authorName,
-    text: row.text,
-    sentAt,
-  };
+  return filterMessageListForScope(loadLegacyCsvMessages(userId), scope);
 }
 
-async function loadHistoryFromSheets(): Promise<PersistedMessage[]> {
+async function loadHistoryFromSheets(
+  scope: MessageLoadScope,
+  eventDateKeyByConversationId: Record<string, string>,
+): Promise<PersistedMessage[]> {
   const rows = await sheetGet<Record<string, string>>("messages");
-  const messages: PersistedMessage[] = [];
+  const byConversation = new Map<string, PersistedMessage[]>();
 
   for (const row of rows) {
-    const msg = rowToMessage(row);
-    if (msg) {
-      messages.push(msg);
-      syncedSheetIds.add(msg.id);
-    }
+    const convId = row.conversationId?.trim();
+    if (!convId) continue;
+    if (!isConversationInScope(convId, scope)) continue;
+
+    const parsed = messagesFromSheetRow(
+      row,
+      eventDateKeyByConversationId[convId],
+    );
+    if (parsed.length === 0) continue;
+
+    const prev = byConversation.get(convId) ?? [];
+    byConversation.set(convId, [...prev, ...parsed]);
+  }
+
+  const messages: PersistedMessage[] = [];
+  for (const [convId, list] of byConversation) {
+    const merged = mergeThreadMessages(
+      list.map(({ id, authorId, authorName, text, sentAt }) => ({
+        id,
+        authorId,
+        authorName,
+        text,
+        sentAt,
+      })),
+    );
+    merged.forEach((m) => {
+      messages.push({ ...m, conversationId: convId });
+    });
+    const updatedAt = Math.max(...merged.map((m) => m.sentAt));
+    syncedThreadUpdatedAt.set(convId, updatedAt);
   }
 
   return messages;
 }
 
 async function syncHistoryToSheets(
-  messagesByConversation: Record<string, unknown[]>,
+  messagesByConversation: Record<string, PersistedMessage[]>,
+  userId: string,
+  eventDateKeyByConversationId: Record<string, string>,
 ): Promise<void> {
-  if (!isGoogleSheetsWriteConfigured()) return;
+  if (!isGoogleSheetsWriteConfigured() || !userId) return;
 
-  const now = Date.now();
-  const toSync: Record<string, string>[] = [];
+  for (const [convId, messages] of Object.entries(messagesByConversation)) {
+    if (messages.length === 0) continue;
 
-  Object.entries(messagesByConversation).forEach(([convId, messages]) => {
-    messages.forEach((m) => {
-      const msg = m as PersistedMessage;
-      if (now - msg.sentAt > RETENTION_MS) return;
-      if (syncedSheetIds.has(msg.id)) return;
+    const updatedAt = Math.max(...messages.map((m) => m.sentAt));
+    if (syncedThreadUpdatedAt.get(convId) === updatedAt) continue;
 
-      toSync.push({
-        conversationId: convId,
-        id: msg.id,
-        authorId: msg.authorId ?? "",
-        authorName: msg.authorName,
-        text: msg.text,
-        sentAt: String(msg.sentAt),
-        userId: getCurrentUserIdForSheets(),
-      });
-      syncedSheetIds.add(msg.id);
+    const row = buildMessageThreadRow({
+      conversationId: convId,
+      messages,
+      userId,
+      eventDateKey: eventDateKeyByConversationId[convId],
     });
-  });
+    if (!row) continue;
 
-  if (toSync.length === 0) return;
-
-  try {
-    await sheetBatchPost("messages", toSync);
-  } catch (err) {
-    toSync.forEach((row) => syncedSheetIds.delete(row.id));
-    console.error("Failed to sync messages to Google Sheets:", err);
+    try {
+      await upsertSheetRow("messages", convId, row);
+      syncedThreadUpdatedAt.set(convId, updatedAt);
+    } catch (err) {
+      console.error(`Failed to sync message thread ${convId}:`, err);
+    }
   }
 }
 
-/** Sauvegarde locale immédiate + sync Sheets en arrière-plan. */
-export function saveHistory(messagesByConversation: Record<string, unknown[]>): void {
-  saveHistoryLocal(messagesByConversation);
+export type SaveHistoryOptions = {
+  eventDateKeyByConversationId?: Record<string, string>;
+};
+
+/** Sauvegarde locale + sync Sheets (1 ligne / conversation). */
+export function saveHistory(
+  messagesByConversation: Record<string, unknown[]>,
+  scope: MessageLoadScope,
+  options?: SaveHistoryOptions,
+): void {
+  const userId = getCurrentUserIdForSheets();
+  if (!userId) return;
+
+  const inScope = filterMessagesForScope(messagesByConversation, scope);
+  saveHistoryLocal(inScope, userId);
   if (isGoogleSheetsWriteConfigured()) {
-    void syncHistoryToSheets(messagesByConversation);
+    void syncHistoryToSheets(
+      inScope,
+      userId,
+      options?.eventDateKeyByConversationId ?? {},
+    );
   }
 }
 
-/** Charge depuis Sheets si configuré, sinon localStorage. */
-export async function loadHistory(): Promise<PersistedMessage[]> {
+export type LoadHistoryOptions = {
+  eventDateKeyByConversationId?: Record<string, string>;
+};
+
+export function buildEventDateKeyByConversationId(
+  events: readonly { conversationId?: string; dateKey?: string }[],
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const e of events) {
+    const cid = e.conversationId?.trim();
+    const dk = e.dateKey?.trim();
+    if (cid && dk) map[cid] = dk;
+  }
+  return map;
+}
+
+/** Charge les messages visibles selon le périmètre (groupes membres ou admin = tout). */
+export async function loadHistory(
+  scope: MessageLoadScope,
+  options?: LoadHistoryOptions,
+): Promise<PersistedMessage[]> {
+  const userId = getCurrentUserIdForSheets();
+  if (!userId) return [];
+
+  const eventDateKeyByConversationId = options?.eventDateKeyByConversationId ?? {};
+
   if (isGoogleSheetsReadConfigured()) {
     try {
-      const remote = await loadHistoryFromSheets();
+      const remote = await loadHistoryFromSheets(scope, eventDateKeyByConversationId);
       if (remote.length > 0) {
-        const byConv: Record<string, PersistedMessage[]> = {};
-        remote.forEach((m) => {
-          if (!byConv[m.conversationId]) byConv[m.conversationId] = [];
-          byConv[m.conversationId].push(m);
-        });
-        saveHistoryLocal(byConv);
+        saveHistoryLocal(groupMessagesByConversation(remote), userId);
         return remote;
       }
     } catch (err) {
@@ -256,15 +288,73 @@ export async function loadHistory(): Promise<PersistedMessage[]> {
     }
   }
 
-  return loadHistoryLocal();
+  return loadHistoryLocal(userId, scope);
 }
 
-/** PUT — met à jour un message existant (texte, etc.). */
 export async function updateMessageInSheets(
-  id: string,
+  conversationId: string,
+  messageId: string,
   patch: Partial<Pick<PersistedMessage, "text" | "authorName">>,
+  options?: {
+    allMessages?: PersistedMessage[];
+    userId?: string;
+    eventDateKey?: string;
+  },
 ): Promise<void> {
-  await sheetPut("messages", id, patch);
+  const convId = conversationId.trim();
+  const id = messageId.trim();
+  if (!convId || !id) return;
+
+  const rows = await sheetGet<Record<string, string>>("messages");
+  const row = rows.find((r) => r.id === convId || r.conversationId === convId);
+  const existing = row?.text ? parseThreadText(row.text) ?? [] : [];
+  const merged = mergeThreadMessages(
+    existing,
+    options?.allMessages?.map(({ id: mid, authorId, authorName, text, sentAt }) => ({
+      id: mid,
+      authorId,
+      authorName,
+      text,
+      sentAt,
+    })) ?? [],
+  ).map((m) =>
+    m.id === id
+      ? {
+          ...m,
+          ...(patch.text != null ? { text: patch.text } : {}),
+          ...(patch.authorName != null ? { authorName: patch.authorName } : {}),
+        }
+      : m,
+  );
+
+  const userId = options?.userId?.trim() || getCurrentUserIdForSheets();
+  const threadRow = buildMessageThreadRow({
+    conversationId: convId,
+    messages: merged.map((m) => ({ ...m, conversationId: convId })),
+    userId,
+    eventDateKey: options?.eventDateKey,
+  });
+  if (!threadRow) return;
+  await upsertSheetRow("messages", convId, threadRow);
 }
 
+export { serializeThreadText, parseThreadText, threadAnchorMs };
 export { isGoogleSheetsReadConfigured, isGoogleSheetsWriteConfigured };
+
+/** Retire un fil du cache local (suppression admin). */
+export function removeConversationFromLocalHistory(conversationId: string): void {
+  const convId = conversationId.trim();
+  if (!convId) return;
+  const userId = getCurrentUserIdForSheets();
+  if (!userId) return;
+  try {
+    const raw = localStorage.getItem(storageKeyForUser(userId));
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Record<string, PersistedMessage[]>;
+    if (!(convId in parsed)) return;
+    const { [convId]: _drop, ...rest } = parsed;
+    localStorage.setItem(storageKeyForUser(userId), JSON.stringify(rest));
+  } catch {
+    /* ignore */
+  }
+}

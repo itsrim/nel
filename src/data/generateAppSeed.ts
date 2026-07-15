@@ -59,7 +59,7 @@ const CITY = [
 ];
 const BADGE_POOL = ['Ponctuelle', 'Curieuse', 'Organisatrice', 'Explorateur', 'Sociable', 'Photographe', 'Foodie', 'Sportive', 'Calme', 'Bavarde'];
 const BIO_SNIP = [
-  'Sur Nel pour des sorties sans prise de tête — rando, apéros, culture.',
+  'Sur Hlg pour des sorties sans prise de tête — rando, apéros, culture.',
   'J’aime alterner sport le matin et expo l’après-midi quand je peux.',
   'Toujours partant·e pour découvrir un nouveau quartier ou une micro-brasserie.',
   'Profil vérifié côté fiabilité : j’annonce si je dois décaler, zéro ghost.',
@@ -142,7 +142,7 @@ function buildFriends(rng: () => number, placeholderGroupId: string): Friend[] {
       mutualFriend: true,
       eventsInCommon: 8,
       mainChatConversationId: 'dm-f2',
-      bio: 'Trail et photo le week-end. Même groupe que toi sur plusieurs sorties Nel — on enchaîne les bons plans rando.',
+      bio: 'Trail et photo le week-end. Même groupe que toi sur plusieurs sorties Hlg — on enchaîne les bons plans rando.',
       memberSince: '2023',
       verified: true,
       isPro: true,
@@ -180,7 +180,7 @@ function buildFriends(rng: () => number, placeholderGroupId: string): Friend[] {
       mutualFriend: true,
       eventsInCommon: 6,
       mainChatConversationId: 'dm-f4',
-      bio: 'Ingé le jour, apéros Nel le soir. On se croise souvent sur les mêmes afterworks — dis-moi quand tu es dans le coin.',
+      bio: 'Ingé le jour, apéros Hlg le soir. On se croise souvent sur les mêmes afterworks — dis-moi quand tu es dans le coin.',
       memberSince: '2025',
       verified: false,
       stats: { reliability: 4.5, events: 11, friends: 29 },
@@ -225,7 +225,7 @@ function buildFriends(rng: () => number, placeholderGroupId: string): Friend[] {
       mutualFriend: false,
       eventsInCommon: Math.floor(rng() * 20),
       mainChatConversationId: i >= 61 ? `dm-${pid}` : placeholderGroupId,
-      bio: `${BIO_SNIP[i % BIO_SNIP.length]} ${i % 4 === 0 ? '— profil Nel complet (démo).' : ''}`.trim(),
+      bio: `${BIO_SNIP[i % BIO_SNIP.length]} ${i % 4 === 0 ? '— profil Hlg complet (démo).' : ''}`.trim(),
       memberSince: String(2019 + Math.floor(rng() * 7)),
       verified: rng() > 0.35,
       isPro: rng() > 0.75,
@@ -313,7 +313,7 @@ export function buildAppSeed(): {
 
       const [title, locHint] = ACT_TITLES[eventIndex % ACT_TITLES.length];
       const titleFull = isAdminEvent ? `Brief modération · ${title}` : `${title} — ${dateLabel.split(' ')[0]}`;
-      const location = isAdminEvent ? `Nel HQ · ${locHint}` : `${locHint}, Paris`;
+      const location = isAdminEvent ? `Hlg HQ · ${locHint}` : `${locHint}, Paris`;
       const category = isAdminEvent ? 'Admin' : ['Sport', 'Culture', 'Social', 'Bien-être'][eventIndex % 4];
 
       const participantMax = 8 + Math.floor(rng() * 33);
@@ -366,7 +366,7 @@ export function buildAppSeed(): {
       const memberN = 3 + Math.floor(rng() * 5);
       const members = buildMembers(rng, friends, host, memberN);
 
-      const hostName = isAdminEvent ? 'Nel · Admin' : host.name;
+      const hostName = isAdminEvent ? 'Hlg · Admin' : host.name;
       const hostAvatar = isAdminEvent
         ? 'https://images.unsplash.com/photo-1560250097-9b9350c009fe?auto=format&fit=crop&w=384&h=384&q=80'
         : host.imageUrl;
@@ -392,7 +392,7 @@ export function buildAppSeed(): {
         isBeta,
         status,
         notes: isAdminEvent
-          ? 'Sortie réservée aux équipes admin Nel — alignement signalements & règles communautaires.'
+          ? 'Sortie réservée aux équipes admin Hlg — alignement signalements & règles communautaires.'
           : `Point de rendez-vous précis dans le fil. #${coverTheme.tag}`,
         conversationId: cid,
         visitsCount,
@@ -481,10 +481,10 @@ export function buildAppSeed(): {
       ],
     },
     {
-      preview: 'Merci pour le tuyau Nel',
+      preview: 'Merci pour le tuyau Hlg',
       lines: [
         ['them', 'J’ai vu ton profil sur la sortie jazz'],
-        ['Moi', 'Merci pour le tuyau Nel'],
+        ['Moi', 'Merci pour le tuyau Hlg'],
         ['them', 'Avec plaisir, tiens-moi au courant'],
       ],
     },
@@ -623,7 +623,7 @@ export function buildAppSeed(): {
       id: 'dm-f5',
       title: 'Sarah K.',
       type: 'dm',
-      lastMessagePreview: 'À bientôt sur Nel !',
+      lastMessagePreview: 'À bientôt sur Hlg !',
       avatarGradient: ['#EF5350', '#E53935'],
       unreadCount: 0,
       updatedAt: Date.now() - 86_400_000,
@@ -755,7 +755,7 @@ export function buildAppSeed(): {
         id: 'df5-3',
         conversationId: 'dm-f5',
         authorName: 'Sarah K.',
-        text: 'À bientôt sur Nel !',
+        text: 'À bientôt sur Hlg !',
         sentAt: Date.now() - 86_400_000,
         isOwn: false,
       },

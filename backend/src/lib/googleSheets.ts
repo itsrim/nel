@@ -1,7 +1,6 @@
 /**
  * Client Google Sheets — même API que le frontend (`src/lib/googleSheetsDb.ts`).
  * Lit/écrit via export CSV + Apps Script (GET ?action=post|put).
- * Variables : mêmes noms que le .env racine (VITE_GOOGLE_SHEETS_*).
  */
 
 import Papa from "papaparse";
@@ -57,7 +56,7 @@ function simpleDecrypt(encoded: string): string {
 }
 
 function spreadsheetBaseUrl(): string | null {
-  const id = envVar("GOOGLE_SHEETS_SPREADSHEET_ID");
+  const id = envVar("GOOGLE_SHEETS_SPREADSHEET_ID", "SHEET_ID");
   if (id) return `https://docs.google.com/spreadsheets/d/${id}`;
 
   const encoded = envVar(
@@ -84,7 +83,7 @@ function csvExportUrl(table: SheetTableName): string {
   const base = spreadsheetBaseUrl();
   if (!base) {
     throw new Error(
-      "Google Sheets non configuré — définir VITE_GOOGLE_SHEETS_URL_ENCODED dans le .env racine",
+      "Database problem configuration — définir VITE_GOOGLE_SHEETS_URL_ENCODED dans le .env racine",
     );
   }
   return `${base}/export?format=csv&gid=${gidFor(table)}`;

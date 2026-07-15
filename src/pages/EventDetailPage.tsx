@@ -19,10 +19,19 @@ import {
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useTranslation } from "../i18n/useTranslation";
+import { useAuthStore } from "../store/useAuthStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { isEventDateBeforeToday } from "../lib/eventDateKey";
-import { eventHostedByViewer, resolveEventHostIsPro } from "../lib/eventHost";
+import {
+  effectiveViewerEventStatus,
+  eventHostedByViewer,
+  eventOrganizerUserId,
+  resolveEventHostAvatar,
+  resolveEventHostIsPro,
+} from "../lib/eventHost";
+import { buildEventGroupMembers } from "../lib/eventGroupMembers";
 import { resolveEventPublicUrl } from "../lib/eventPublicUrl";
+import { resolveAvatarUrl, DEFAULT_AVATAR_URL } from "../lib/avatarUrl";
 import {
   KARMA_ATTENDANCE_REWARD,
   KARMA_JOIN_COST,
@@ -35,9 +44,22 @@ import {
   listInvitableProfiles,
 } from "../lib/eventInvites";
 import { ReportModal } from "../components/ReportModal";
+import { EventCheckoutModal } from "../components/EventCheckoutModal";
+import {
+  formatEventJoinPaymentLabel,
+  getEventJoinPaymentEuros,
+  viewerNeedsJoinPayment,
+} from "../lib/eventPricing";
 import "./EventDetailPage.css";
 
 type ParticipantSlot =
+  | {
+      kind: "host";
+      imageUrl: string;
+      name: string;
+      profilId?: string;
+      key: string;
+    }
   | { kind: "viewer"; key: string }
   | {
       kind: "profile";
@@ -45,8 +67,7 @@ type ParticipantSlot =
       imageUrl: string;
       name: string;
       key: string;
-    }
-  | { kind: "anonymous"; seed: number; key: string };
+    };
 
 interface EventDetailPageProps {
   id: string;
@@ -66,7 +87,12 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     friends,
     toggleEventFavorite,
     joinEvent,
+    markEventJoinPaymentPaid,
     leaveEvent,
+    joinWaitlist,
+    leaveWaitlist,
+    approveWaitlistEntry,
+    rejectWaitlistEntry,
     inviteProfilToEvent,
     inviteProfilsToEvent,
     suggestions,
@@ -78,73 +104,105 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     finalizeEventOrganizerKarma,
     isAdmin,
     adminDeleteEvent,
+    cancelEvent,
   } = useMessagingStore();
   const viewerProAccess = useMessagingStore(hasViewerProAccess);
+  const user = useAuthStore((s) => s.user);
+  const viewerContext = user
+    ? { id: user.id, displayName: user.displayName }
+    : null;
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteSearch, setInviteSearch] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const event = events.find((e) => e.id === id);
 
   const waitlist = event?.waitlistEntries ?? [];
   const waitlistPending = waitlist.some((w) => w.reason === "en_attente");
   const waitlistOverflow = waitlist.some((w) => w.reason === "overflow");
+  const viewerOnWaitlist = waitlist.some((w) =>
+    user?.id
+      ? w.profilId === user.id
+      : w.profilId === VIEWER_KARMA_PARTICIPANT_ID,
+  );
 
   const resolveWaitlistPhoto = (entry: (typeof waitlist)[number]) => {
-    if (entry.imageUrl?.trim()) return entry.imageUrl;
+    if (entry.imageUrl?.trim()) return resolveAvatarUrl(entry.imageUrl);
     if (entry.profilId) {
-      return (
-        friends.find((f) => f.profilId === entry.profilId)?.imageUrl ??
-        `https://i.pravatar.cc/100?u=${encodeURIComponent(entry.profilId)}`
-      );
+      const fromFriend = friends.find(
+        (f) => f.profilId === entry.profilId,
+      )?.imageUrl;
+      if (fromFriend?.trim()) return resolveAvatarUrl(fromFriend);
     }
-    return `https://i.pravatar.cc/100?u=${encodeURIComponent(entry.id)}`;
+    return DEFAULT_AVATAR_URL;
   };
+
+  const resolveWaitlistProfilId = (entry: (typeof waitlist)[number]) => {
+    const pid = entry.profilId?.trim();
+    if (pid && pid !== VIEWER_KARMA_PARTICIPANT_ID) return pid;
+    const name = entry.name.trim();
+    if (!name) return undefined;
+    const fromFriend = friends.find(
+      (f) => f.name === name || f.pseudo === name,
+    );
+    if (fromFriend) return fromFriend.profilId;
+    const fromSuggestion = suggestions.find(
+      (s) => s.pseudo === name,
+    );
+    return fromSuggestion?.id;
+  };
+
+  const eventConversation = useMemo(
+    () => conversations.find((c) => c.id === event?.conversationId),
+    [conversations, event?.conversationId],
+  );
 
   const participantSlots = useMemo((): ParticipantSlot[] => {
     if (!event) return [];
-    const isInscribed =
-      event.status === "inscrit" || event.status === "organisateur";
+
+    const roster = buildEventGroupMembers(event, {
+      viewerId: viewerContext?.id ?? null,
+      viewerDisplayName: viewerProfileDisplayName,
+      viewerAvatarUrl: viewerProfileAvatarUrl,
+      friends,
+      suggestions,
+    });
+    const organizerId = eventOrganizerUserId(event);
     const slots: ParticipantSlot[] = [];
-    const othersLimit = Math.min(
-      Math.max(0, event.participantCount - (isInscribed ? 1 : 0)),
-      21,
-    );
-    if (isInscribed) {
-      slots.push({ kind: "viewer", key: "viewer" });
+
+    for (const m of roster) {
+      if (m.profilId && organizerId && m.profilId === organizerId) {
+        slots.push({
+          kind: "host",
+          imageUrl: resolveAvatarUrl(m.avatarUrl),
+          name: m.name,
+          profilId: m.profilId,
+          key: `host-${m.profilId}`,
+        });
+      } else if (m.isSelf) {
+        slots.push({ kind: "viewer", key: "viewer" });
+      } else if (m.profilId) {
+        slots.push({
+          kind: "profile",
+          profilId: m.profilId,
+          imageUrl: resolveAvatarUrl(m.avatarUrl),
+          name: m.name,
+          key: `m-${m.profilId}`,
+        });
+      }
     }
-    const conv = conversations.find((c) => c.id === event.conversationId);
-    const fromConv =
-      conv?.members?.filter((m) => !m.isSelf && m.profilId) ?? [];
-    let used = 0;
-    for (const m of fromConv) {
-      if (used >= othersLimit) break;
-      const friend = friends.find((f) => f.profilId === m.profilId);
-      const imageUrl =
-        friend?.imageUrl ??
-        `https://i.pravatar.cc/100?u=${encodeURIComponent(m.profilId!)}`;
-      slots.push({
-        kind: "profile",
-        profilId: m.profilId!,
-        imageUrl,
-        name: m.name,
-        key: `m-${m.profilId}`,
-      });
-      used++;
-    }
-    let anon = 0;
-    while (used < othersLimit) {
-      slots.push({
-        kind: "anonymous",
-        seed: anon + (isInscribed ? 50 : 0),
-        key: `anon-${anon}`,
-      });
-      anon++;
-      used++;
-    }
+
     return slots;
-  }, [event, conversations, friends]);
+  }, [
+    event,
+    friends,
+    suggestions,
+    viewerContext,
+    viewerProfileAvatarUrl,
+    viewerProfileDisplayName,
+  ]);
 
   const allAppProfiles = useMemo(
     () => listAllAppProfiles(friends, suggestions),
@@ -157,8 +215,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
       ? allAppProfiles
       : allAppProfiles.filter((p) =>
           friends.some(
-            (f) =>
-              f.profilId === p.profilId && f.mutualFriend !== false,
+            (f) => f.profilId === p.profilId && f.mutualFriend === true,
           ),
         );
     return listInvitableProfiles(event, conversations, pool);
@@ -176,14 +233,26 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     }
   }, [event, finalizeEventOrganizerKarma]);
 
+  useEffect(() => {
+    if (!event?.conversationId) return;
+    useMessagingStore
+      .getState()
+      .ensureEventConversationRoster(event.conversationId);
+  }, [event?.id, event?.conversationId, event?.registeredParticipantIds]);
+
   if (!event) return null;
 
   const publicShareUrl = resolveEventPublicUrl(event);
 
-  const viewerHosts = eventHostedByViewer(event);
-  const hostAvatar = viewerHosts
-    ? viewerProfileAvatarUrl
-    : event.hostAvatar?.trim() || "https://i.pravatar.cc/150?u=nel-host";
+  const viewerStatus = effectiveViewerEventStatus(event, viewerContext, {
+    conversationMembers: eventConversation?.members,
+  });
+  const viewerHosts = eventHostedByViewer(event, viewerContext);
+  const hostAvatar = resolveEventHostAvatar(
+    event,
+    viewerProfileAvatarUrl,
+    viewerContext,
+  );
   const hostName = viewerHosts
     ? viewerProfileDisplayName
     : event.hostName?.trim() || "Organisateur";
@@ -192,14 +261,15 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     event,
     friends,
     viewerProAccess,
+    viewerContext,
   );
 
   const isInscribed =
-    event.status === "inscrit" || event.status === "organisateur";
+    viewerStatus === "inscrit" || viewerStatus === "organisateur";
   const isFull = event.participantCount >= event.participantMax;
-  const isHostOrganizer = viewerHosts && event.status === "organisateur";
+  const isHostOrganizer = viewerStatus === "organisateur";
   const isPastEvent = isEventDateBeforeToday(event.dateKey);
-  const canEditEvent = isHostOrganizer || isAdmin;
+  const canEditEvent = isHostOrganizer;
   const canInvite = (isHostOrganizer || isAdmin) && !isPastEvent;
   const validatedPresent = new Set(event.validatedPresentProfilIds ?? []);
   const viewerValidatedPresent = validatedPresent.has(
@@ -209,12 +279,28 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     (r) => r.profilId === VIEWER_KARMA_PARTICIPANT_ID,
   )?.rating;
   const canRateOrganizer =
-    isPastEvent &&
-    !isHostOrganizer &&
-    viewerValidatedPresent &&
-    isInscribed;
+    isPastEvent && !isHostOrganizer && viewerValidatedPresent && isInscribed;
   const showJoinKarmaHint =
-    !isHostOrganizer && event.status !== "inscrit" && !isFull && !isPastEvent;
+    !isHostOrganizer && viewerStatus !== "inscrit" && !isFull && !isPastEvent;
+
+  const joinPaymentEuros = getEventJoinPaymentEuros(event);
+  const joinPaymentLabel = formatEventJoinPaymentLabel(joinPaymentEuros);
+  const needsJoinPayment = viewerNeedsJoinPayment(event, user?.id);
+  const showJoinPaymentHint =
+    needsJoinPayment &&
+    !isHostOrganizer &&
+    viewerStatus !== "inscrit" &&
+    !isPastEvent &&
+    !(viewerStatus === "en_attente" || viewerOnWaitlist) &&
+    !(isFull && !event.manualApproval);
+
+  const performJoin = () => {
+    if (event.manualApproval || isFull) {
+      joinWaitlist(event.id);
+      return;
+    }
+    joinEvent(event.id);
+  };
 
   const markParticipantPresent = (participantProfilId: string) => {
     validateEventParticipantPresent(event.id, participantProfilId);
@@ -244,23 +330,62 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     setInviteSearch("");
   };
 
-  const handleAdminDeleteEvent = () => {
-    if (!window.confirm(t("adminDeleteEventConfirm"))) return;
-    adminDeleteEvent(event.id);
+  const handleDeleteEvent = () => {
+    if (!window.confirm(t("deleteEventConfirmation"))) return;
+    if (isAdmin) {
+      adminDeleteEvent(event.id);
+    } else {
+      cancelEvent(event.id);
+      showToast("Sortie supprimée.");
+    }
     closeDetail();
   };
 
   const handleJoinToggle = () => {
-    if (event.status === "inscrit") {
+    if (viewerStatus === "inscrit") {
       if (
         confirm("Voulez-vous vraiment vous désinscrire de cette activité ?")
       ) {
         leaveEvent(event.id);
       }
-    } else {
-      joinEvent(event.id);
+      return;
     }
+    if (viewerStatus === "en_attente" || viewerOnWaitlist) {
+      leaveWaitlist(event.id);
+      return;
+    }
+    if (event.manualApproval || isFull) {
+      joinWaitlist(event.id);
+      return;
+    }
+    if (needsJoinPayment) {
+      setCheckoutOpen(true);
+      return;
+    }
+    joinEvent(event.id);
   };
+
+  const handleCheckoutSuccess = () => {
+    markEventJoinPaymentPaid(event.id);
+    setCheckoutOpen(false);
+    showToast(t("eventPaymentSuccess"));
+    performJoin();
+  };
+
+  const primaryJoinLabel =
+    viewerStatus === "inscrit"
+      ? t("unregisterButton")
+      : viewerStatus === "en_attente" || viewerOnWaitlist
+        ? t("leaveWaitlist")
+        : isFull
+          ? t("joinWaitlist")
+          : event.manualApproval
+            ? t("joinWaitlist")
+            : showJoinPaymentHint
+              ? t("payAndJoinEventButton")
+              : t("joinEventButton");
+
+  const joinButtonLabel = primaryJoinLabel;
 
   const handleShare = async () => {
     try {
@@ -299,7 +424,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             onClick={closeDetail}
             aria-label={t("backButton")}
           >
-            <ChevronLeft size={28} color="#fff" />
+            <ChevronLeft size={28} color="currentColor" />
           </button>
           <div className="ed-header-actions">
             <button
@@ -312,7 +437,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
               <Share2 size={24} color="#fff" />
               <span className="ed-share-tooltip" role="tooltip">
                 <span className="ed-share-tooltip-url">{publicShareUrl}</span>
-                <span className="ed-share-tooltip-hint">{t("shareLinkTooltip")}</span>
+                <span className="ed-share-tooltip-hint">
+                  {t("shareLinkTooltip")}
+                </span>
               </span>
             </button>
             <button
@@ -339,12 +466,12 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             >
               <AlertTriangle size={24} color="#FFCC00" />
             </button>
-            {isAdmin ? (
+            {isHostOrganizer || isAdmin ? (
               <button
                 type="button"
                 className="ed-icon-btn ed-icon-btn--danger"
-                onClick={handleAdminDeleteEvent}
-                aria-label={t("adminDeleteEvent")}
+                onClick={handleDeleteEvent}
+                aria-label={isAdmin ? t("adminDeleteEvent") : t("deleteEvent")}
               >
                 <Trash2 size={22} color="#FF453A" />
               </button>
@@ -357,25 +484,31 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             {event.category || t("defaultActivity")}
           </span>
           <h1 className="ed-title">{event.title}</h1>
-          <div className="ed-host-row" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <div
+            className="ed-host-row"
+            style={{ display: "flex", gap: "8px", alignItems: "center" }}
+          >
             <img src={hostAvatar} alt={hostName} className="ed-host-avatar" />
             <span className="ed-host-name">
               {t("proposedByPrefix")} {hostName}
             </span>
             {hostIsPro && (
-              <span className="ed-pro-badge" style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                background: "rgba(255, 214, 10, 0.15)",
-                color: "#FFD60A",
-                fontSize: "11px",
-                fontWeight: 700,
-                padding: "3px 8px",
-                borderRadius: "6px",
-                textTransform: "uppercase",
-                border: "1px solid rgba(255, 214, 10, 0.25)"
-              }}>
+              <span
+                className="ed-pro-badge"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  background: "rgba(255, 214, 10, 0.15)",
+                  color: "#FFD60A",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  padding: "3px 8px",
+                  borderRadius: "6px",
+                  textTransform: "uppercase",
+                  border: "1px solid rgba(255, 214, 10, 0.25)",
+                }}
+              >
                 <Award size={12} />
                 <span>Pro</span>
               </span>
@@ -410,7 +543,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           <h2 className="ed-section-title">{t("aboutActivity")}</h2>
           <p className="ed-description">
             {event.notes ||
-              "Venez nombreux pour cette activité passionnante ! C\'est l\'occasion idéale de faire de nouvelles rencontres et de partager un bon moment ensemble."}
+              "Venez nombreux pour cette activité passionnante ! C'est l'occasion idéale de faire de nouvelles rencontres et de partager un bon moment ensemble."}
           </p>
         </div>
 
@@ -437,6 +570,28 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
           </div>
           <div className="ed-participants-grid">
             {participantSlots.map((slot) => {
+              if (slot.kind === "host") {
+                return (
+                  <button
+                    key={slot.key}
+                    type="button"
+                    className="ed-participant-avatar ed-participant-avatar--clickable"
+                    onClick={() => {
+                      if (
+                        slot.profilId &&
+                        !eventHostedByViewer(event, viewerContext)
+                      ) {
+                        openDetail("profile", slot.profilId);
+                      } else {
+                        setActiveTab("profile");
+                      }
+                    }}
+                    aria-label={`${t("viewProfileLabel")} ${slot.name}`}
+                  >
+                    <img src={slot.imageUrl} alt="" />
+                  </button>
+                );
+              }
               if (slot.kind === "viewer") {
                 return (
                   <button
@@ -489,18 +644,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                   </div>
                 );
               }
-              return (
-                <div
-                  key={slot.key}
-                  className="ed-participant-avatar"
-                  aria-hidden
-                >
-                  <img
-                    src={`https://i.pravatar.cc/100?u=p${slot.seed}`}
-                    alt=""
-                  />
-                </div>
-              );
+              return null;
             })}
             {event.participantCount < event.participantMax &&
               !isPastEvent &&
@@ -540,33 +684,67 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
             <div className="ed-waitlist-list" role="list">
               {waitlist.map((w) => {
                 const photo = resolveWaitlistPhoto(w);
+                const profileId = resolveWaitlistProfilId(w);
                 const tag =
                   w.reason === "en_attente"
                     ? t("awaitingValidationTag")
                     : t("capacityFullTag");
-                const inner = (
-                  <>
-                    <img src={photo} alt="" className="ed-waitlist-av" />
-                    <div className="ed-waitlist-texts">
-                      <span className="ed-waitlist-name">{w.name}</span>
-                      <span className="ed-waitlist-tag">{tag}</span>
-                    </div>
-                  </>
-                );
+                const showModeration =
+                  (isHostOrganizer || isAdmin) &&
+                  w.reason === "en_attente" &&
+                  !isPastEvent;
                 return (
                   <div key={w.id} className="ed-waitlist-row" role="listitem">
-                    {w.profilId ? (
-                      <button
-                        type="button"
-                        className="ed-waitlist-row-inner ed-waitlist-row-inner--click"
-                        onClick={() => openDetail("profile", w.profilId!)}
-                        aria-label={`${t("viewProfileLabel")} ${w.name}`}
-                      >
-                        {inner}
-                      </button>
-                    ) : (
-                      <div className="ed-waitlist-row-inner">{inner}</div>
-                    )}
+                    <div className="ed-waitlist-row-main">
+                      <div className="ed-waitlist-row-inner">
+                        {profileId ? (
+                          <button
+                            type="button"
+                            className="ed-waitlist-av-btn"
+                            onClick={() => openDetail("profile", profileId)}
+                            aria-label={`${t("viewProfileLabel")} ${w.name}`}
+                          >
+                            <img
+                              src={photo}
+                              alt=""
+                              className="ed-waitlist-av"
+                            />
+                          </button>
+                        ) : (
+                          <img src={photo} alt="" className="ed-waitlist-av" />
+                        )}
+                        <div className="ed-waitlist-texts">
+                          <span className="ed-waitlist-name">{w.name}</span>
+                          <span className="ed-waitlist-tag">{tag}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {showModeration ? (
+                      <div className="ed-waitlist-actions">
+                        <button
+                          type="button"
+                          className="ed-waitlist-action ed-waitlist-action--approve"
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            approveWaitlistEntry(event.id, w.id);
+                          }}
+                          aria-label={t("approveWaitlistEntry")}
+                        >
+                          <CheckCircle2 size={18} aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          className="ed-waitlist-action ed-waitlist-action--reject"
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            rejectWaitlistEntry(event.id, w.id);
+                          }}
+                          aria-label={t("rejectWaitlistEntry")}
+                        >
+                          <X size={18} aria-hidden />
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -577,9 +755,13 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
         {canRateOrganizer && (
           <div className="ed-section ed-rate-organizer-section">
             <h2 className="ed-section-title">{t("rateOrganizerTitle")}</h2>
-            <p className="ed-rate-organizer-sub">{t("rateOrganizerSubtitle")}</p>
+            <p className="ed-rate-organizer-sub">
+              {t("rateOrganizerSubtitle")}
+            </p>
             {myOrganizerRating ? (
-              <p className="ed-rate-organizer-done">{t("rateOrganizerThanks")}</p>
+              <p className="ed-rate-organizer-done">
+                {t("rateOrganizerThanks")}
+              </p>
             ) : (
               <div className="ed-rate-organizer-actions">
                 <button
@@ -640,37 +822,48 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
               ) : (
                 <button
                   type="button"
-                  className={`ed-join-btn${showJoinKarmaHint ? " ed-join-btn--with-karma" : ""} ${isInscribed ? "joined" : ""} ${!isInscribed && isFull ? "full" : ""}`}
+                  className={`ed-join-btn${showJoinKarmaHint ? " ed-join-btn--with-karma" : ""} ${isInscribed ? "joined" : ""} ${!isInscribed && isFull && !viewerOnWaitlist && viewerStatus !== "en_attente" ? "full" : ""}`}
                   onClick={handleJoinToggle}
-                  disabled={!isInscribed && isFull}
                   aria-label={
                     showJoinKarmaHint
                       ? viewerProAccess
-                        ? `${t("joinEventButton")}, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
-                        : `${t("joinEventButton")}, −${KARMA_JOIN_COST} karma, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
+                        ? `Participer, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
+                        : `Participer, −${KARMA_JOIN_COST} karma, +${KARMA_ATTENDANCE_REWARD} karma si présence validée`
                       : undefined
                   }
                 >
-                  {event.status === "inscrit" ? (
-                    t("unregisterButton")
-                  ) : isFull ? (
-                    t("completeEventButton")
+                  {viewerStatus === "inscrit" ? (
+                    joinButtonLabel
+                  ) : viewerStatus === "en_attente" || viewerOnWaitlist ? (
+                    joinButtonLabel
+                  ) : isFull && !event.manualApproval ? (
+                    joinButtonLabel
                   ) : (
                     <>
-                      <span className="ed-join-btn-label">{t("joinEventButton")}</span>
-                      {showJoinKarmaHint ? (
+                      <span className="ed-join-btn-label">
+                        {primaryJoinLabel}
+                      </span>
+                      {showJoinKarmaHint || showJoinPaymentHint ? (
                         <span className="ed-join-btn-karma" aria-hidden>
-                          {viewerProAccess
-                            ? t("createEventKarmaFree")
-                            : t("joinEventKarmaCost").replace(
-                                "{cost}",
-                                String(KARMA_JOIN_COST),
+                          {showJoinPaymentHint ? joinPaymentLabel : null}
+                          {showJoinPaymentHint && showJoinKarmaHint ? " · " : null}
+                          {showJoinKarmaHint
+                            ? viewerProAccess
+                              ? t("createEventKarmaFree")
+                              : t("joinEventKarmaCost").replace(
+                                  "{cost}",
+                                  String(KARMA_JOIN_COST),
+                                )
+                            : null}
+                          {showJoinKarmaHint ? (
+                            <>
+                              {" · "}
+                              {t("joinEventKarmaReward").replace(
+                                "{reward}",
+                                String(KARMA_ATTENDANCE_REWARD),
                               )}
-                          {" · "}
-                          {t("joinEventKarmaReward").replace(
-                            "{reward}",
-                            String(KARMA_ATTENDANCE_REWARD),
-                          )}
+                            </>
+                          ) : null}
                         </span>
                       ) : null}
                     </>
@@ -770,7 +963,9 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
                   >
                     <img src={p.imageUrl} alt="" className="ed-invite-av" />
                     <span className="ed-invite-name">{p.name}</span>
-                    <span className="ed-invite-action">{t("inviteAction")}</span>
+                    <span className="ed-invite-action">
+                      {t("inviteAction")}
+                    </span>
                   </button>
                 ))
               )}
@@ -787,6 +982,16 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
         subjectId={event.id}
         subjectLabel={event.title}
       />
+
+      {checkoutOpen ? (
+        <EventCheckoutModal
+          eventId={event.id}
+          eventTitle={event.title}
+          priceLabel={joinPaymentLabel}
+          onClose={() => setCheckoutOpen(false)}
+          onSuccess={() => handleCheckoutSuccess()}
+        />
+      ) : null}
     </div>
   );
 }

@@ -15,10 +15,14 @@ import {
   Calendar,
   Award,
   Heart,
+  HeartCrack,
+  UserPlus,
+  Eye,
   Users,
   AlertTriangle,
   Clock,
   Bell,
+  BellOff,
   X,
   Plus,
   Loader2,
@@ -28,7 +32,7 @@ import {
   LogOut,
   Globe,
   MapPin,
-  FlaskConical,
+  Smartphone,
   ChevronLeft,
   ChevronRight,
   Send,
@@ -37,10 +41,14 @@ import {
   Info,
   RefreshCw,
   Mail,
+  Moon,
+  Briefcase,
+  Tags,
 } from "lucide-react";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useLanguageStore } from "../store/useLanguageStore";
+import { useThemeStore } from "../store/useThemeStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
 import {
@@ -51,12 +59,18 @@ import {
 import { resolveSplashImageUrl } from "../lib/adminAppInfo";
 import { withUrlUploadVersion } from "../lib/versionRemoteAssetUrl";
 import { formatBadgeCount } from "../data/mockData";
+import { formatVisitTimeAgo } from "../data/mockData";
 import { ProProfileDetails } from "../components/ProProfileDetails";
 import { ProfileKarmaBadge } from "../components/ProfileKarmaBadge";
 import { ProfileBadgesSection } from "../components/ProfileBadgesSection";
 import { SubscriptionCheckoutModal } from "../components/SubscriptionCheckoutModal";
 import { SubscriptionSettingActions } from "../components/SubscriptionSettingActions";
 import { canManageProfileBadges, isAdminAccount } from "../lib/accountRoles";
+import { eventOrganizedByViewer } from "../lib/viewerEventScope";
+import {
+  effectiveViewerEventStatus,
+  viewerIsRegisteredParticipant,
+} from "../lib/eventHost";
 import { DEFAULT_AVATAR_URL, resolveAvatarUrl } from "../lib/avatarUrl";
 import type { SubscriptionPlan } from "../lib/subscriptionPayment";
 import "../components/ProContactLinks.css";
@@ -64,6 +78,12 @@ import { isEventDateBeforeToday, parseDateKeyLocal, todayDateKey, toDateKey } fr
 import { geocodeProAddress, isPlausibleProAddress } from "../lib/proGeocode";
 import { scrollLockSurfaceAttr, useLockBodyScroll } from "../lib/useLockBodyScroll";
 import { hasViewerProAccess } from "../lib/viewerEntitlements";
+import { buildFriendNetworkEntries } from "../lib/friendsTabNetwork";
+import { VIEWER_PRO_ID } from "../lib/proLocation";
+import { PRO_CATEGORY_OPTIONS, resolveProCategoryFields } from "../lib/proCategory";
+import { unlockNotificationSound } from "../lib/notificationSound";
+import { useProsStore } from "../store/useProsStore";
+import { useNotificationSoundStore } from "../store/useNotificationSoundStore";
 import "./ProfilePage.css";
 
 type TabId =
@@ -129,14 +149,35 @@ function compensateScrollAfterTabStripLayout(
   scroller.scrollTop += delta;
 }
 
+function fillNotifTemplate(
+  template: string,
+  name: string,
+  title: string,
+): string {
+  return template.replace("{name}", name).replace("{title}", title);
+}
+
 export function ProfilePage() {
   const { t } = useTranslation();
+  const notificationSoundEnabled = useNotificationSoundStore((s) => s.enabled);
+  const toggleNotificationSound = useNotificationSoundStore((s) => s.toggleEnabled);
   const { language, setLanguage } = useLanguageStore();
+  const isDarkMode = useThemeStore((s) => s.isDarkMode);
+  const setDarkMode = useThemeStore((s) => s.setDarkMode);
   const { logout, user, setUser } = useAuthStore();
   const {
     events,
     friends,
+    profileVisits,
+    suggestions,
+    friendRequestSentProfilIds,
+    friendRequestRejectedProfilIds,
+    acceptFriendRequest,
+    rejectFriendRequest,
     appNotifications,
+    markNotificationRead,
+    userBadgeCounts,
+    markUserBadgeSeen,
     toggleEventFavorite,
     isAdmin,
     setIsAdmin,
@@ -146,13 +187,15 @@ export function ProfilePage() {
     activateViewerSubscription,
     cancelViewerSubscription,
     adminReports,
-    markAllAdminReportsRead,
     dismissAdminReport,
     moderationHideAndNotifyFromReport,
     viewerProfileAvatarUrl,
     setViewerProfileAvatarUrl,
     viewerProfileDisplayName,
-    setViewerProfileDisplayName,
+    viewerProfileAge,
+    viewerProfileBio,
+    setViewerProfileBio,
+    persistViewerSettingsToSheets,
     viewerProfileIsPro,
     setViewerProfileIsPro,
     viewerProfileCity,
@@ -166,6 +209,8 @@ export function ProfilePage() {
     viewerProAddress,
     setViewerProAddress,
     setViewerProLocation,
+    viewerProCategory,
+    setViewerProCategory,
     viewerProfileBadges,
     setViewerProfileBadges,
     profileBadgeSuggestions,
@@ -180,6 +225,39 @@ export function ProfilePage() {
     conversations,
   } = useMessagingStore();
   const viewerProAccess = useMessagingStore(hasViewerProAccess);
+  const professionals = useProsStore((s) => s.professionals);
+  const viewerProfileVerified = useMemo(() => {
+    if (!user?.id) return false;
+    const fromPro = professionals.some(
+      (p) =>
+        (p.id === VIEWER_PRO_ID || p.id === user.id) && p.verified === true,
+    );
+    if (fromPro) return true;
+    return friends.some((f) => f.profilId === user.id && f.verified === true);
+  }, [professionals, user?.id, friends]);
+
+  const friendNetworkEntries = useMemo(
+    () =>
+      buildFriendNetworkEntries({
+        friends,
+        profileVisits,
+        suggestions,
+        friendRequestSentProfilIds,
+        friendRequestRejectedProfilIds,
+        viewerId: user?.id,
+      }),
+    [
+      friends,
+      profileVisits,
+      suggestions,
+      friendRequestSentProfilIds,
+      friendRequestRejectedProfilIds,
+      user?.id,
+    ],
+  );
+
+  const friendsTabCount = friendNetworkEntries.length;
+
   const { openDetail } = useNavigationStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const splashFileInputRef = useRef<HTMLInputElement>(null);
@@ -201,11 +279,17 @@ export function ProfilePage() {
         ? strip.getBoundingClientRect().top
         : null;
       if (next === "reports") {
-        markAllAdminReportsRead();
+        markUserBadgeSeen("profile_reports");
+      }
+      if (next === "notifications") {
+        markUserBadgeSeen("profile_notifications");
+      }
+      if (next === "friends") {
+        markUserBadgeSeen("profile_friends");
       }
       setActiveTab(next);
     },
-    [activeTab, markAllAdminReportsRead],
+    [activeTab, markUserBadgeSeen],
   );
 
   useLayoutEffect(() => {
@@ -232,16 +316,16 @@ export function ProfilePage() {
   }, [activeTab]);
   const [editing, setEditing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [installGuideOpen, setInstallGuideOpen] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlan | null>(null);
-  useLockBodyScroll(settingsOpen);
+  const [draftBio, setDraftBio] = useState("");
+  useLockBodyScroll(settingsOpen || installGuideOpen);
   const userIsAdmin = isAdminAccount(user);
   const canEditBadges = canManageProfileBadges(user, isAdmin);
+  const adminModerationView = isAdmin && userIsAdmin;
+  const calendarTabAccess = viewerProAccess || adminModerationView;
 
-  // Mock user state (nom + photo partagés avec EventDetail / création de sortie)
-  const [age, setAge] = useState("28");
-  const [bio, setBio] = useState(
-    "Passionné de rando et de sorties culturelles sur Paris ! 🏔️🎭",
-  );
+  // Photo partagée avec EventDetail / création de sortie ; nom et âge figés après inscription.
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingSplashImage, setUploadingSplashImage] = useState(false);
   const [heroAvatarBroken, setHeroAvatarBroken] = useState(false);
@@ -253,6 +337,11 @@ export function ProfilePage() {
   }, [viewerProfileAvatarUrl]);
   const [geocodingAddress, setGeocodingAddress] = useState(false);
   const [draftProAddress, setDraftProAddress] = useState("");
+
+  const viewerProCategoryLabel = useMemo(
+    () => resolveProCategoryFields(viewerProCategory).categoryLabel,
+    [viewerProCategory],
+  );
 
   const handleSaveProfile = async () => {
     if (viewerProAccess && draftProAddress.trim()) {
@@ -281,42 +370,60 @@ export function ProfilePage() {
     } else if (viewerProAccess && !draftProAddress.trim()) {
       setViewerProAddress("");
     }
+    setViewerProfileBio(draftBio);
     setEditing(false);
   };
-  const unreadAdminReportsCount = useMemo(
-    () => adminReports.filter((r) => !r.read).length,
-    [adminReports],
+  const unreadAdminReportsCount = userBadgeCounts.profile_reports;
+
+  const viewerContext = useMemo(
+    () =>
+      user
+        ? { id: user.id, displayName: user.displayName }
+        : null,
+    [user],
   );
 
-  /** Favoris + créées : uniquement à partir d’aujourd’hui (jour calendaire local). */
-  const favoritesAndCreatedEvents = useMemo(
-    () =>
-      events.filter(
-        (e) =>
-          e.hostedByViewer &&
-          (e.isFavorite || e.status === "organisateur") &&
-          !isEventDateBeforeToday(e.dateKey),
-      ),
-    [events],
+  const isMyOrganizedEvent = useCallback(
+    (e: (typeof events)[number]) => eventOrganizedByViewer(e, viewerContext),
+    [viewerContext],
   );
-  /** Passés : avant aujourd'hui parmi créés par l'utilisateur. */
+
+  /** Sorties à venir : favoris, organisées par moi ou auxquelles je participe. */
+  const myUpcomingOutings = useMemo(() => {
+    const list = events.filter((e) => {
+      if (isEventDateBeforeToday(e.dateKey)) return false;
+      if (isMyOrganizedEvent(e)) return true;
+      if (e.isFavorite) return true;
+      if (!viewerContext) return false;
+      if (viewerIsRegisteredParticipant(e, viewerContext)) return true;
+      const status = effectiveViewerEventStatus(e, viewerContext);
+      return status === "inscrit" || status === "en_attente";
+    });
+    return list.sort(
+      (a, b) =>
+        a.dateKey.localeCompare(b.dateKey) ||
+        a.timeShort.localeCompare(b.timeShort),
+    );
+  }, [events, isMyOrganizedEvent, viewerContext]);
+  /** Passés : avant aujourd'hui (toutes les sorties en mode admin). */
   const historyEvents = useMemo(
     () =>
-      events.filter(
-        (e) => e.hostedByViewer && isEventDateBeforeToday(e.dateKey),
-      ),
-    [events],
+      events.filter((e) => {
+        if (!isEventDateBeforeToday(e.dateKey)) return false;
+        return adminModerationView || isMyOrganizedEvent(e);
+      }),
+    [events, isMyOrganizedEvent, adminModerationView],
   );
 
-  /** Sorties créées par l'utilisateur (onglet Calendrier Pro). */
-  const createdEvents = useMemo(
-    () => events.filter((e) => e.hostedByViewer),
-    [events],
+  /** Calendrier Pro : mes sorties ; mode admin = toutes les sorties. */
+  const calendarEvents = useMemo(
+    () => (adminModerationView ? events : events.filter((e) => isMyOrganizedEvent(e))),
+    [events, isMyOrganizedEvent, adminModerationView],
   );
 
   const createdEventsByDateKey = useMemo(() => {
     const map = new Map<string, typeof events>();
-    for (const e of createdEvents) {
+    for (const e of calendarEvents) {
       if (!map.has(e.dateKey)) map.set(e.dateKey, []);
       map.get(e.dateKey)!.push(e);
     }
@@ -324,7 +431,7 @@ export function ProfilePage() {
       list.sort((a, b) => a.timeShort.localeCompare(b.timeShort));
     }
     return map;
-  }, [createdEvents]);
+  }, [calendarEvents]);
 
   const profileMonthCells = useMemo(
     () => buildProfileMonthCells(calendarDate),
@@ -372,6 +479,8 @@ export function ProfilePage() {
     [appNotifications],
   );
 
+  const unreadNotificationsCount = userBadgeCounts.profile_notifications;
+
   const handlePhotoClick = () => {
     fileInputRef.current?.click();
   };
@@ -408,7 +517,7 @@ export function ProfilePage() {
 
     setUploadingPhoto(true);
     try {
-      const userKey = getNelProfileImageKitUserKey();
+      const userKey = getNelProfileImageKitUserKey(user?.id);
       const url = await uploadLocalImageToImageKit({
         webFile: file,
         mimeType: file.type || null,
@@ -457,34 +566,8 @@ export function ProfilePage() {
 
   return (
     <div className="profile-page">
-      {/* Hero Section */}
+      {/* Hero — avatar miniature + infos compactes */}
       <div className="profile-hero">
-        <img
-          src={heroAvatarSrc}
-          alt="Profile"
-          className="hero-img"
-          onError={() => setHeroAvatarBroken(true)}
-        />
-        <div className="hero-overlay" />
-
-        {uploadingPhoto ? (
-          <div
-            className="hero-upload-loader"
-            role="status"
-            aria-live="polite"
-            aria-label={t("photoUploading")}
-          >
-            <Loader2
-              className="hero-upload-spinner"
-              size={40}
-              color="#fff"
-              strokeWidth={2.2}
-              aria-hidden
-            />
-            <p className="hero-upload-loader-text">{t("photoUploading")}</p>
-          </div>
-        ) : null}
-
         <div className="hero-top-btns">
           <button
             type="button"
@@ -492,19 +575,66 @@ export function ProfilePage() {
             onClick={() => setSettingsOpen(true)}
             aria-label={t("settingsAriaLabel")}
           >
-            <Settings size={22} color="#fff" />
+            <Settings size={20} color="#fff" />
           </button>
           <div style={{ flex: 1 }} />
-          <button
-            type="button"
-            className="hero-icon-btn"
-            onClick={handlePhotoClick}
-            disabled={uploadingPhoto}
-            aria-label={t("changePhoto")}
-            aria-busy={uploadingPhoto}
-          >
-            <Camera size={22} color="#fff" />
-          </button>
+          <div className="hero-top-btns-right">
+            <button
+              type="button"
+              className={`hero-icon-btn${notificationSoundEnabled ? "" : " hero-icon-btn--muted"}`}
+              onClick={() => {
+                void unlockNotificationSound();
+                toggleNotificationSound();
+              }}
+              aria-label={
+                notificationSoundEnabled
+                  ? t("notificationSoundDisable")
+                  : t("notificationSoundEnable")
+              }
+              aria-pressed={notificationSoundEnabled}
+            >
+              {notificationSoundEnabled ? (
+                <Bell size={20} color="#fff" />
+              ) : (
+                <BellOff size={20} color="#fff" />
+              )}
+            </button>
+            <button
+              type="button"
+              className="hero-icon-btn"
+              onClick={handlePhotoClick}
+              disabled={uploadingPhoto}
+              aria-label={t("changePhoto")}
+              aria-busy={uploadingPhoto}
+            >
+              <Camera size={20} color="#fff" />
+            </button>
+          </div>
+        </div>
+
+        <div className="hero-avatar-wrap">
+          <img
+            src={heroAvatarSrc}
+            alt="Profile"
+            className="hero-img"
+            onError={() => setHeroAvatarBroken(true)}
+          />
+          {uploadingPhoto ? (
+            <div
+              className="hero-upload-loader"
+              role="status"
+              aria-live="polite"
+              aria-label={t("photoUploading")}
+            >
+              <Loader2
+                className="hero-upload-spinner"
+                size={28}
+                color="#fff"
+                strokeWidth={2.2}
+                aria-hidden
+              />
+            </div>
+          ) : null}
         </div>
 
         <input
@@ -519,38 +649,30 @@ export function ProfilePage() {
           {!editing ? (
             <h1 className="hero-name">
               {viewerProfileDisplayName}
-              {age ? `, ${age}` : ""}
+              {viewerProfileAge ? `, ${viewerProfileAge}` : ""}
             </h1>
           ) : (
             <div className="hero-edit-fields">
+              <p className="hero-name">
+                {viewerProfileDisplayName}
+                {viewerProfileAge ? `, ${viewerProfileAge}` : ""}
+              </p>
               <input
-                value={viewerProfileDisplayName}
-                onChange={(e) => setViewerProfileDisplayName(e.target.value)}
-                placeholder={t("name")}
-                className="hero-input"
+                value={viewerProfileCity}
+                onChange={(e) => setViewerProfileCity(e.target.value)}
+                placeholder={t("cityPlaceholder")}
+                className="hero-input hero-input--city"
               />
-              <div className="hero-edit-row">
-                <input
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  placeholder={t("age")}
-                  className="hero-input hero-input--age"
-                />
-                <input
-                  value={viewerProfileCity}
-                  onChange={(e) => setViewerProfileCity(e.target.value)}
-                  placeholder={t("cityPlaceholder")}
-                  className="hero-input hero-input--city"
-                />
-              </div>
             </div>
           )}
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-            <div className="verified-badge">
-              <ShieldCheck size={16} color="#22C55E" />
-              <span>{t("verified")}</span>
-            </div>
-            {viewerProAccess && (
+            {viewerProfileVerified ? (
+              <div className="verified-badge">
+                <ShieldCheck size={16} color="#22C55E" />
+                <span>{t("verified")}</span>
+              </div>
+            ) : null}
+            {calendarTabAccess && (
               <div className="pro-badge">
                 <Award size={16} color="#FFD60A" />
                 <span>Pro</span>
@@ -564,12 +686,39 @@ export function ProfilePage() {
       <div className="profile-content">
         {/* Bio Card */}
         <div className="bio-card">
+          {user?.email ? (
+            <div className="profile-email-field">
+              <label className="pro-contact-edit-label">
+                <Mail size={16} aria-hidden />
+                <span>{t("loginEmail")}</span>
+              </label>
+              {editing ? (
+                <input
+                  type="email"
+                  value={user.email}
+                  readOnly
+                  className="profile-email-readonly"
+                  aria-readonly="true"
+                />
+              ) : (
+                <p className="profile-email-value">{user.email}</p>
+              )}
+            </div>
+          ) : null}
           {!editing ? (
-            <p className="bio-text">{bio || "—"}</p>
-          ) : (
+            <>
+              {viewerProAccess ? (
+                <label className="pro-contact-edit-label">
+                  <Briefcase size={16} aria-hidden />
+                  <span>{t("proJobLabel")}</span>
+                </label>
+              ) : null}
+              <p className="bio-text">{viewerProfileBio || "—"}</p>
+            </>
+          ) : viewerProAccess ? null : (
             <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
+              value={draftBio}
+              onChange={(e) => setDraftBio(e.target.value)}
               placeholder={t("bio")}
               className="bio-textarea"
             />
@@ -586,7 +735,15 @@ export function ProfilePage() {
             </div>
           ) : null}
           {viewerProAccess && !editing ? (
-            <ProProfileDetails
+            <>
+              <label className="pro-contact-edit-label">
+                <Tags size={16} aria-hidden />
+                <span>{t("proCategoryTypeLabel")}</span>
+              </label>
+              <div className="member-since pro-category-display">
+                <span>{viewerProCategoryLabel}</span>
+              </div>
+              <ProProfileDetails
               city={viewerProfileCity}
               address={viewerProAddress}
               websiteUrl={viewerProWebsiteUrl}
@@ -595,9 +752,39 @@ export function ProfilePage() {
               showEmptyContactFields
               className="pro-contact-links--profile"
             />
+            </>
           ) : null}
           {viewerProAccess && editing ? (
             <div className="pro-contact-edit">
+              <label className="pro-contact-edit-label">
+                <Briefcase size={16} aria-hidden />
+                <span>{t("proJobLabel")}</span>
+              </label>
+              <textarea
+                value={draftBio}
+                onChange={(e) => setDraftBio(e.target.value)}
+                placeholder={t("proJobPlaceholder")}
+                className="bio-textarea bio-textarea--pro-job"
+              />
+              <label className="pro-contact-edit-label">
+                <Tags size={16} aria-hidden />
+                <span>{t("proCategoryTypeLabel")}</span>
+              </label>
+              <p className="pro-address-hint">{t("proCategoryTypeHint")}</p>
+              <div className="pro-category-chips" role="listbox" aria-label={t("proCategoryTypeLabel")}>
+                {PRO_CATEGORY_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    role="option"
+                    aria-selected={viewerProCategory === opt.id}
+                    className={`pro-category-chip${viewerProCategory === opt.id ? " pro-category-chip--active" : ""}`}
+                    onClick={() => setViewerProCategory(opt.id)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
               <label className="pro-contact-edit-label">
                 <MapPin size={16} aria-hidden />
                 <span>{t("proAddressLabel")}</span>
@@ -654,6 +841,7 @@ export function ProfilePage() {
                 className="edit-btn"
                 onClick={() => {
                   setDraftProAddress(viewerProAddress);
+                  setDraftBio(viewerProfileBio);
                   setEditing(true);
                 }}
               >
@@ -735,7 +923,28 @@ export function ProfilePage() {
               e.preventDefault();
           }}
         >
-          {viewerProAccess && (
+          <button
+            type="button"
+            className={`p-tab ${activeTab === "notifications" ? "p-tab--active" : ""}`}
+            onClick={() => selectProfileTab("notifications")}
+          >
+            <div className="p-tab-inner">
+              <Bell
+                size={18}
+                color={activeTab === "notifications" ? "#8B5CF6" : "#8E8E93"}
+              />
+              <span>{t("notifications")}</span>
+              {unreadNotificationsCount > 0 ? (
+                <span
+                  className="p-tab-badge p-tab-badge--notifications"
+                  aria-label={`${unreadNotificationsCount} ${t("unreadCount")}`}
+                >
+                  {formatBadgeCount(unreadNotificationsCount)}
+                </span>
+              ) : null}
+            </div>
+          </button>
+          {calendarTabAccess && (
             <button
               type="button"
               className={`p-tab ${activeTab === "calendar" ? "p-tab--active" : ""}`}
@@ -761,8 +970,8 @@ export function ProfilePage() {
                 color={activeTab === "favorites" ? "#FF4B81" : "#8E8E93"}
               />
               <span>{t("favoritesCreated")}</span>
-              <span className="p-tab-badge" style={{ background: "#FF4B81" }}>
-                {favoritesAndCreatedEvents.length}
+              <span className="p-tab-badge p-tab-badge--muted">
+                {myUpcomingOutings.length}
               </span>
             </div>
           </button>
@@ -777,9 +986,18 @@ export function ProfilePage() {
                 color={activeTab === "friends" ? "#8B5CF6" : "#8E8E93"}
               />
               <span>{t("friends")}</span>
-              <span className="p-tab-badge" style={{ background: "#8B5CF6" }}>
-                {friends.length}
-              </span>
+              {userBadgeCounts.profile_friends > 0 ? (
+                <span
+                  className="p-tab-badge p-tab-badge--alert"
+                  aria-label={`${userBadgeCounts.profile_friends} ${t("friendRequestBadge")}`}
+                >
+                  {formatBadgeCount(userBadgeCounts.profile_friends)}
+                </span>
+              ) : (
+                <span className="p-tab-badge p-tab-badge--muted">
+                  {friendsTabCount}
+                </span>
+              )}
             </div>
           </button>
           {isAdmin && (
@@ -831,24 +1049,8 @@ export function ProfilePage() {
                 color={activeTab === "history" ? "#6B7280" : "#8E8E93"}
               />
               <span>{t("history")}</span>
-              <span className="p-tab-badge" style={{ background: "#6B7280" }}>
+              <span className="p-tab-badge p-tab-badge--muted">
                 {historyEvents.length}
-              </span>
-            </div>
-          </button>
-          <button
-            type="button"
-            className={`p-tab ${activeTab === "notifications" ? "p-tab--active" : ""}`}
-            onClick={() => selectProfileTab("notifications")}
-          >
-            <div className="p-tab-inner">
-              <Bell
-                size={18}
-                color={activeTab === "notifications" ? "#5AC8FA" : "#8E8E93"}
-              />
-              <span>{t("notifications")}</span>
-              <span className="p-tab-badge" style={{ background: "#5AC8FA" }}>
-                {appNotifications.length}
               </span>
             </div>
           </button>
@@ -856,7 +1058,7 @@ export function ProfilePage() {
 
         {/* Tab Content */}
         <div className="tab-container">
-          {activeTab === "calendar" && viewerProAccess && (
+          {activeTab === "calendar" && calendarTabAccess && (
             <div className="profile-calendar">
               <div className="profile-cal-header">
                 <button
@@ -950,7 +1152,7 @@ export function ProfilePage() {
 
           {activeTab === "favorites" && (
             <div className="favorites-list">
-              {favoritesAndCreatedEvents.map((e) => (
+              {myUpcomingOutings.map((e) => (
                 <div
                   key={e.id}
                   role="button"
@@ -971,10 +1173,17 @@ export function ProfilePage() {
                     <div className="p-event-title">{e.title}</div>
                     <div className="p-event-meta">
                       {e.dateLabel} · {e.timeShort}
-                      {e.status === "organisateur" ? (
+                      {isMyOrganizedEvent(e) ? (
                         <span className="p-event-meta-tag">
                           {" "}
                           · {t("youOrganize")}
+                        </span>
+                      ) : viewerIsRegisteredParticipant(e, viewerContext) ||
+                        effectiveViewerEventStatus(e, viewerContext) ===
+                          "inscrit" ? (
+                        <span className="p-event-meta-tag">
+                          {" "}
+                          · {t("registered")}
                         </span>
                       ) : null}
                     </div>
@@ -991,34 +1200,129 @@ export function ProfilePage() {
                   />
                 </div>
               ))}
-              {favoritesAndCreatedEvents.length === 0 && (
+              {myUpcomingOutings.length === 0 && (
                 <div className="empty-hint">{t("noFavoritesUpcoming")}</div>
               )}
             </div>
           )}
 
           {activeTab === "friends" && (
-            <div className="friends-list">
-              {friends.map((f) => (
-                <div key={f.profilId} className="friend-card">
-                  <img src={f.imageUrl} alt={f.name} className="friend-av" />
-                  <div className="friend-info">
-                    <div className="friend-name">{f.name}</div>
-                    <div className="friend-sub">
-                      {f.age} ans · {f.city} · {f.eventsInCommon} communs
+            <div className="friends-network-list">
+              {friendNetworkEntries.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="visit-card visit-card--friends"
+                  onClick={() => openDetail("profile", entry.id)}
+                  onKeyDown={(ev) => {
+                    if (ev.key === "Enter" || ev.key === " ") {
+                      ev.preventDefault();
+                      openDetail("profile", entry.id);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="visit-avatar-wrap">
+                    <img
+                      src={entry.imageUrl}
+                      alt={entry.name}
+                      className="visit-avatar"
+                    />
+                    {entry.status === "incoming" ? (
+                      <span className="visit-friend-badge">
+                        {t("friendRequestBadge")}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="visit-card-body">
+                    <span className="visit-name-age">
+                      {entry.name}
+                      {entry.age != null ? `, ${entry.age}` : ""}
+                    </span>
+                    <div className="visit-meta-row">
+                      <Eye size={14} color="#8E8E93" />
+                      <span className="visit-time">
+                        {entry.lastVisitAt > 0
+                          ? formatVisitTimeAgo(entry.lastVisitAt)
+                          : entry.status === "mutual"
+                            ? t("friendLabel")
+                            : entry.status === "sent"
+                              ? t("requestSent")
+                              : entry.status === "rejected"
+                                ? t("requestRejected")
+                                : t("friendRequestBadge")}
+                      </span>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="view-btn"
-                    onClick={() => openDetail("profile", f.profilId)}
-                    aria-label={`${t("viewProfileOf")} ${f.name}`}
-                  >
-                    {t("view")}
-                  </button>
+                  {entry.status === "incoming" ? (
+                    <div className="friend-network-incoming-actions">
+                      <button
+                        type="button"
+                        className="friend-request-btn friend-request-btn--accept"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          acceptFriendRequest(entry.id);
+                        }}
+                      >
+                        {t("acceptFriendRequest")}
+                      </button>
+                      <button
+                        type="button"
+                        className="friend-request-btn friend-request-btn--reject"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          rejectFriendRequest(entry.id);
+                        }}
+                      >
+                        {t("rejectFriendRequest")}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className={`visit-like-btn${
+                        entry.status === "sent"
+                          ? " visit-like-btn--sent"
+                          : entry.status === "mutual"
+                            ? " visit-like-btn--friend"
+                            : entry.status === "rejected"
+                              ? " visit-like-btn--rejected"
+                              : ""
+                      }`}
+                      disabled
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={
+                        entry.status === "mutual"
+                          ? t("friendLabel")
+                          : entry.status === "rejected"
+                            ? t("requestRejected")
+                            : t("requestSent")
+                      }
+                    >
+                      {entry.status === "mutual" ? (
+                        <Heart
+                          size={18}
+                          color="#FF4081"
+                          fill="#FF4081"
+                          aria-hidden
+                        />
+                      ) : entry.status === "rejected" ? (
+                        <HeartCrack size={18} color="#FF9F0A" aria-hidden />
+                      ) : (
+                        <UserPlus size={18} color="#fff" aria-hidden />
+                      )}
+                      <span>
+                        {entry.status === "mutual"
+                          ? t("friendLabel")
+                          : entry.status === "rejected"
+                            ? t("rejectedRequest")
+                            : t("sentRequest")}
+                      </span>
+                    </button>
+                  )}
                 </div>
               ))}
-              {friends.length === 0 && (
+              {friendNetworkEntries.length === 0 && (
                 <div className="empty-hint">{t("noFriends")}</div>
               )}
             </div>
@@ -1280,11 +1584,12 @@ export function ProfilePage() {
                     <button
                       key={n.id}
                       type="button"
-                      className="notification-card"
+                      className={`notification-card${n.readAt == null ? " notification-card--unread" : ""}`}
                       onMouseDown={(ev) => ev.preventDefault()}
-                      onClick={() =>
-                        n.conversationId && openDetail("chat", n.conversationId)
-                      }
+                      onClick={() => {
+                        markNotificationRead(n.id);
+                        if (n.conversationId) openDetail("chat", n.conversationId);
+                      }}
                     >
                       <div
                         className="notification-av notification-av--placeholder"
@@ -1305,16 +1610,203 @@ export function ProfilePage() {
                   );
                 }
 
+                if (n.kind === "friend_request_received") {
+                  const senderAv =
+                    friends.find((f) => f.profilId === n.inviteeProfilId)
+                      ?.imageUrl ??
+                    profileVisits.find((v) => v.id === n.inviteeProfilId)
+                      ?.avatarUrl ??
+                    suggestions.find((s) => s.id === n.inviteeProfilId)
+                      ?.imageUrl ??
+                    "";
+                  const senderName = n.senderName?.trim() || n.inviteeName?.trim() || "Quelqu'un";
+                  const notifTitle = t("notifFriendRequestTitle");
+                  const notifBody = t("notifFriendRequestBody").replace(
+                    "{name}",
+                    senderName,
+                  );
+
+                  return (
+                    <button
+                      key={n.id}
+                      type="button"
+                      className={`notification-card${n.readAt == null ? " notification-card--unread" : ""}`}
+                      onMouseDown={(ev) => ev.preventDefault()}
+                      onClick={() => {
+                        markNotificationRead(n.id);
+                        selectProfileTab("friends");
+                      }}
+                    >
+                      {senderAv ? (
+                        <img src={senderAv} alt="" className="notification-av" />
+                      ) : (
+                        <div
+                          className="notification-av notification-av--placeholder"
+                          aria-hidden
+                        >
+                          <Users size={22} color="#8E8E93" />
+                        </div>
+                      )}
+                      <div className="notification-texts">
+                        <div className="notification-title">{notifTitle}</div>
+                        <div className="notification-body">{notifBody}</div>
+                        <div className="notification-meta">{when}</div>
+                      </div>
+                    </button>
+                  );
+                }
+
+                if (
+                  n.kind === "friend_request_accepted" ||
+                  n.kind === "friend_request_rejected"
+                ) {
+                  const actorAv =
+                    friends.find((f) => f.profilId === n.inviteeProfilId)
+                      ?.imageUrl ??
+                    profileVisits.find((v) => v.id === n.inviteeProfilId)
+                      ?.avatarUrl ??
+                    suggestions.find((s) => s.id === n.inviteeProfilId)
+                      ?.imageUrl ??
+                    "";
+                  const actorName =
+                    n.senderName?.trim() || n.inviteeName?.trim() || "Quelqu'un";
+                  const notifTitle =
+                    n.kind === "friend_request_accepted"
+                      ? t("notifFriendRequestAcceptedTitle")
+                      : t("notifFriendRequestRejectedTitle");
+                  const template =
+                    n.kind === "friend_request_accepted"
+                      ? t("notifFriendRequestAcceptedBody")
+                      : t("notifFriendRequestRejectedBody");
+                  const notifBody = template.replace("{name}", actorName);
+
+                  return (
+                    <button
+                      key={n.id}
+                      type="button"
+                      className={`notification-card${n.readAt == null ? " notification-card--unread" : ""}`}
+                      onMouseDown={(ev) => ev.preventDefault()}
+                      onClick={() => {
+                        markNotificationRead(n.id);
+                        selectProfileTab("friends");
+                      }}
+                    >
+                      {actorAv ? (
+                        <img src={actorAv} alt="" className="notification-av" />
+                      ) : (
+                        <div
+                          className="notification-av notification-av--placeholder"
+                          aria-hidden
+                        >
+                          <Users size={22} color="#8E8E93" />
+                        </div>
+                      )}
+                      <div className="notification-texts">
+                        <div className="notification-title">{notifTitle}</div>
+                        <div className="notification-body">{notifBody}</div>
+                        <div className="notification-meta">{when}</div>
+                      </div>
+                    </button>
+                  );
+                }
+
+                if (n.kind === "event_invite_received") {
+                  const hostName = n.senderName?.trim() || "Quelqu'un";
+                  const eventTitle = n.eventTitle?.trim() || "";
+                  const notifTitle = t("notifEventInviteReceivedTitle");
+                  const notifBody = t("notifEventInviteReceivedBody")
+                    .replace("{name}", hostName)
+                    .replace("{event}", eventTitle);
+
+                  return (
+                    <button
+                      key={n.id}
+                      type="button"
+                      className={`notification-card${n.readAt == null ? " notification-card--unread" : ""}`}
+                      onMouseDown={(ev) => ev.preventDefault()}
+                      onClick={() => {
+                        markNotificationRead(n.id);
+                        if (n.eventId) openDetail("event", n.eventId);
+                      }}
+                    >
+                      <div
+                        className="notification-av notification-av--placeholder"
+                        aria-hidden
+                      >
+                        <Calendar size={22} color="#8E8E93" />
+                      </div>
+                      <div className="notification-texts">
+                        <div className="notification-title">{notifTitle}</div>
+                        <div className="notification-body">{notifBody}</div>
+                        <div className="notification-meta">{when}</div>
+                      </div>
+                    </button>
+                  );
+                }
+
                 const inviteeAv =
                   friends.find((f) => f.profilId === n.inviteeProfilId)
                     ?.imageUrl ?? "";
+                const actorName = n.inviteeName?.trim() || "Quelqu'un";
+                const eventTitle = n.eventTitle ?? "";
+
+                let notifTitle = t("invitationSent");
+                let notifBody = `${n.inviteeName} ${t("willNotify")} « ${n.eventTitle} ».`;
+
+                if (n.kind === "event_participant_joined") {
+                  notifTitle = t("notifParticipantJoinedTitle");
+                  notifBody = fillNotifTemplate(
+                    t("notifParticipantJoinedBody"),
+                    actorName,
+                    eventTitle,
+                  );
+                } else if (n.kind === "event_participant_left") {
+                  notifTitle = t("notifParticipantLeftTitle");
+                  notifBody = fillNotifTemplate(
+                    t("notifParticipantLeftBody"),
+                    actorName,
+                    eventTitle,
+                  );
+                } else if (n.kind === "event_waitlist_joined") {
+                  notifTitle = t("notifWaitlistJoinedTitle");
+                  notifBody = fillNotifTemplate(
+                    t("notifWaitlistJoinedBody"),
+                    actorName,
+                    eventTitle,
+                  );
+                } else if (n.kind === "event_waitlist_left") {
+                  notifTitle = t("notifWaitlistLeftTitle");
+                  notifBody = fillNotifTemplate(
+                    t("notifWaitlistLeftBody"),
+                    actorName,
+                    eventTitle,
+                  );
+                } else if (n.kind === "event_waitlist_accepted") {
+                  notifTitle = t("notifWaitlistAcceptedTitle");
+                  notifBody = fillNotifTemplate(
+                    t("notifWaitlistAcceptedBody"),
+                    actorName,
+                    eventTitle,
+                  );
+                } else if (n.kind === "event_waitlist_rejected") {
+                  notifTitle = t("notifWaitlistRejectedTitle");
+                  notifBody = fillNotifTemplate(
+                    t("notifWaitlistRejectedBody"),
+                    actorName,
+                    eventTitle,
+                  );
+                }
+
                 return (
                   <button
                     key={n.id}
                     type="button"
-                    className="notification-card"
+                    className={`notification-card${n.readAt == null ? " notification-card--unread" : ""}`}
                     onMouseDown={(ev) => ev.preventDefault()}
-                    onClick={() => n.eventId && openDetail("event", n.eventId)}
+                    onClick={() => {
+                      markNotificationRead(n.id);
+                      if (n.eventId) openDetail("event", n.eventId);
+                    }}
                   >
                     {inviteeAv ? (
                       <img src={inviteeAv} alt="" className="notification-av" />
@@ -1327,12 +1819,8 @@ export function ProfilePage() {
                       </div>
                     )}
                     <div className="notification-texts">
-                      <div className="notification-title">
-                        {t("invitationSent")}
-                      </div>
-                      <div className="notification-body">
-                        {n.inviteeName} {t("willNotify")} « {n.eventTitle} ».
-                      </div>
+                      <div className="notification-title">{notifTitle}</div>
+                      <div className="notification-body">{notifBody}</div>
                       <div className="notification-meta">{when}</div>
                     </div>
                   </button>
@@ -1456,6 +1944,22 @@ export function ProfilePage() {
                 ) : null}
                 <div className="setting-item">
                   <div className="setting-icon blue">
+                    <Moon size={20} />
+                  </div>
+                  <div className="setting-text">
+                    <div className="setting-label">{t("darkMode")}</div>
+                    <div className="setting-sub">{t("darkModeSub")}</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={isDarkMode}
+                    onChange={(e) => setDarkMode(e.target.checked)}
+                    className="switch"
+                    aria-label={t("darkMode")}
+                  />
+                </div>
+                <div className="setting-item">
+                  <div className="setting-icon blue">
                     <Globe size={20} />
                   </div>
                   <div className="setting-text">
@@ -1467,9 +1971,11 @@ export function ProfilePage() {
                   <input
                     type="checkbox"
                     checked={language === "en"}
-                    onChange={(e) =>
-                      setLanguage(e.target.checked ? "en" : "fr")
-                    }
+                    onChange={(e) => {
+                      const next = e.target.checked ? "en" : "fr";
+                      setLanguage(next);
+                      persistViewerSettingsToSheets();
+                    }}
                     className="switch"
                     aria-label="Toggle language"
                   />
@@ -1477,10 +1983,23 @@ export function ProfilePage() {
               </div>
 
               <div className="setting-section">
-                <button className="setting-btn">
-                  <FlaskConical size={20} />
-                  <span>{t("betaFeatures")}</span>
-                </button>
+                <div className="setting-item">
+                  <div className="setting-icon blue">
+                    <Smartphone size={20} />
+                  </div>
+                  <div className="setting-text">
+                    <div className="setting-label">{t("howToInstall")}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="setting-subscribe-btn setting-subscribe-btn--pro setting-info-btn"
+                    onClick={() => setInstallGuideOpen(true)}
+                    aria-label={t("howToInstallTitle")}
+                  >
+                    <Info size={16} />
+                    <span>{t("infoButton")}</span>
+                  </button>
+                </div>
               </div>
 
               <div className="setting-section">
@@ -1498,6 +2017,49 @@ export function ProfilePage() {
         </div>,
         document.body,
       )}
+
+      {installGuideOpen &&
+        createPortal(
+          <div
+            className="modal-overlay install-guide-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="install-guide-title"
+            onClick={() => setInstallGuideOpen(false)}
+          >
+            <div
+              className="modal-content install-guide-modal"
+              {...{ [scrollLockSurfaceAttr]: "" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <h3 id="install-guide-title">{t("howToInstallTitle")}</h3>
+                <button type="button" onClick={() => setInstallGuideOpen(false)}>
+                  <X size={24} />
+                </button>
+              </div>
+              <div className="modal-body install-guide-body">
+                <figure className="install-guide-figure">
+                  <figcaption>{t("howToInstallIos")}</figcaption>
+                  <img
+                    src={`${import.meta.env.BASE_URL}install-on-ios.webp`}
+                    alt={t("howToInstallIos")}
+                    className="install-guide-img"
+                  />
+                </figure>
+                <figure className="install-guide-figure">
+                  <figcaption>{t("howToInstallAndroid")}</figcaption>
+                  <img
+                    src={`${import.meta.env.BASE_URL}install-on-android.webp`}
+                    alt={t("howToInstallAndroid")}
+                    className="install-guide-img"
+                  />
+                </figure>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {checkoutPlan ? (
         <SubscriptionCheckoutModal

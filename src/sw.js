@@ -4,7 +4,7 @@ precacheAndRoute(self.__WB_MANIFEST);
 
 self.addEventListener('push', (event) => {
   let payload = {
-    title: 'Nel',
+    title: 'Hlg',
     body: 'Nouveau message',
     url: '/',
   };

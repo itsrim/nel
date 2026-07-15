@@ -6,12 +6,18 @@ import {
   Eye,
   Settings,
   Image as ImageIcon,
+  UserPlus,
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
+import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { buildConversationMiniSlots } from "../lib/conversationMiniSlots";
+import { buildEventGroupMembers } from "../lib/eventGroupMembers";
 import { getProfessionalById } from "../store/useProsStore";
+import { getChatSocket, setActiveChatConversationId } from "../lib/chatSync";
+import { canWriteToConversationThread } from "../lib/messageThread";
+import { ChatMessageText } from "../components/ChatMessageText";
 import "./ChatRoomPage.css";
 
 interface ChatRoomPageProps {
@@ -30,8 +36,12 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
     toggleConversationFavorite,
     getEventByConversationId,
     friends,
+    suggestions,
+    viewerProfileDisplayName,
     viewerProfileAvatarUrl,
+    ensureEventConversationRoster,
   } = useMessagingStore();
+  const user = useAuthStore((s) => s.user);
 
   const conversation = conversations.find((c) => c.id === id);
   const messages = messagesByConversation[id] || [];
@@ -41,21 +51,47 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (linkedEvent) ensureEventConversationRoster(id);
+  }, [id, linkedEvent?.id, linkedEvent?.registeredParticipantIds, ensureEventConversationRoster]);
+
+  useEffect(() => {
     recordConversationOpened(id);
   }, [id, recordConversationOpened]);
+
+  useEffect(() => {
+    setActiveChatConversationId(id);
+    markAsRead(id);
+    const socket = getChatSocket();
+    if (socket && socket.connected) {
+      socket.emit("conversation:join", { conversationId: id });
+    }
+    return () => {
+      const s = getChatSocket();
+      if (s && s.connected) {
+        s.emit("conversation:leave", { conversationId: id });
+      }
+      setActiveChatConversationId(null);
+    };
+  }, [id, markAsRead]);
 
   useEffect(() => {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
-    if (conversation && conversation.unreadCount > 0) {
-      markAsRead(id);
-    }
-  }, [id, messages.length, markAsRead, conversation?.unreadCount]);
+  }, [id, messages.length]);
 
   if (!conversation) return null;
 
-  const memberN = conversation.members?.length ?? 0;
+  const memberN =
+    linkedEvent && user?.id
+      ? buildEventGroupMembers(linkedEvent, {
+          viewerId: user.id,
+          viewerDisplayName: viewerProfileDisplayName,
+          viewerAvatarUrl: viewerProfileAvatarUrl,
+          friends,
+          suggestions,
+        }).length
+      : (conversation.members?.length ?? 0);
   const isGroup = conversation.type === "group";
   const headerSlots = buildConversationMiniSlots(
     conversation,
@@ -63,10 +99,20 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
     friends,
     viewerProfileAvatarUrl,
     isGroup ? (memberN <= 2 ? 2 : 4) : 1,
+    {
+      viewerId: user?.id ?? null,
+      viewerDisplayName: viewerProfileDisplayName,
+      suggestions,
+    },
   );
 
+  const canWrite = canWriteToConversationThread({
+    messages,
+    eventDateKey: linkedEvent?.dateKey,
+  });
+
   const handleSend = () => {
-    if (!draft.trim()) return;
+    if (!canWrite || !draft.trim()) return;
     sendMessage(id, draft);
     setDraft("");
   };
@@ -102,12 +148,13 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
 
   const headerInfoContent = (
     <>
-      <div
-        className="cr-avatar"
-        style={{
-          background: `linear-gradient(45deg, ${conversation.avatarGradient[0]}, ${conversation.avatarGradient[1]})`,
-        }}
-      >
+      <div className="cr-avatar-badge-wrap">
+        <div
+          className="cr-avatar"
+          style={{
+            background: `linear-gradient(45deg, ${conversation.avatarGradient[0]}, ${conversation.avatarGradient[1]})`,
+          }}
+        >
         {isGroup ? (
           memberN <= 2 ? (
             <div className="cr-avatar-split">
@@ -173,6 +220,12 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
           </span>
         )}
       </div>
+      {conversation.unreadCount > 0 && (
+        <span className="cr-unread-badge" aria-hidden>
+          {conversation.unreadCount}
+        </span>
+      )}
+    </div>
       <div className="cr-texts">
         <h3 className="cr-title">{conversation.title}</h3>
         <p className="cr-subtitle">
@@ -188,7 +241,7 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
     <div className="chat-room-page">
       <header className="cr-header">
         <button className="cr-back-btn" onClick={closeDetail}>
-          <ChevronLeft size={28} />
+          <ChevronLeft size={28} color="currentColor" />
         </button>
 
         {canOpenHeaderTarget ? (
@@ -206,6 +259,7 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
 
         <div className="cr-header-actions">
           <button
+            type="button"
             className="cr-icon-btn"
             onClick={() => toggleConversationFavorite(id)}
           >
@@ -218,6 +272,7 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
 
           {linkedEvent && (
             <button
+              type="button"
               className="cr-event-btn"
               onClick={() => openDetail("event", linkedEvent.id)}
             >
@@ -226,7 +281,19 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
             </button>
           )}
 
+          {isGroup && !linkedEvent ? (
+            <button
+              type="button"
+              className="cr-icon-btn"
+              onClick={() => openDetail("chat_settings", id)}
+              aria-label={t("addMemberHint")}
+            >
+              <UserPlus size={24} color="#7C9EFF" />
+            </button>
+          ) : null}
+
           <button
+            type="button"
             className="cr-icon-btn"
             onClick={() => openDetail("chat_settings", id)}
           >
@@ -243,7 +310,7 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
           >
             {!m.isOwn && <span className="cr-author">{m.authorName}</span>}
             <div className="cr-bubble">
-              <p className="cr-text">{m.text}</p>
+              <ChatMessageText text={m.text} />
               <span className="cr-time">
                 {new Date(m.sentAt).toLocaleTimeString([], {
                   hour: "2-digit",
@@ -255,16 +322,25 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
         ))}
       </div>
 
-      <footer className="cr-input-bar">
-        <button className="cr-attach-btn">
+      <footer className={`cr-input-bar${canWrite ? "" : " cr-input-bar--locked"}`}>
+        {!canWrite ? (
+          <p className="cr-thread-closed-hint">{t("chatThreadClosedHint")}</p>
+        ) : null}
+        <button className="cr-attach-btn" disabled={!canWrite}>
           <ImageIcon size={24} />
         </button>
         <textarea
           className="cr-input"
-          placeholder={t("messageInputHint")}
+          rows={1}
+          placeholder={
+            canWrite ? t("messageInputHint") : t("chatThreadClosedPlaceholder")
+          }
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          disabled={!canWrite}
+          readOnly={!canWrite}
+          onChange={(e) => canWrite && setDraft(e.target.value)}
           onKeyDown={(e) =>
+            canWrite &&
             e.key === "Enter" &&
             !e.shiftKey &&
             (e.preventDefault(), handleSend())
@@ -273,7 +349,7 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
         <button
           className="cr-send-btn"
           onClick={handleSend}
-          disabled={!draft.trim()}
+          disabled={!canWrite || !draft.trim()}
         >
           <Send size={20} />
         </button>

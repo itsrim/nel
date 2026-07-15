@@ -10,3 +10,30 @@ export function withUrlUploadVersion(url: string): string {
   const sep = u.includes('?') ? '&' : '?';
   return `${u}${sep}v=${encodeURIComponent(v)}`;
 }
+
+/** Retire un éventuel paramètre `v` (cache-bust) avant réutilisation de l’URL. */
+export function stripUrlUploadVersion(url: string): string {
+  const u = url.trim();
+  if (!u) return u;
+  if (/^https?:\/\//i.test(u)) {
+    try {
+      const parsed = new URL(u);
+      parsed.searchParams.delete('v');
+      return parsed.toString();
+    } catch {
+      return u;
+    }
+  }
+  const q = u.indexOf('?');
+  if (q < 0) return u;
+  const base = u.slice(0, q);
+  const params = new URLSearchParams(u.slice(q + 1));
+  params.delete('v');
+  const rest = params.toString();
+  return rest ? `${base}?${rest}` : base;
+}
+
+/** Force le navigateur à recharger une ressource distante (ex. à chaque connexion). */
+export function refreshRemoteAssetUrlForDisplay(url: string): string {
+  return withUrlUploadVersion(stripUrlUploadVersion(url));
+}

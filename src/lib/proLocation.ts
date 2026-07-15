@@ -1,4 +1,5 @@
 import type { MockProfessional } from "../data/mockProfessionals";
+import { resolveProCategoryFields, type ProCategory } from "./proCategory";
 
 export const VIEWER_PRO_ID = "pro_viewer";
 
@@ -21,6 +22,8 @@ export function buildViewerProfessional(input: {
   websiteUrl: string;
   socialUrl: string;
   phone: string;
+  proCategory?: ProCategory | string;
+  bio?: string;
 }): MockProfessional | null {
   if (input.lat == null || input.lng == null) return null;
   if (Number.isNaN(input.lat) || Number.isNaN(input.lng)) return null;
@@ -29,22 +32,24 @@ export function buildViewerProfessional(input: {
   const parts = name.split(/\s+/);
   const firstName = parts[0] ?? name;
   const lastName = parts.slice(1).join(" ");
+  const { category, categoryLabel } = resolveProCategoryFields(input.proCategory);
+  const bio = input.bio?.trim();
 
   return {
     id: VIEWER_PRO_ID,
     firstName,
     lastName,
-    category: "therapeute",
-    categoryLabel: "Professionnel",
+    category,
+    categoryLabel,
     city: input.city.trim() || "France",
     address: input.address.trim() || undefined,
-    description: "Professionnel référencé sur Nel.",
+    description: bio || categoryLabel,
     imageUrl: input.avatarUrl,
     mapX: 50,
     mapY: 50,
     lat: input.lat,
     lng: input.lng,
-    verified: true,
+    verified: false,
     websiteUrl: input.websiteUrl.trim() || undefined,
     socialUrl: input.socialUrl.trim() || undefined,
     phone: input.phone.trim() || undefined,

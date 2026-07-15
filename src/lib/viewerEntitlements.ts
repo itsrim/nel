@@ -8,9 +8,10 @@ export type ViewerEntitlementState = {
   viewerProExpiresAt: number | null;
 };
 
-/** Accès aux fonctionnalités Premium (mode admin inclus). */
+/** Accès aux fonctionnalités Premium (mode admin et abonnement Pro inclus). */
 export function hasViewerPremiumAccess(state: ViewerEntitlementState): boolean {
   if (state.isAdmin) return true;
+  if (hasViewerProAccess(state)) return true;
   if (!state.nelDemoIsPremium) return false;
   if (state.viewerPremiumExpiresAt != null) {
     return isSubscriptionStillValid(state.viewerPremiumExpiresAt);

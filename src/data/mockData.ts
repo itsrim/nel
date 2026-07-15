@@ -60,15 +60,54 @@ export interface Event {
   organizerRatings?: Array<{ profilId: string; rating: "good" | "bad" }>;
   /** Profils ayant payé 1 karma pour participer. */
   karmaJoinPaidProfilIds?: string[];
+  /** Comptes inscrits (userId Sheets) — persistance multi-utilisateurs. */
+  registeredParticipantIds?: string[];
+  /** Nom / photo connus pour les inscrits absents du catalogue local. */
+  registeredParticipantMeta?: Record<
+    string,
+    { name?: string; imageUrl?: string }
+  >;
   /** 3 karma débités à la création (remboursables si annulation). */
   karmaOrganizePaid?: boolean;
+  /** Colonne `userId` Sheets = organisateur (écriture / propriété). */
+  sheetOwnerUserId?: string;
+  /** Billet de confiance — frais de réservation app (1–5 €) à l'inscription. */
+  joinTipEnabled?: boolean;
+  joinTipAmount?: number;
+  /** Profils ayant payé le Billet de confiance pour participer. */
+  joinTipPaidProfilIds?: string[];
 }
 
 /** Notification in-app (centre Profil — démo). */
+/** Relance envoyée par l’organisateur à un participant (onglet `event_reminders`). */
+export interface EventReminder {
+  id: string;
+  eventId: string;
+  eventTitle: string;
+  participantId: string;
+  participantName: string;
+  sentAt: number;
+  readAt?: number;
+}
+
+export type WaitlistEntry = NonNullable<Event["waitlistEntries"]>[number];
+
 export interface AppNotification {
   id: string;
   createdAt: number;
-  kind: "event_invite_sent" | "chat_message";
+  kind:
+    | "event_invite_sent"
+    | "chat_message"
+    | "event_participant_joined"
+    | "event_participant_left"
+    | "event_waitlist_joined"
+    | "event_waitlist_left"
+    | "event_waitlist_accepted"
+    | "event_waitlist_rejected"
+    | "friend_request_received"
+    | "friend_request_accepted"
+    | "friend_request_rejected"
+    | "event_invite_received";
   eventId?: string;
   eventTitle?: string;
   inviteeName?: string;
@@ -76,6 +115,8 @@ export interface AppNotification {
   conversationId?: string;
   senderName?: string;
   messagePreview?: string;
+  /** Lu dans l’onglet Profil → Notifications. */
+  readAt?: number;
 }
 
 /** Signalement utilisateur → file admin (onglet Profil — démo). */

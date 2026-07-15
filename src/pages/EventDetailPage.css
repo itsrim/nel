@@ -56,6 +56,10 @@
   cursor: pointer;
 }
 
+.ed-back-btn {
+  color: #fbbf24;
+}
+
 .ed-header-actions {
   display: flex;
   gap: 10px;
@@ -296,9 +300,44 @@
 }
 
 .ed-waitlist-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   border-radius: 14px;
   overflow: hidden;
   background: #1c1c1e;
+  padding-right: 8px;
+}
+
+.ed-waitlist-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.ed-waitlist-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.ed-waitlist-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+
+.ed-waitlist-action--approve {
+  color: #22c55e;
+}
+
+.ed-waitlist-action--reject {
+  color: #ff453a;
 }
 
 .ed-waitlist-row-inner {
@@ -321,6 +360,22 @@ button.ed-waitlist-row-inner--click {
 }
 
 button.ed-waitlist-row-inner--click:focus-visible {
+  outline: 2px solid rgba(255, 214, 10, 0.55);
+  outline-offset: 2px;
+}
+
+.ed-waitlist-av-btn {
+  display: block;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 12px;
+}
+
+.ed-waitlist-av-btn:focus-visible {
   outline: 2px solid rgba(255, 214, 10, 0.55);
   outline-offset: 2px;
 }

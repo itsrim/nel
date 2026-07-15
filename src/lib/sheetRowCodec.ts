@@ -4,8 +4,14 @@ export function boolToSheet(v: boolean | undefined): string {
   return v ? "true" : "false";
 }
 
+/** Google Sheets CSV exporte souvent TRUE/FALSE en majuscules. */
 export function boolFromSheet(v: string | undefined): boolean {
-  return v === "true" || v === "1";
+  const normalized = (v ?? "").trim().toLowerCase();
+  return normalized === "true" || normalized === "1" || normalized === "yes";
+}
+
+export function isDeletedFromSheet(v: string | undefined): boolean {
+  return boolFromSheet(v);
 }
 
 export function numFromSheet(v: string | undefined, fallback = 0): number {

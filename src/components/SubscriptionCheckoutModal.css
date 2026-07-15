@@ -107,6 +107,14 @@
   font-weight: 600;
 }
 
+.sub-checkout-trust-ticket-hint {
+  margin: -8px 0 16px;
+  padding: 0 4px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #8e8e93;
+}
+
 .sub-checkout-duration {
   margin-bottom: 16px;
 }

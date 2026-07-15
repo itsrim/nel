@@ -4,6 +4,7 @@ import {
   Eye,
   Heart,
   HeartCrack,
+  Loader2,
   Plus,
   Search,
   UserPlus,
@@ -11,18 +12,25 @@ import {
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
+import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
+import {
+  isConversationAccessible,
+  resolveConversationAccessScope,
+  userIsAppAdmin,
+} from "../lib/accessScope";
+import { SuggestionsVirtualList } from "../components/SuggestionsVirtualList";
 import {
   formatRelativeTime,
   formatVisitTimeAgo,
   formatBadgeCount,
-  formatSuggestionCaption,
   type Conversation,
-  type SuggestionProfile,
+  type Event,
 } from "../data/mockData";
 import { buildConversationMiniSlots } from "../lib/conversationMiniSlots";
 import { hasReachedDailyFriendRequestLimit } from "../lib/eventDateKey";
 import { hasViewerPremiumAccess } from "../lib/viewerEntitlements";
+import { filterPublicSuggestions } from "../lib/suggestionCatalog";
 import "./ChatPage.css";
 
 /* ── Helpers ── */
@@ -43,50 +51,54 @@ function groupStoryVariant(id: string): 0 | 1 | 2 {
   return s as 0 | 1 | 2;
 }
 
-function buildMasonryColumns(
-  items: SuggestionProfile[],
-  columnCount: number,
-): SuggestionProfile[][] {
-  const cols: SuggestionProfile[][] = Array.from(
-    { length: columnCount },
-    () => [],
-  );
-  const heights = Array(columnCount).fill(0);
-  for (const item of items) {
-    const w = 1 / item.aspectRatio;
-    let minI = 0;
-    for (let c = 1; c < columnCount; c++) {
-      if (heights[c] < heights[minI]) minI = c;
-    }
-    cols[minI].push(item);
-    heights[minI] += w;
-  }
-  return cols;
-}
-
 /* ── Sub-components ── */
 
 type SubTab = "suggestions" | "messages" | "visites";
 
-type ChatUserHit = {
-  id: string;
-  label: string;
-  subtitle: string;
-  avatarUrl: string;
-};
+type ChatSearchHit =
+  | {
+    kind: "user";
+    id: string;
+    label: string;
+    subtitle: string;
+    avatarUrl: string;
+  }
+  | {
+    kind: "group";
+    id: string;
+    conversationId: string;
+    label: string;
+    subtitle: string;
+    conversation: Conversation;
+  };
 
 function foldSearch(s: string): string {
   return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
-function userSearchHaystack(hit: ChatUserHit): string {
+function userSearchHaystack(hit: Extract<ChatSearchHit, { kind: "user" }>): string {
   return foldSearch(`${hit.label} ${hit.subtitle}`);
+}
+
+function groupSearchHaystack(
+  conversation: Conversation,
+  linkedEvent?: Event,
+): string {
+  return foldSearch(
+    `${conversation.title} ${conversation.lastMessagePreview} ${linkedEvent?.title ?? ""} ${linkedEvent?.location ?? ""}`,
+  );
 }
 
 function FavoriteStripAvatar({ conversation }: { conversation: Conversation }) {
   const v = groupStoryVariant(conversation.id);
-  const { getEventByConversationId, friends, viewerProfileAvatarUrl } =
-    useMessagingStore();
+  const {
+    getEventByConversationId,
+    friends,
+    suggestions,
+    viewerProfileAvatarUrl,
+    viewerProfileDisplayName,
+  } = useMessagingStore();
+  const user = useAuthStore((s) => s.user);
   const linked = getEventByConversationId(conversation.id);
   const memberN = conversation.members?.length ?? 0;
   /** Comme la liste : ≤ 2 membres → deux demi-ronds côte à côte (pas une grille 2×2 qui déborde). */
@@ -98,9 +110,14 @@ function FavoriteStripAvatar({ conversation }: { conversation: Conversation }) {
     friends,
     viewerProfileAvatarUrl,
     count,
+    {
+      viewerId: user?.id ?? null,
+      viewerDisplayName: viewerProfileDisplayName,
+      suggestions,
+    },
   );
   const gradient = conversation.avatarGradient;
-
+  const { t } = useTranslation();
   const slotDiv = (i: number, className: string, fallbackBg: string) => {
     const s = slots[i];
     if (s?.hasImage && s.src) {
@@ -202,7 +219,7 @@ function NewGroupStripItem() {
       onClick={handleCreateGroup}
     >
       <div className="story-new-ring">
-        <Plus size={26} color="rgba(255,255,255,0.92)" />
+        <Plus size={26} color="rgba(0,0,0,0.92)" />
       </div>
       <span className="story-label-new">{t("addGroup")}</span>
     </button>
@@ -210,8 +227,14 @@ function NewGroupStripItem() {
 }
 
 function ListAvatar({ item }: { item: Conversation }) {
-  const { getEventByConversationId, friends, viewerProfileAvatarUrl } =
-    useMessagingStore();
+  const {
+    getEventByConversationId,
+    friends,
+    suggestions,
+    viewerProfileAvatarUrl,
+    viewerProfileDisplayName,
+  } = useMessagingStore();
+  const user = useAuthStore((s) => s.user);
   const linked = getEventByConversationId(item.id);
   const isGroup = item.type === "group";
   const slots = buildConversationMiniSlots(
@@ -220,6 +243,11 @@ function ListAvatar({ item }: { item: Conversation }) {
     friends,
     viewerProfileAvatarUrl,
     isGroup ? 2 : 1,
+    {
+      viewerId: user?.id ?? null,
+      viewerDisplayName: viewerProfileDisplayName,
+      suggestions,
+    },
   );
 
   return (
@@ -269,7 +297,10 @@ function ListAvatar({ item }: { item: Conversation }) {
 
 function ConversationRow({ item }: { item: Conversation }) {
   const { openDetail } = useNavigationStore();
+  const { getEventByConversationId } = useMessagingStore();
+  const { t } = useTranslation();
   const isGroup = item.type === "group";
+  const linkedEvent = isGroup ? getEventByConversationId(item.id) : undefined;
   return (
     <button
       className="conv-row"
@@ -284,7 +315,13 @@ function ConversationRow({ item }: { item: Conversation }) {
           <div className="row-top">
             <div className="name-row">
               <span className="conv-name">{item.title}</span>
-              {isGroup && <span className="groupe-tag">Groupe</span>}
+              {isGroup ? (
+                linkedEvent ? (
+                  <span className="conv-type-tag sortie-tag">{t("event")}</span>
+                ) : (
+                  <span className="conv-type-tag groupe-tag">{t("chatSearchGroupTag")}</span>
+                )
+              ) : null}
             </div>
             <span className="conv-time">
               {formatRelativeTime(conversationRecency(item))}
@@ -338,8 +375,10 @@ function SubTabPill({
 export function ChatPage() {
   const { openDetail } = useNavigationStore();
   const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
   const {
     conversations,
+    events,
     profileVisits,
     suggestions,
     favoriteConversationIds,
@@ -350,18 +389,52 @@ export function ChatPage() {
     sendFriendRequest,
     moderationHiddenProfilIds,
     showToast,
+    isAdmin: adminModeActive,
+    getEventByConversationId,
+    chatLoading,
+    userBadgeCounts,
+    markUserBadgeSeen,
   } = useMessagingStore();
   const viewerPremiumAccess = useMessagingStore(hasViewerPremiumAccess);
   const [sub, setSub] = useState<SubTab>("messages");
   const [userSearchOpen, setUserSearchOpen] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const userSearchInputRef = useRef<HTMLInputElement>(null);
+  const chatContentRef = useRef<HTMLDivElement>(null);
+
+  const conversationAccessScope = useMemo(
+    () =>
+      resolveConversationAccessScope({
+        adminModeActive,
+        isStaffAccount: userIsAppAdmin(user),
+        conversations,
+        events,
+      }),
+    [adminModeActive, user, conversations, events],
+  );
+
+  const accessibleConversations = useMemo(
+    () =>
+      conversationAccessScope === null
+        ? conversations
+        : conversations.filter(
+          (c) =>
+            isConversationAccessible(c.id, conversationAccessScope) &&
+            (c.members.length === 0 || c.members.some((m) => m.isSelf)),
+        ),
+    [conversations, conversationAccessScope],
+  );
 
   useEffect(() => {
     if (userSearchOpen && viewerPremiumAccess) {
       userSearchInputRef.current?.focus();
     }
   }, [userSearchOpen, viewerPremiumAccess]);
+
+  useEffect(() => {
+    if (sub === "messages") markUserBadgeSeen("chat");
+    if (sub === "visites") markUserBadgeSeen("chat_visits");
+  }, [sub, markUserBadgeSeen]);
 
   /** Ami mutuel (cœur rose) — distinct du simple fait d’être dans l’annuaire « Amis » nel. */
   const isMutualFriend = useCallback(
@@ -413,26 +486,21 @@ export function ChatPage() {
 
   const sorted = useMemo(
     () =>
-      [...conversations].sort(
+      [...accessibleConversations].sort(
         (a, b) => conversationRecency(b) - conversationRecency(a),
       ),
-    [conversations],
+    [accessibleConversations],
   );
 
   const favoriteConversationsStrip = useMemo(() => {
-    const byId = new Map(conversations.map((c) => [c.id, c]));
+    const byId = new Map(accessibleConversations.map((c) => [c.id, c]));
     const list = favoriteConversationIds
       .map((id) => byId.get(id))
       .filter((c): c is Conversation => c !== undefined);
     return [...list].sort(
       (a, b) => conversationRecency(b) - conversationRecency(a),
     );
-  }, [conversations, favoriteConversationIds]);
-
-  const messagesTabBadge = useMemo(
-    () => conversations.reduce((s, c) => s + c.unreadCount, 0),
-    [conversations],
-  );
+  }, [accessibleConversations, favoriteConversationIds]);
 
   const profileVisitsVisible = useMemo(
     () =>
@@ -440,21 +508,24 @@ export function ChatPage() {
     [profileVisits, moderationHiddenProfilIds],
   );
 
-  const visitesTabBadge = useMemo(
-    () =>
-      profileVisitsVisible.filter((v) => v.friendRequest).length +
-      profileVisitsVisible.length,
-    [profileVisitsVisible],
-  );
+  const messagesTabBadge = userBadgeCounts.chat;
+  const visitesTabBadge = userBadgeCounts.chat_visits;
 
   const suggestionsVisible = useMemo(
-    () => suggestions.filter((s) => !moderationHiddenProfilIds.includes(s.id)),
+    () =>
+      filterPublicSuggestions(
+        suggestions.filter(
+          (s) => !moderationHiddenProfilIds.includes(s.id),
+        ),
+      ),
     [suggestions, moderationHiddenProfilIds],
   );
 
-  const suggestionColumns = useMemo(
-    () => buildMasonryColumns(suggestionsVisible, 2),
-    [suggestionsVisible],
+  const sortedSuggestions = suggestionsVisible;
+
+  const suggestionsListResetKey = useMemo(
+    () => `${sortedSuggestions.length}-${moderationHiddenProfilIds.join(",")}`,
+    [sortedSuggestions.length, moderationHiddenProfilIds],
   );
 
   const sortedVisits = useMemo(
@@ -468,10 +539,11 @@ export function ChatPage() {
     [profileVisitsVisible],
   );
 
-  const searchableUsers = useMemo(() => {
-    const map = new Map<string, ChatUserHit>();
+  const searchableUsers = useMemo((): Extract<ChatSearchHit, { kind: "user" }>[] => {
+    const map = new Map<string, Extract<ChatSearchHit, { kind: "user" }>>();
     for (const f of friends) {
       map.set(f.profilId, {
+        kind: "user",
         id: f.profilId,
         label: f.pseudo || f.name,
         subtitle: f.city,
@@ -481,6 +553,7 @@ export function ChatPage() {
     for (const s of suggestionsVisible) {
       if (!map.has(s.id)) {
         map.set(s.id, {
+          kind: "user",
           id: s.id,
           label: s.pseudo,
           subtitle: `${s.age} ans`,
@@ -491,6 +564,7 @@ export function ChatPage() {
     for (const v of profileVisitsVisible) {
       if (!map.has(v.id)) {
         map.set(v.id, {
+          kind: "user",
           id: v.id,
           label: v.name,
           subtitle: `${v.age} ans`,
@@ -503,11 +577,41 @@ export function ChatPage() {
     );
   }, [friends, suggestionsVisible, profileVisitsVisible]);
 
-  const userSearchResults = useMemo(() => {
+  const searchableGroups = useMemo((): Extract<ChatSearchHit, { kind: "group" }>[] => {
+    return accessibleConversations
+      .filter((c) => c.type === "group")
+      .map((c) => {
+        const linkedEvent = getEventByConversationId(c.id);
+        return {
+          kind: "group" as const,
+          id: `group-${c.id}`,
+          conversationId: c.id,
+          label: c.title,
+          subtitle:
+            c.lastMessagePreview?.trim() ||
+            (linkedEvent ? t("event") : t("chatSearchGroupTag")),
+          conversation: c,
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+  }, [accessibleConversations, getEventByConversationId, t]);
+
+  const userSearchResults = useMemo((): ChatSearchHit[] => {
     const q = foldSearch(userSearchQuery.trim());
     if (!q) return [];
-    return searchableUsers.filter((u) => userSearchHaystack(u).includes(q));
-  }, [searchableUsers, userSearchQuery]);
+    const users = searchableUsers.filter((u) => userSearchHaystack(u).includes(q));
+    const groups = searchableGroups.filter((g) =>
+      groupSearchHaystack(g.conversation, getEventByConversationId(g.conversationId)).includes(q),
+    );
+    return [...users, ...groups].sort((a, b) =>
+      a.label.localeCompare(b.label, "fr"),
+    );
+  }, [
+    searchableUsers,
+    searchableGroups,
+    userSearchQuery,
+    getEventByConversationId,
+  ]);
 
   const handleSearchToggle = useCallback(() => {
     if (!viewerPremiumAccess) {
@@ -615,7 +719,7 @@ export function ChatPage() {
       </div>
 
       {/* Content */}
-      <div className="chat-content">
+      <div className="chat-content" ref={chatContentRef}>
         {userSearchOpen && viewerPremiumAccess ? (
           <div className="chat-user-search-results">
             {userSearchQuery.trim() === "" ? (
@@ -623,20 +727,30 @@ export function ChatPage() {
             ) : userSearchResults.length === 0 ? (
               <p className="chat-user-search-hint">{t("chatUserSearchNoResults")}</p>
             ) : (
-              userSearchResults.map((u) => (
+              userSearchResults.map((hit) => (
                 <button
-                  key={u.id}
+                  key={hit.id}
                   type="button"
                   className="chat-user-search-row"
                   onClick={() => {
                     closeUserSearch();
-                    openDetail("profile", u.id);
+                    if (hit.kind === "user") {
+                      openDetail("profile", hit.id);
+                      return;
+                    }
+                    openDetail("chat", hit.conversationId);
                   }}
                 >
-                  <img src={u.avatarUrl} alt="" className="chat-user-search-avatar" />
+                  {hit.kind === "user" ? (
+                    <img src={hit.avatarUrl} alt="" className="chat-user-search-avatar" />
+                  ) : (
+                    <div className="chat-user-search-avatar chat-user-search-avatar--group">
+                      <ListAvatar item={hit.conversation} />
+                    </div>
+                  )}
                   <div className="chat-user-search-text">
-                    <span className="chat-user-search-name">{u.label}</span>
-                    <span className="chat-user-search-sub">{u.subtitle}</span>
+                    <span className="chat-user-search-name">{hit.label}</span>
+                    <span className="chat-user-search-sub">{hit.subtitle}</span>
                   </div>
                 </button>
               ))
@@ -644,171 +758,168 @@ export function ChatPage() {
           </div>
         ) : (
           <>
+            {/* Messages sub-tab */}
             {sub === "messages" && (
-              <div className="conv-list">
-                {sorted.map((item) => (
-                  <ConversationRow key={item.id} item={item} />
-                ))}
-              </div>
+              chatLoading && sorted.length === 0 ? (
+                <div className="chat-loading-container">
+                  <Loader2 size={36} className="chat-spinner" />
+                  <p className="chat-loading-text">{t("loading")}</p>
+                </div>
+              ) : (
+                <div className="conv-list">
+                  {chatLoading && sorted.length > 0 && (
+                    <div className="chat-refresh-bar">
+                      <Loader2 size={16} className="chat-spinner" />
+                      <span>{t("loading")}</span>
+                    </div>
+                  )}
+                  {sorted.map((item) => (
+                    <ConversationRow key={item.id} item={item} />
+                  ))}
+                </div>
+              )
             )}
 
+            {/* Visites sub-tab */}
             {sub === "visites" && (
-              <div className="visits-list">
-            {/* Premium banner */}
-            <div className="premium-banner">
-              <div className="premium-banner-icon">
-                <Crown size={28} color="#fff" />
-              </div>
-              <div className="premium-banner-texts">
-                <span className="premium-banner-title">
-                  {t("premiumFeature")}
-                </span>
-                <span className="premium-banner-sub">
-                  {profileVisitsVisible.length} {t("visitsPlaceholder")}
-                </span>
-              </div>
-            </div>
-            {sortedVisits.map((v) => (
-              <div
-                key={v.id}
-                className="visit-card"
-                onClick={() => openDetail("profile", v.id)}
-              >
-                <div className="visit-avatar-wrap">
-                  <img
-                    src={v.avatarUrl}
-                    alt={v.name}
-                    className="visit-avatar"
-                  />
-                  {v.friendRequest && (
-                    <span className="visit-friend-badge">
-                      {t("friendRequestBadge")}
-                    </span>
-                  )}
-                  {v.visitMultiplier && v.visitMultiplier > 1 && (
-                    <span className="visit-mult-badge">
-                      {t("visitMultiplier")}
-                      {v.visitMultiplier}
-                    </span>
-                  )}
+              chatLoading && sortedVisits.length === 0 ? (
+                <div className="chat-loading-container">
+                  <Loader2 size={36} className="chat-spinner" />
+                  <p className="chat-loading-text">{t("loading")}</p>
                 </div>
-                <div className="visit-card-body">
-                  <span className="visit-name-age">
-                    {v.name}, {v.age}
-                  </span>
-                  <div className="visit-meta-row">
-                    <Eye size={14} color="#8E8E93" />
-                    <span className="visit-time">
-                      {formatVisitTimeAgo(v.lastVisitAt)}
-                    </span>
+              ) : (
+                <div className="visits-list">
+                  {/* Premium banner */}
+                  <div className="premium-banner">
+                    <div className="premium-banner-icon">
+                      <Crown size={28} color="#fff" />
+                    </div>
+                    <div className="premium-banner-texts">
+                      <span className="premium-banner-title">
+                        {t("premiumFeature")}
+                      </span>
+                      <span className="premium-banner-sub">
+                        {profileVisitsVisible.length} {t("visitsPlaceholder")}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <button
-                  type="button"
-                  className={`visit-like-btn${hasSentFriendRequest(v.id) ? " visit-like-btn--sent" : ""}${isMutualFriend(v.id) ? " visit-like-btn--friend" : ""}${hasRejectedFriendRequest(v.id) ? " visit-like-btn--rejected" : ""}${dailyFriendRequestLimitReached && !hasSentFriendRequest(v.id) ? " visit-like-btn--daily-limit" : ""}`}
-                  disabled={isFriendRequestBlocked(v.id)}
-                  onClick={(e) => handleFriendRequest(e, v.id)}
-                  aria-label={
-                    isMutualFriend(v.id)
-                      ? t("friendLabel")
-                      : hasRejectedFriendRequest(v.id)
-                        ? t("requestRejected")
-                        : hasSentFriendRequest(v.id)
-                          ? t("requestSent")
-                          : dailyFriendRequestLimitReached
-                            ? t("friendRequestDailyLimit")
-                            : t("sendFriendRequest")
-                  }
-                >
-                  {isMutualFriend(v.id) ? (
-                    <Heart
-                      size={18}
-                      color="#FF4081"
-                      fill="#FF4081"
-                      aria-hidden
-                    />
-                  ) : hasRejectedFriendRequest(v.id) ? (
-                    <HeartCrack size={18} color="#FF9F0A" aria-hidden />
-                  ) : (
-                    <UserPlus size={18} color="#fff" aria-hidden />
+                  {chatLoading && sortedVisits.length > 0 && (
+                    <div className="chat-refresh-bar">
+                      <Loader2 size={16} className="chat-spinner" />
+                      <span>{t("loading")}</span>
+                    </div>
                   )}
-                  <span>
-                    {isMutualFriend(v.id)
-                      ? t("friendLabel")
-                      : hasRejectedFriendRequest(v.id)
-                        ? t("rejectedRequest")
-                        : hasSentFriendRequest(v.id)
-                          ? t("sentRequest")
-                          : t("addFriendButton")}
-                  </span>
-                </button>
-              </div>
-            ))}
-              </div>
-            )}
-
-            {sub === "suggestions" && (
-              <div className="suggestions-masonry">
-            {suggestionColumns.map((col, ci) => (
-              <div key={ci} className="suggestion-col">
-                {col.map((item) => {
-                  const sent = hasSentFriendRequest(item.id);
-                  const mutual = isMutualFriend(item.id);
-                  const rejected = hasRejectedFriendRequest(item.id);
-                  return (
-                    <div key={item.id} className="suggestion-card">
-                      <div
-                        className="suggestion-img-press"
-                        onClick={() => openDetail("profile", item.id)}
-                      >
+                  {sortedVisits.map((v) => (
+                    <div
+                      key={v.id}
+                      className="visit-card"
+                      onClick={() => openDetail("profile", v.id)}
+                    >
+                      <div className="visit-avatar-wrap">
                         <img
-                          src={item.imageUrl}
-                          alt={item.pseudo}
-                          className="suggestion-img"
-                          style={{ aspectRatio: item.aspectRatio }}
-                          loading="lazy"
+                          src={v.avatarUrl}
+                          alt={v.name}
+                          className="visit-avatar"
                         />
-                        <div className="suggestion-img-fade" />
-                        <span className="suggestion-caption">
-                          {formatSuggestionCaption(item.pseudo, item.age)}
+                        {v.friendRequest && (
+                          <span className="visit-friend-badge">
+                            {t("friendRequestBadge")}
+                          </span>
+                        )}
+                        {v.visitMultiplier && v.visitMultiplier > 1 && (
+                          <span className="visit-mult-badge">
+                            {t("visitMultiplier")}
+                            {v.visitMultiplier}
+                          </span>
+                        )}
+                      </div>
+                      <div className="visit-card-body">
+                        <span className="visit-name-age">
+                          {v.name}, {v.age}
                         </span>
+                        <div className="visit-meta-row">
+                          <Eye size={14} color="#8E8E93" />
+                          <span className="visit-time">
+                            {formatVisitTimeAgo(v.lastVisitAt)}
+                          </span>
+                        </div>
                       </div>
                       <button
                         type="button"
-                        className={`suggestion-add-friend-btn${sent ? " suggestion-add-friend-btn--sent" : ""}${mutual ? " suggestion-add-friend-btn--friend" : ""}${rejected ? " suggestion-add-friend-btn--rejected" : ""}${dailyFriendRequestLimitReached && !sent ? " suggestion-add-friend-btn--daily-limit" : ""}`}
-                        disabled={isFriendRequestBlocked(item.id)}
-                        onClick={(e) => handleFriendRequest(e, item.id)}
+                        className={`visit-like-btn${hasSentFriendRequest(v.id) ? " visit-like-btn--sent" : ""}${isMutualFriend(v.id) ? " visit-like-btn--friend" : ""}${hasRejectedFriendRequest(v.id) ? " visit-like-btn--rejected" : ""}${dailyFriendRequestLimitReached && !hasSentFriendRequest(v.id) ? " visit-like-btn--daily-limit" : ""}`}
+                        disabled={isFriendRequestBlocked(v.id)}
+                        onClick={(e) => handleFriendRequest(e, v.id)}
                         aria-label={
-                          mutual
+                          isMutualFriend(v.id)
                             ? t("friendLabel")
-                            : rejected
+                            : hasRejectedFriendRequest(v.id)
                               ? t("requestRejected")
-                              : sent
+                              : hasSentFriendRequest(v.id)
                                 ? t("requestSent")
                                 : dailyFriendRequestLimitReached
                                   ? t("friendRequestDailyLimit")
                                   : t("sendFriendRequest")
                         }
                       >
-                        {mutual ? (
+                        {isMutualFriend(v.id) ? (
                           <Heart
-                            size={22}
+                            size={18}
                             color="#FF4081"
                             fill="#FF4081"
                             aria-hidden
                           />
-                        ) : rejected ? (
-                          <HeartCrack size={22} color="#FF9F0A" aria-hidden />
+                        ) : hasRejectedFriendRequest(v.id) ? (
+                          <HeartCrack size={18} color="#FF9F0A" aria-hidden />
                         ) : (
-                          <UserPlus size={22} color="#fff" aria-hidden />
+                          <UserPlus size={18} color="#fff" aria-hidden />
                         )}
+                        <span>
+                          {isMutualFriend(v.id)
+                            ? t("friendLabel")
+                            : hasRejectedFriendRequest(v.id)
+                              ? t("rejectedRequest")
+                              : hasSentFriendRequest(v.id)
+                                ? t("sentRequest")
+                                : t("addFriendButton")}
+                        </span>
                       </button>
                     </div>
-                  );
-                })}
-              </div>
-            ))}
-              </div>
+                  ))}
+                </div>
+              )
+            )}
+
+            {/* Suggestions sub-tab */}
+            {sub === "suggestions" && (
+              chatLoading && sortedSuggestions.length === 0 ? (
+                <div className="chat-loading-container">
+                  <Loader2 size={36} className="chat-spinner" />
+                  <p className="chat-loading-text">{t("loading")}</p>
+                </div>
+              ) : (
+                <>
+                  {chatLoading && sortedSuggestions.length > 0 && (
+                    <div className="chat-refresh-bar">
+                      <Loader2 size={16} className="chat-spinner" />
+                      <span>{t("loading")}</span>
+                    </div>
+                  )}
+                  <SuggestionsVirtualList
+                    suggestions={sortedSuggestions}
+                    scrollRef={chatContentRef}
+                    listResetKey={suggestionsListResetKey}
+                    loadingMoreLabel={t("chatSuggestionsLoadingMore")}
+                    emptyMessage={t("noSuggestions")}
+                    onOpenProfile={(id) => openDetail("profile", id)}
+                    isMutualFriend={isMutualFriend}
+                    hasSentFriendRequest={hasSentFriendRequest}
+                    hasRejectedFriendRequest={hasRejectedFriendRequest}
+                    dailyFriendRequestLimitReached={dailyFriendRequestLimitReached}
+                    isFriendRequestBlocked={isFriendRequestBlocked}
+                    onFriendRequest={handleFriendRequest}
+                  />
+                </>
+              )
             )}
           </>
         )}

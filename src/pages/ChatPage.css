@@ -365,6 +365,21 @@
   flex-shrink: 0;
 }
 
+.chat-user-search-avatar--group {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+.chat-user-search-avatar--group .list-avatar-wrap,
+.chat-user-search-avatar--group .list-avatar {
+  width: 48px;
+  height: 48px;
+}
+
 .chat-user-search-text {
   flex: 1;
   min-width: 0;
@@ -509,11 +524,23 @@
   white-space: nowrap;
 }
 
-.groupe-tag {
-  color: #777;
-  font-size: 13px;
-  font-weight: 500;
+.conv-type-tag {
+  font-size: 11px;
+  font-weight: 700;
   flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+}
+
+.groupe-tag {
+  color: #8e8e93;
+  background: rgba(142, 142, 147, 0.18);
+}
+
+.sortie-tag {
+  color: #42a5f5;
+  background: rgba(66, 165, 245, 0.18);
 }
 
 .conv-time {
@@ -774,4 +801,47 @@
 .suggestion-add-friend-btn:disabled {
   cursor: not-allowed;
   opacity: 0.95;
+}
+
+/* ── Loader & Background Refresh styles ── */
+.chat-refresh-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+  padding: 8px 16px;
+  margin: 8px 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chat-loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 32px;
+  text-align: center;
+}
+
+.chat-loading-text {
+  margin: 16px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.chat-spinner {
+  color: rgba(255, 255, 255, 0.6);
+  animation: chat-spin 1s linear infinite;
+}
+
+@keyframes chat-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

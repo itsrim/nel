@@ -7,13 +7,27 @@ Chaque **onglet** du classeur = une **table**. Les **POST** ajoutent une ligne ;
 Créer un classeur avec **12 onglets** et la **ligne 1 = en-têtes** (copier-coller une ligne par onglet).
 
 ### `messages`
+Une **ligne par conversation**. La colonne `text` contient un JSON avec tous les messages (ordre chronologique).
+
 ```
-conversationId,id,authorId,authorName,text,sentAt,userId
+conversationId,id,text,createdAt,updatedAt,userId
 ```
+
+Exemple `text` :
+```json
+[{"id":"m1","authorId":"user_a","authorName":"Alice","text":"Bonjour","sentAt":1782480786232}]
+```
+
+- `id` = même valeur que `conversationId` (clé PUT)
+- `createdAt` = ancre du fil (date événement lié ou 1er message), en ms
+- `updatedAt` = timestamp du dernier message, en ms
+- Discussion active **7 jours** après `createdAt` (date de l'événement ou création du fil)
+
+> Ancien format (1 ligne / message) encore lu à la migration, consolidé à l'écriture.
 
 ### `events`
 ```
-userId,id,conversationId,title,location,dateKey,timeShort,dateLabel,sectionDateLabel,imageUri,priceLabel,price,participantCount,participantMax,isFavorite,isBeta,status,notes,visitsCount,category,hostName,hostAvatar,participantAvatarsJson,hideAddress,isPrivate,manualApproval,hostedByViewer,creatorId,waitlistEntriesJson,invitedProfilIdsJson,publicUrl,validatedPresentProfilIdsJson,karmaOrganizerRewarded,karmaOrganizerDenied,organizerRatingsJson,karmaJoinPaidProfilIdsJson,karmaOrganizePaid,deleted
+userId,id,conversationId,title,location,dateKey,timeShort,dateLabel,sectionDateLabel,imageUri,priceLabel,price,participantCount,participantMax,isFavorite,isBeta,status,notes,visitsCount,category,hostName,hostAvatar,participantAvatarsJson,hideAddress,isPrivate,manualApproval,hostedByViewer,creatorId,waitlistEntriesJson,invitedProfilIdsJson,publicUrl,validatedPresentProfilIdsJson,karmaOrganizerRewarded,karmaOrganizerDenied,organizerRatingsJson,karmaJoinPaidProfilIdsJson,registeredParticipantIdsJson,registeredParticipantMetaJson,karmaOrganizePaid,joinTipEnabled,joinTipAmount,joinTipPaidProfilIdsJson,deleted
 ```
 
 ### `conversations`
@@ -31,12 +45,12 @@ userId,id,profilId,name,age,city,imageUrl,eventsInCommon,mainChatConversationId,
 userId,id,pseudo,age,imageUrl,aspectRatio,deleted
 ```
 
-### `viewer_settings` (profil connecté + **auth backend**)
+### `viewer_settings` (profil connecté + auth)
 ```
 userId,id,email,emailVerified,passwordHash,verificationToken,verificationExpiresAt,passwordResetToken,passwordResetExpiresAt,avatarUrl,displayName,isPro,isPremium,premiumExpiresAt,proExpiresAt,premiumPaymentValidated,premiumMonths,premiumLastPaymentAt,premiumLastTransactionId,proPaymentValidated,proMonths,proLastPaymentAt,proLastTransactionId,city,websiteUrl,socialUrl,phone,proAddress,proLat,proLng,karma,badgesJson,friendRequestSentJson,friendRequestRejectedJson,friendRequestDailySentDateKey,profileBadgeSuggestionsJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,signupIp,lastLoginIp,deleted
 ```
 
-> **Backend Render** : comptes, mots de passe (hash), tokens de vérif/reset. Ne pas éditer `passwordHash` à la main.
+> Colonnes auth (`passwordHash`, tokens) : écrites par le front à l'inscription / vérif email / reset mot de passe.
 
 ### `profile_visits`
 ```
@@ -45,12 +59,21 @@ userId,id,name,age,avatarUrl,lastVisitAt,visitMultiplier,friendRequest,deleted
 
 ### `notifications`
 ```
-userId,id,createdAt,kind,eventId,eventTitle,inviteeName,inviteeProfilId,conversationId,senderName,messagePreview,deleted
+userId,id,createdAt,kind,eventId,eventTitle,inviteeName,inviteeProfilId,conversationId,senderName,messagePreview,readAt,deleted
 ```
+
+**Format compact (recommandé)** : une ligne par utilisateur (`id` = `userId`, `kind` = `inbox`).  
+Les notifications non lues sont stockées en JSON dans `messagePreview` (tableau d’objets).  
+Les notifications lues sont retirées du JSON (pas conservées en base).
 
 ### `admin_reports`
 ```
 userId,id,createdAt,kind,subjectId,subjectLabel,explanation,read,deleted
+```
+
+### `event_reminders`
+```
+userId,id,eventId,eventTitle,participantId,participantName,sentAt,readAt,deleted
 ```
 
 ### `professionals` (annuaire global — sans `userId`)
@@ -98,6 +121,7 @@ VITE_SHEET_GID_VIEWER_SETTINGS=...
 VITE_SHEET_GID_PROFILE_VISITS=...
 VITE_SHEET_GID_NOTIFICATIONS=...
 VITE_SHEET_GID_ADMIN_REPORTS=...
+VITE_SHEET_GID_EVENT_REMINDERS=...
 VITE_SHEET_GID_PROFESSIONALS=...
 ```
 
@@ -120,7 +144,7 @@ Les écritures passent par **GET** + paramètres (`?action=post&sheet=…&row=�
 
 Ouvre l’URL `/exec` dans le navigateur : tu dois voir `{"ok":true,"service":"nel-sheets-api"}`.
 
-## 6. Comportement Nel
+## 6. Comportement Hlg
 
 | Action app | Sheets |
 |------------|--------|

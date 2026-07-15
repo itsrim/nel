@@ -1,9 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
+  createSessionFromUser,
   createToken,
-  markUserEmailVerified,
   requestPasswordResetForEmail,
-  resetPasswordByToken,
   resendVerificationForEmail,
   signupUser,
   validateLoginCredentials,
@@ -47,61 +46,73 @@ async function dispatchVerificationEmail(
   displayName: string,
   verificationToken: string,
 ): Promise<void> {
-  await sendVerificationEmail(email, displayName, verificationToken);
+  const token = verificationToken.trim();
+  if (!token) {
+    throw new Error("Token de vérification manquant côté serveur");
+  }
+  await sendVerificationEmail(email, displayName, token);
 }
 
 export async function authRoutes(app: FastifyInstance) {
-  app.post<{ Body: { email?: string; password?: string } }>(
-    "/api/auth/login",
-    async (request, reply) => {
-      try {
-        const email = request.body?.email ?? "";
-        const password = request.body?.password ?? "";
-        const stored = await validateLoginCredentials(email, password);
-
-        if (!stored.emailVerified) {
-          const skipVerify = await shouldSkipEmailVerification();
-          if (skipVerify) {
-            await markUserEmailVerified(stored.email);
-            stored.emailVerified = true;
-          } else {
-            throw new Error(
-              "Veuillez confirmer votre email avant de vous connecter. Consultez votre boîte mail ou renvoyez l'email de vérification.",
-            );
-          }
-        }
-
-        const user = toAuthUser(stored);
-        const token = await createToken(user);
-        return { user, token };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Login failed";
-        const status = message.includes("confirmer") ? 403 : 401;
-        return reply.status(status).send({ error: message });
-      }
-    },
-  );
+  /** JWT pour le chat — après login validé côté front (Google Sheets). */
+  app.post<{
+    Body: {
+      id?: string;
+      email?: string;
+      displayName?: string;
+      emailVerified?: boolean;
+    };
+  }>("/api/auth/session", async (request, reply) => {
+    const id = request.body?.id?.trim() ?? "";
+    const email = request.body?.email?.trim() ?? "";
+    const displayName = request.body?.displayName?.trim() ?? "";
+    if (!id || !email || !displayName) {
+      return reply.status(400).send({ error: "id, email et displayName requis" });
+    }
+    return createSessionFromUser({
+      id,
+      email,
+      displayName,
+      emailVerified: request.body?.emailVerified === true,
+    });
+  });
 
   app.post<{
-    Body: { email?: string; password?: string; displayName?: string };
+    Body: {
+      email?: string;
+      password?: string;
+      displayName?: string;
+      userId?: string;
+      verificationToken?: string;
+      verificationExpiresAt?: number | null;
+      skipEmailVerification?: boolean;
+    };
   }>("/api/auth/signup", async (request, reply) => {
     try {
       const email = request.body?.email ?? "";
       const password = request.body?.password ?? "";
       const displayName = request.body?.displayName ?? "";
-      const skipVerify = await shouldSkipEmailVerification();
-      const { user, verificationToken } = await signupUser(
+      const skipVerify =
+        (await shouldSkipEmailVerification()) ||
+        request.body?.skipEmailVerification === true;
+      const { user, verificationToken, sheetAuth } = signupUser(
         email,
         password,
         displayName,
-        { skipEmailVerification: skipVerify },
+        {
+          skipEmailVerification: skipVerify,
+          userId: request.body?.userId,
+          verificationToken: request.body?.verificationToken,
+          verificationExpiresAt: request.body?.verificationExpiresAt,
+        },
       );
 
       if (skipVerify) {
-        const token = await createToken(user);
+        const { token } = await createSessionFromUser(user);
         return reply.status(201).send({
           user,
           token,
+          sheetAuth,
           pendingVerification: false,
           message: "Compte créé — connexion automatique (vérification email désactivée).",
         });
@@ -114,6 +125,7 @@ export async function authRoutes(app: FastifyInstance) {
           email: user.email,
           userId: user.id,
           displayName: user.displayName,
+          sheetAuth,
           message:
             "Un email de vérification a été envoyé. Consultez votre boîte mail pour activer votre compte.",
         });
@@ -124,6 +136,7 @@ export async function authRoutes(app: FastifyInstance) {
           email: user.email,
           userId: user.id,
           displayName: user.displayName,
+          sheetAuth,
           emailDeliveryFailed: true,
           message:
             "Compte créé, mais l'email de vérification n'a pas pu être envoyé. Cliquez sur « Renvoyer l'email » ci-dessous.",
@@ -131,10 +144,59 @@ export async function authRoutes(app: FastifyInstance) {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Signup failed";
-      const status = message.includes("déjà") ? 409 : 400;
-      return reply.status(status).send({ error: message });
+      return reply.status(400).send({ error: message });
     }
   });
+
+  app.post<{
+    Body: {
+      email?: string;
+      displayName?: string;
+      verificationToken?: string;
+      verificationExpiresAt?: number | null;
+    };
+  }>(
+    "/api/auth/resend-verification",
+    async (request, reply) => {
+      try {
+        const email = request.body?.email?.trim() ?? "";
+        const displayName = request.body?.displayName?.trim() ?? email;
+        if (!email) {
+          return reply.status(400).send({ error: "Email requis" });
+        }
+
+        const { verificationToken, sheetAuth } = resendVerificationForEmail(
+          email,
+          displayName,
+          {
+            verificationToken: request.body?.verificationToken,
+            verificationExpiresAt: request.body?.verificationExpiresAt,
+          },
+        );
+
+        try {
+          await dispatchVerificationEmail(email, displayName, verificationToken);
+          return {
+            ok: true,
+            verificationToken,
+            verificationExpiresAt: sheetAuth.verificationExpiresAt,
+            message: "Email de vérification renvoyé.",
+          };
+        } catch (emailErr) {
+          console.error("[auth] resend verification email failed:", emailErr);
+          return reply.status(200).send({
+            ok: false,
+            emailDeliveryFailed: true,
+            message:
+              "L'email n'a pas pu être envoyé (Brevo). Réessayez plus tard ou demandez à l'admin d'activer l'inscription sans vérification email.",
+          });
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Envoi email impossible";
+        return reply.status(400).send({ error: message });
+      }
+    },
+  );
 
   app.get<{ Querystring: { token?: string } }>(
     "/api/auth/verify-email",
@@ -151,97 +213,55 @@ export async function authRoutes(app: FastifyInstance) {
     },
   );
 
-  app.post<{ Body: { email?: string } }>(
-    "/api/auth/resend-verification",
-    async (request, reply) => {
-      try {
-        const email = request.body?.email ?? "";
-        const result = await resendVerificationForEmail(email);
-        if (!result) {
-          return reply.status(200).send({
-            ok: true,
-            message:
-              "Si un compte non vérifié existe pour cet email, un message a été envoyé.",
-          });
-        }
-        try {
-          await dispatchVerificationEmail(
-            result.user.email,
-            result.user.displayName,
-            result.verificationToken,
-          );
-          return {
-            ok: true,
-            message: "Email de vérification renvoyé.",
-          };
-        } catch (emailErr) {
-          console.error("[auth] resend verification email failed:", emailErr);
-          return reply.status(200).send({
-            ok: false,
-            emailDeliveryFailed: true,
-            message:
-              "L'email n'a pas pu être envoyé (Mailjet). Réessayez plus tard ou demandez à l'admin d'activer l'inscription sans vérification email.",
-          });
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Envoi email impossible";
-        return reply.status(400).send({ error: message });
-      }
-    },
-  );
-
   const FORGOT_PASSWORD_MESSAGE =
     "Si un compte existe pour cet email, un lien de réinitialisation a été envoyé.";
 
-  app.post<{ Body: { email?: string } }>(
+  app.post<{
+    Body: {
+      email?: string;
+      displayName?: string;
+      passwordResetToken?: string;
+      passwordResetExpiresAt?: number | null;
+    };
+  }>(
     "/api/auth/forgot-password",
     async (request, reply) => {
       const email = request.body?.email?.trim() ?? "";
+      const displayName = request.body?.displayName?.trim() ?? email;
       if (!email) {
         return reply.status(400).send({ error: "Email requis" });
       }
 
-      const result = await requestPasswordResetForEmail(email);
-      if (!result) {
-        return { ok: true, message: FORGOT_PASSWORD_MESSAGE };
+      const result = requestPasswordResetForEmail(email, displayName, {
+        passwordResetToken: request.body?.passwordResetToken,
+        passwordResetExpiresAt: request.body?.passwordResetExpiresAt,
+      });
+
+      const resetToken = result.passwordResetToken.trim();
+      if (!resetToken) {
+        return reply.status(500).send({ error: "Token de réinitialisation manquant" });
       }
 
       try {
         await sendPasswordResetEmail(
           result.email,
           result.displayName,
-          result.passwordResetToken,
+          resetToken,
         );
-        return { ok: true, message: FORGOT_PASSWORD_MESSAGE };
+        return {
+          ok: true,
+          message: FORGOT_PASSWORD_MESSAGE,
+          passwordResetToken: result.passwordResetToken,
+          passwordResetExpiresAt: result.passwordResetExpiresAt,
+        };
       } catch (emailErr) {
         console.error("[auth] password reset email failed:", emailErr);
         return reply.status(200).send({
           ok: false,
           emailDeliveryFailed: true,
           message:
-            "L'email n'a pas pu être envoyé. Réessayez plus tard ou contactez le support.",
+            "L'email n'a pas pu être envoyé (Brevo). Réessayez plus tard ou contactez le support.",
         });
-      }
-    },
-  );
-
-  app.post<{ Body: { token?: string; password?: string } }>(
-    "/api/auth/reset-password",
-    async (request, reply) => {
-      try {
-        const token = request.body?.token ?? "";
-        const password = request.body?.password ?? "";
-        const user = await resetPasswordByToken(token, password);
-        const jwt = await createToken(user);
-        return {
-          ok: true,
-          user,
-          token: jwt,
-          message: "Mot de passe mis à jour — vous êtes connecté.",
-        };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Réinitialisation échouée";
-        return reply.status(400).send({ error: message });
       }
     },
   );

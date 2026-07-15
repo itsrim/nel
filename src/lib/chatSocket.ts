@@ -1,5 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 import type { PersistedMessage } from "./chatPersistence";
+import type { AppNotification, ProfileVisit } from "../data/mockData";
+import type { UserBadgeSeenPayload } from "./userBadges";
 import { getAuthToken } from "./authApi";
 
 import { CHAT_API_BASE, isChatApiConfigured } from "./chatConfig";
@@ -20,10 +22,22 @@ export function connectChatSocket(token: string): Socket | null {
   if (!socket) {
     socket = io(CHAT_API_BASE, {
       auth: { token },
-      transports: ["websocket", "polling"],
+      transports: ["websocket"],
       autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
     socketToken = token;
+
+    socket.on("disconnect", (reason) => {
+      console.debug("Chat socket disconnected:", reason);
+    });
+
+    socket.on("connect_error", (err) => {
+      console.debug("Chat socket connect error:", err.message);
+    });
   } else if (!socket.connected) {
     socket.connect();
   }
@@ -46,16 +60,134 @@ export function disconnectChatSocket(): void {
   }
 }
 
-export function sendMessageRemote(message: PersistedMessage): void {
+export function sendMessageRemote(
+  message: PersistedMessage & { recipientUserIds?: string[] },
+): void {
   const s = getChatSocket();
   if (!s) return;
 
-  s.emit("message:send", {
+  const payload = {
     conversationId: message.conversationId,
     id: message.id,
     text: message.text,
     sentAt: message.sentAt,
+    recipientUserIds: message.recipientUserIds,
+  };
+
+  const emit = () => {
+    s.emit("message:send", payload);
+  };
+
+  if (s.connected) {
+    emit();
+  } else {
+    s.once("connect", emit);
+  }
+}
+
+export function emitFriendRequestRemote(payload: {
+  recipientUserId: string;
+  visit: ProfileVisit;
+  notification: AppNotification;
+}): void {
+  const s = getChatSocket();
+  if (!s) return;
+
+  s.emit("friend-request:send", {
+    recipientUserId: payload.recipientUserId,
+    visit: payload.visit,
+    notification: payload.notification,
   });
+}
+
+export function emitFriendRequestRespondRemote(payload: {
+  recipientUserId: string;
+  action: "accepted" | "rejected";
+  notification: AppNotification;
+}): void {
+  const s = getChatSocket();
+  if (!s) return;
+
+  s.emit("friend-request:respond", {
+    recipientUserId: payload.recipientUserId,
+    action: payload.action,
+    notification: payload.notification,
+  });
+}
+
+export function emitFriendRemovedRemote(payload: {
+  recipientUserId: string;
+  removerUserId: string;
+  removerName: string;
+}): void {
+  const s = getChatSocket();
+  if (!s) return;
+
+  s.emit("friend:remove", {
+    recipientUserId: payload.recipientUserId,
+    removerUserId: payload.removerUserId,
+    removerName: payload.removerName,
+  });
+}
+
+export function emitEventInviteRemote(payload: {
+  recipientUserId: string;
+  notification: AppNotification;
+}): void {
+  const s = getChatSocket();
+  if (!s) return;
+
+  s.emit("event-invite:send", {
+    recipientUserId: payload.recipientUserId,
+    notification: payload.notification,
+  });
+}
+
+export function emitWaitlistRespondRemote(payload: {
+  recipientUserId: string;
+  action: "accepted" | "rejected";
+  eventId: string;
+  eventTitle: string;
+}): void {
+  const s = getChatSocket();
+  if (!s) return;
+
+  s.emit("waitlist:respond", {
+    recipientUserId: payload.recipientUserId,
+    action: payload.action,
+    eventId: payload.eventId,
+    eventTitle: payload.eventTitle,
+  });
+}
+
+export function emitGroupMemberAddedRemote(payload: {
+  conversationId: string;
+  targetUserId: string;
+  conversation: { id: string; title: string };
+}): void {
+  const s = getChatSocket();
+  if (!s) return;
+
+  s.emit("group:member-added", {
+    conversationId: payload.conversationId,
+    targetUserId: payload.targetUserId,
+    conversation: payload.conversation,
+  });
+}
+
+export function emitUserBadgeSeenRemote(payload: UserBadgeSeenPayload): void {
+  const s = getChatSocket();
+  if (!s) return;
+
+  const emit = () => {
+    s.emit("badge:seen", payload);
+  };
+
+  if (s.connected) {
+    emit();
+  } else {
+    s.once("connect", emit);
+  }
 }
 
 export async function checkChatApiHealth(): Promise<boolean> {

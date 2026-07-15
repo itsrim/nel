@@ -1,0 +1,36 @@
+.suggestions-load-sentinel {
+  width: 100%;
+  height: 1px;
+  pointer-events: none;
+}
+
+.suggestions-loading-more {
+  margin: 0;
+  padding: 8px 16px 24px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.suggestions-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 15px;
+}
+
+.suggestion-img-press {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.suggestion-img-press:active {
+  opacity: 0.92;
+}

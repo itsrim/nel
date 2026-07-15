@@ -1,9 +1,7 @@
-import type { AdminReportEntry } from "../data/mockData";
-import { ADMIN_USER_ID, isAdminAccount } from "./accountRoles";
+import { isAdminAccount } from "./accountRoles";
 import { fetchClientIp } from "./clientIp";
 import {
   loadViewerSettingsRow,
-  syncAdminSecurityAlertToSheets,
   syncViewerLoginIpToSheets,
 } from "./appSheetPersistence";
 
@@ -14,6 +12,7 @@ export type LoginIpCheckResult =
   | { allowed: true; currentIp: string; isFirstLogin: boolean }
   | { allowed: false; message: string };
 
+/*
 function buildSuspiciousLoginReport(input: {
   userId: string;
   email: string;
@@ -34,8 +33,9 @@ function buildSuspiciousLoginReport(input: {
     read: false,
   };
 }
+*/
 
-/** Vérifie l’IP à la connexion ; enregistre signupIp au premier accès. */
+/** Enregistre l’IP à la connexion (signupIp au premier accès, lastLoginIp ensuite). */
 export async function enforceLoginIpSecurity(input: {
   userId: string;
   email: string;
@@ -60,6 +60,11 @@ export async function enforceLoginIpSecurity(input: {
     return { allowed: true, currentIp, isFirstLogin: true };
   }
 
+  /*
+   * Blocage par IP désactivé : une même personne peut s’inscrire en Wi‑Fi puis
+   * se reconnecter sur son téléphone (IP différente). On conserve uniquement
+   * la trace de la dernière IP sans bloquer ni alerter l’admin.
+   *
   if (!currentIp || currentIp === signupIp) {
     if (currentIp) {
       await syncViewerLoginIpToSheets(input.userId, {
@@ -80,4 +85,13 @@ export async function enforceLoginIpSecurity(input: {
   await syncAdminSecurityAlertToSheets(report);
 
   return { allowed: false, message: SUSPICIOUS_LOGIN_MESSAGE };
+  */
+
+  if (currentIp) {
+    await syncViewerLoginIpToSheets(input.userId, {
+      signupIp,
+      lastLoginIp: currentIp,
+    });
+  }
+  return { allowed: true, currentIp, isFirstLogin: false };
 }

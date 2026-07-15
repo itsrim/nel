@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /images/
+Disallow: /csv/
+Disallow: /api/
+Disallow: /backend/
+Disallow: /google-apps-script/
+Allow: /event-cover-themes/

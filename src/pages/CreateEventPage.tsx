@@ -10,6 +10,7 @@ import {
   MapPin,
   Pencil,
   ShieldCheck,
+  Tag,
   Trash2,
   Users,
   X,
@@ -18,6 +19,8 @@ import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useTranslation } from "../i18n/useTranslation";
 import type { Event } from "../data/mockData";
+import { useAuthStore } from "../store/useAuthStore";
+import { eventHostedByViewer } from "../lib/eventHost";
 import {
   getNelProfileImageKitUserKey,
   uploadLocalImageToImageKitEventCover,
@@ -38,6 +41,7 @@ import {
   findDefaultCoverThemeByImageUrl,
   type DefaultEventCoverTheme,
 } from "../constants/defaultEventCoverThemes";
+import { formatEventPriceLabel, parseEventPriceState } from "../lib/eventPricing";
 import "./CreateEventPage.css";
 
 const MAX_TITLE_LEN = 50;
@@ -97,12 +101,11 @@ function dateFromEvent(ev: Event): Date {
 }
 
 /** Même logique que la fiche événement : sorties dont vous êtes l’organisateur affiché comme « vous ». */
-function eventIsEditableByViewer(ev: Event): boolean {
+function eventIsEditableByViewer(ev: Event, viewerId?: string, viewerName?: string): boolean {
   if (ev.status !== "organisateur") return false;
-  return (
-    ev.hostedByViewer === true ||
-    ev.hostName === "Moi" ||
-    (ev.hostAvatar?.includes("nel-organizer") ?? false)
+  return eventHostedByViewer(
+    ev,
+    viewerId ? { id: viewerId, displayName: viewerName } : null,
   );
 }
 
@@ -114,6 +117,7 @@ export interface CreateEventPageProps {
 export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const { closeDetail, popDetails } = useNavigationStore();
   const { t } = useTranslation();
+  const { user } = useAuthStore();
   const {
     addEvent,
     updateEvent,
@@ -176,7 +180,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     const all = listAllAppProfiles(friends, suggestions);
     if (isAdmin) return all;
     return all.filter((p) =>
-      friends.some((f) => f.profilId === p.profilId && f.mutualFriend !== false),
+      friends.some((f) => f.profilId === p.profilId && f.mutualFriend === true),
     );
   }, [friends, suggestions, isAdmin]);
 
@@ -199,6 +203,10 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const [isPrivate, setIsPrivate] = useState(false);
   const [manualApproval, setManualApproval] = useState(false);
   const [markAsBeta, setMarkAsBeta] = useState(false);
+  const [isFreeEvent, setIsFreeEvent] = useState(true);
+  const [priceAmount, setPriceAmount] = useState("");
+  const [joinTipEnabled, setJoinTipEnabled] = useState(false);
+  const [joinTipAmount, setJoinTipAmount] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   /** En édition : ne pas descendre sous le nombre de participants déjà inscrits. */
@@ -211,10 +219,14 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
       setParticipantFloor(EVENT_PARTICIPANT_MIN_MAX);
       setMaxParticipants(String(participantMaxCap));
       setIsPrivate(false);
+      setIsFreeEvent(true);
+      setPriceAmount("");
+      setJoinTipEnabled(false);
+      setJoinTipAmount(1);
       return;
     }
     const ev = getEventById(formEventId);
-    if (!ev || (!eventIsEditableByViewer(ev) && !isAdmin)) {
+    if (!ev || (!eventIsEditableByViewer(ev, user?.id, user?.displayName) && !isAdmin)) {
       window.alert("Impossible d'ouvrir cette sortie en édition.");
       closeDetail();
       return;
@@ -229,6 +241,15 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     setIsPrivate(ev.isPrivate ?? false);
     setManualApproval(ev.manualApproval ?? false);
     setMarkAsBeta(ev.isBeta ?? false);
+    const priceState = parseEventPriceState(ev.priceLabel ?? ev.price);
+    setIsFreeEvent(priceState.isFree);
+    setPriceAmount(priceState.amount);
+    setJoinTipEnabled(ev.joinTipEnabled === true || !priceState.isFree);
+    setJoinTipAmount(
+      ev.joinTipAmount && ev.joinTipAmount >= 1
+        ? Math.min(5, Math.round(ev.joinTipAmount))
+        : 1,
+    );
     setParticipantFloor(
       Math.max(EVENT_PARTICIPANT_MIN_MAX, ev.participantCount),
     );
@@ -242,6 +263,14 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
       return String(next);
     });
   }, [participantMaxCap, participantFloor]);
+
+  useEffect(() => {
+    if (!isFreeEvent) {
+      setJoinTipEnabled(true);
+    }
+  }, [isFreeEvent]);
+
+  const trustTicketActive = !isFreeEvent || joinTipEnabled;
 
   const dateInputValue = useMemo(() => toIsoDateKey(eventDate), [eventDate]);
   const timeInputValue = useMemo(
@@ -324,7 +353,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
 
       setUploadingEventCover(true);
       try {
-        const userKey = getNelProfileImageKitUserKey();
+        const userKey = getNelProfileImageKitUserKey(user?.id);
         const uploadedUrl = await uploadLocalImageToImageKitEventCover({
           webFile: file,
           mimeType: file.type || null,
@@ -381,6 +410,15 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
       return;
     }
 
+    const priceLabel = formatEventPriceLabel(isFreeEvent, priceAmount);
+    if (!priceLabel) {
+      reportSubmitError(t("createEventErrorPrice"));
+      return;
+    }
+
+    const trustTicketEnabled = !isFreeEvent || joinTipEnabled;
+    const trustTicketAmount = trustTicketEnabled ? joinTipAmount : undefined;
+
     setSubmitting(true);
     try {
       const cappedMax = Math.min(maxParsed, participantMaxCap);
@@ -414,6 +452,9 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           isPrivate,
           manualApproval,
           isBeta: beta,
+          priceLabel,
+          joinTipEnabled: trustTicketEnabled,
+          joinTipAmount: trustTicketAmount,
         });
       } else {
         const groupTitle = `${titleTrim} — ${dateLabel.split(" ")[0]}`;
@@ -425,7 +466,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           location: locationTrim,
           notes: notesVal,
           timeShort: timeShortVal,
-          priceLabel: "Gratuit",
+          priceLabel,
           imageUri: imageUri ?? undefined,
           participantMax: cappedMax,
           dateKey,
@@ -434,6 +475,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
           isPrivate,
           manualApproval,
           isBeta: beta,
+          joinTipEnabled: trustTicketEnabled,
+          joinTipAmount: trustTicketAmount,
         });
         if (!eventId) {
           reportSubmitError(t("createEventErrorGeneric"));
@@ -465,6 +508,10 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     isPrivate,
     manualApproval,
     markAsBeta,
+    isFreeEvent,
+    priceAmount,
+    joinTipEnabled,
+    joinTipAmount,
     isAdmin,
     isEditMode,
     formEventId,
@@ -682,6 +729,93 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="ce-price-block">
+          <div className="ce-inline-label-row">
+            <Tag size={18} color="#fff" aria-hidden />
+            <span className="ce-inline-label">{t("eventPriceLabel")}</span>
+          </div>
+          <div className="ce-price-toggle" role="group" aria-label={t("eventPriceLabel")}>
+            <button
+              type="button"
+              className={`ce-price-toggle-btn${isFreeEvent ? " ce-price-toggle-btn--active" : ""}`}
+              onClick={() => setIsFreeEvent(true)}
+              aria-pressed={isFreeEvent}
+            >
+              {t("eventPriceFree")}
+            </button>
+            <button
+              type="button"
+              className={`ce-price-toggle-btn${!isFreeEvent ? " ce-price-toggle-btn--active" : ""}`}
+              onClick={() => setIsFreeEvent(false)}
+              aria-pressed={!isFreeEvent}
+            >
+              {t("eventPricePaid")}
+            </button>
+          </div>
+          {!isFreeEvent ? (
+            <div className="ce-price-input-wrap">
+              <input
+                className="ce-lieu-field ce-price-amount-field"
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                value={priceAmount}
+                onChange={(e) => setPriceAmount(e.target.value)}
+                placeholder={t("eventPricePlaceholder")}
+                aria-label={t("eventPricePlaceholder")}
+              />
+              <span className="ce-price-currency">€</span>
+            </div>
+          ) : null}
+
+          <div className="ce-trust-ticket-section">
+            <label
+              className={`ce-tip-option${!isFreeEvent ? " ce-tip-option--locked" : ""}`}
+            >
+              <input
+                type="checkbox"
+                checked={trustTicketActive}
+                disabled={!isFreeEvent}
+                onChange={(e) => {
+                  if (isFreeEvent) setJoinTipEnabled(e.target.checked);
+                }}
+                aria-describedby={
+                  !isFreeEvent ? "ce-trust-ticket-required-hint" : undefined
+                }
+              />
+              <span>{t("eventJoinTipEnable")}</span>
+            </label>
+            {!isFreeEvent ? (
+              <p id="ce-trust-ticket-required-hint" className="ce-tip-hint ce-tip-hint--required">
+                {t("eventJoinTipRequired")}
+              </p>
+            ) : null}
+            {trustTicketActive ? (
+              <>
+                <div
+                  className="ce-tip-amount-row"
+                  role="group"
+                  aria-label={t("eventJoinTipAmountLabel")}
+                >
+                  {[1, 2, 3, 4, 5].map((amount) => (
+                    <button
+                      key={amount}
+                      type="button"
+                      className={`ce-tip-amount-btn${joinTipAmount === amount ? " ce-tip-amount-btn--active" : ""}`}
+                      onClick={() => setJoinTipAmount(amount)}
+                      aria-pressed={joinTipAmount === amount}
+                    >
+                      {amount}€
+                    </button>
+                  ))}
+                </div>
+                <p className="ce-tip-hint">{t("eventJoinTipHint")}</p>
+              </>
+            ) : null}
           </div>
         </div>
 

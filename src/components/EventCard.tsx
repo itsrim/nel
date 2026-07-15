@@ -1,8 +1,9 @@
 import { Heart, Check, Clock, MapPin } from 'lucide-react';
 import type { Event } from '../data/mockData';
 import { useTranslation } from '../i18n/useTranslation';
+import { useAuthStore } from '../store/useAuthStore';
 import { useMessagingStore } from '../store/useMessagingStore';
-import { resolveEventHostIsPro } from '../lib/eventHost';
+import { effectiveViewerEventStatus, resolveEventHostIsPro } from '../lib/eventHost';
 import { resolveEventParticipantAvatars } from '../lib/eventParticipantAvatars';
 import {
   getEventThemeBadgeColors,
@@ -20,9 +21,17 @@ interface EventCardProps {
 
 export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardProps) {
   const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
   const { conversations, friends, viewerProfileAvatarUrl } = useMessagingStore();
   const viewerProAccess = useMessagingStore(hasViewerProAccess);
-  const hostIsPro = resolveEventHostIsPro(item, friends, viewerProAccess);
+  const viewerContext = user
+    ? { id: user.id, displayName: user.displayName }
+    : null;
+  const hostIsPro = resolveEventHostIsPro(item, friends, viewerProAccess, viewerContext);
+  const viewerStatus = effectiveViewerEventStatus(item, viewerContext, {
+    conversationMembers: conversations.find((c) => c.id === item.conversationId)
+      ?.members,
+  });
   const coverTheme = resolveEventCoverTheme(item);
   const themeBadgeColors = coverTheme
     ? getEventThemeBadgeColors(coverTheme.tag)
@@ -32,6 +41,8 @@ export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardP
     conversations,
     friends,
     viewerProfileAvatarUrl,
+    3,
+    viewerContext,
   );
   const CARD_IMAGE_ASPECT = 2.05;
   const imgH = width ? Math.round(width / CARD_IMAGE_ASPECT) : 90;
@@ -48,14 +59,14 @@ export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardP
         <span className="ecard-price ecard-price--corner">
           {item.priceLabel?.trim() || item.price?.trim() || 'Gratuit'}
         </span>
-        {item.status === 'inscrit' ? (
+        {viewerStatus === 'inscrit' ? (
           <span className="ecard-status-badge ecard-status-badge--registered ecard-status-badge--on-img">
             <Check size={10} aria-hidden />
             {t('registered')}
           </span>
         ) : null}
         <div
-          className={`ecard-img-top${item.status === 'inscrit' ? ' ecard-img-top--with-status-badge' : ''}`}
+          className={`ecard-img-top${viewerStatus === 'inscrit' ? ' ecard-img-top--with-status-badge' : ''}`}
         >
           <div className="ecard-tags-left">
             {item.isBeta && (
@@ -64,10 +75,10 @@ export function EventCard({ item, onToggleFavorite, onClick, width }: EventCardP
             {hostIsPro && (
               <span className="ecard-tag ecard-tag--pro">{t('pro')}</span>
             )}
-            {item.status === 'organisateur' && (
+            {viewerStatus === 'organisateur' && (
               <span className="ecard-tag ecard-tag--pink">{t('organizer')}</span>
             )}
-            {item.status === 'en_attente' && (
+            {viewerStatus === 'en_attente' && (
               <span className="ecard-tag ecard-tag--pending">{t('pending')}</span>
             )}
           </div>

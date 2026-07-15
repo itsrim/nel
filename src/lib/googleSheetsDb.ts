@@ -11,6 +11,7 @@ export type SheetTableName =
   | "profile_visits"
   | "notifications"
   | "admin_reports"
+  | "event_reminders"
   | "professionals"
   | "app_config";
 
@@ -82,6 +83,11 @@ export const SHEET_TABLES: Record<SheetTableName, SheetTableConfig> = {
   admin_reports: {
     sheetName: "admin_reports",
     gid: gidEnv("VITE_SHEET_GID_ADMIN_REPORTS", "0"),
+    idColumn: "id",
+  },
+  event_reminders: {
+    sheetName: "event_reminders",
+    gid: gidEnv("VITE_SHEET_GID_EVENT_REMINDERS", "0"),
     idColumn: "id",
   },
   professionals: {
@@ -190,7 +196,7 @@ const MAX_SHEETS_GET_URL_LENGTH = 7500;
  * Apps Script Web App : les POST cross-origin échouent souvent (CORS après redirect).
  * On utilise GET + query string, supporté par doGet dans sheets-api.gs.
  */
-async function sheetMutate(
+export async function sheetMutate(
   action: "post" | "put",
   table: SheetTableName,
   payload: Record<string, unknown>,

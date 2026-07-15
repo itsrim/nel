@@ -1,6 +1,6 @@
-# Nel — Frontend
+# Hlg — Frontend
 
-Application web **React + TypeScript + Vite** pour Nel : messagerie, sorties, profils, PWA.  
+Application web **React + TypeScript + Vite** pour Hlg : messagerie, sorties, profils, PWA.  
 Production : [https://happyletsgo.fr](https://happyletsgo.fr)
 
 Le serveur chat temps réel est dans le dossier [`backend/`](backend/README.md).
@@ -272,4 +272,4 @@ yarn deploy
 
 ## Licence
 
-Projet privé Nel.
+Projet privé Hlg.

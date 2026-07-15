@@ -1,26 +1,74 @@
 import { create } from "zustand";
 import { isChatApiConfigured } from "../lib/chatConfig";
 import {
-  loginWithApi,
-  setAuthToken,
+  isGoogleSheetsReadConfigured,
+  isGoogleSheetsWriteConfigured,
+} from "../lib/googleSheetsDb";
+import {
+  trySetSessionToken,
   signupWithApi,
-  toAppUser,
-  verifyEmailWithApi,
   resendVerificationWithApi,
   forgotPasswordWithApi,
-  resetPasswordWithApi,
+  verifyEmailWithApi,
+  setAuthToken,
 } from "../lib/authApi";
+import {
+  findViewerRowByEmail,
+  findViewerRowById,
+  findViewerRowByPasswordResetToken,
+  loginFromViewerSettings,
+  verifyEmailFromViewerSettings,
+  validatePasswordResetToken,
+  shouldSkipEmailVerificationFromSheets,
+  type SheetAuthUser,
+} from "../lib/sheetAuth";
 import { shutdownGlobalChatSync } from "../lib/chatSync";
 import { useMessagingStore } from "./useMessagingStore";
+import { useLanguageStore } from "./useLanguageStore";
 import {
   syncEmailVerifiedToSheets,
-  syncPendingSignupToSheets,
+  persistEmailVerifiedToSheets,
+  persistPasswordResetTokenToSheets,
+  persistPasswordHashToSheets,
+  persistPendingSignupToSheets,
+  persistVerificationTokenToSheets,
+  upsertSheetRow,
 } from "../lib/appSheetPersistence";
+import { hashPasswordForSheet } from "../lib/passwordHash";
+import { toAppUser } from "../lib/authApi";
 import { fetchClientIp } from "../lib/clientIp";
 import { isAdminAccount } from "../lib/accountRoles";
 import { enforceLoginIpSecurity } from "../lib/loginIpSecurity";
-import { resolveAvatarUrl } from "../lib/avatarUrl";
+import { DEFAULT_AVATAR_URL, resolveAvatarUrl } from "../lib/avatarUrl";
+import { clearNelProfileImageKitBrowserKey } from "../lib/imagekitUpload";
+import { refreshRemoteAssetUrlForDisplay } from "../lib/versionRemoteAssetUrl";
+import { buildLocalSignupAuth, buildPasswordResetAuth, generateVerificationToken } from "../lib/signupAuth";
 import { isValidSignupAge } from "../lib/signupValidation";
+import { boolFromSheet } from "../lib/sheetRowCodec";
+import {
+  matchBuiltinAccount,
+  builtinAccountPasswordHash,
+  isReservedBuiltinEmail,
+  type BuiltinAccount,
+} from "../lib/builtinAccounts";
+import {
+  getFrontAdminAccount,
+  matchFrontAdminLogin,
+} from "../lib/frontAdminLogin";
+
+/** Inscriptions locales hors Sheets/API (legacy). */
+const offlineSignupUsers: Record<
+  string,
+  {
+    email: string;
+    password: string;
+    displayName: string;
+    id: string;
+    age?: string;
+    bio?: string;
+    isPro?: boolean;
+  }
+> = {};
 
 const LS_VIEWER_PRO_WEBSITE = "nel_viewer_pro_website_url";
 const LS_VIEWER_PRO_SOCIAL = "nel_viewer_pro_social_url";
@@ -50,7 +98,7 @@ export type User = {
   bio?: string;
   isPro?: boolean;
   emailVerified?: boolean;
-  /** Compte staff Nel — affiche le mode admin dans les paramètres. */
+  /** Compte staff Hlg — affiche le mode admin dans les paramètres. */
   isAdmin?: boolean;
 };
 
@@ -60,6 +108,7 @@ interface AuthState {
   error: string | null;
   /** Inscription backend : en attente de clic sur le lien email. */
   pendingVerificationEmail: string | null;
+  pendingVerificationUserId: string | null;
   verificationMessage: string | null;
   passwordResetMessage: string | null;
   login: (email: string, password: string) => Promise<void>;
@@ -84,36 +133,148 @@ interface AuthState {
 
 const LS_USER = "nel_auth_user";
 
-const localUsers: Record<
-  string,
-  {
-    email: string;
-    password: string;
-    displayName: string;
-    id: string;
-    age?: string;
-    bio?: string;
-    isPro?: boolean;
+function applySignupProEntitlement(isPro: boolean): void {
+  if (!isPro) return;
+  useMessagingStore.getState().setViewerProfileIsPro(true);
+}
+
+function applySheetProfileToStores(
+  sheetUser: Pick<SheetAuthUser, "age" | "bio" | "language" | "avatarUrl">,
+): void {
+  clearNelProfileImageKitBrowserKey();
+  const msg = useMessagingStore.getState();
+  msg.hydrateViewerProfileFields({
+    age: sheetUser.age,
+    bio: sheetUser.bio,
+  });
+  const rawAvatar = sheetUser.avatarUrl?.trim();
+  if (rawAvatar) {
+    msg.setViewerProfileAvatarUrl(
+      refreshRemoteAssetUrlForDisplay(resolveAvatarUrl(rawAvatar)),
+    );
+  } else {
+    try {
+      localStorage.removeItem("nel_viewer_profile_avatar_url");
+    } catch {
+      /* ignore */
+    }
+    msg.setViewerProfileAvatarUrl(DEFAULT_AVATAR_URL);
   }
-> = {
-  "admin@rim.com": {
-    email: "admin@rim.com",
-    password: "password",
-    displayName: "Utilisateur Demo",
-    id: "user_demo_001",
-    age: "28",
-    bio: "Bienvenue sur hlg!",
-    isPro: false,
-  },
-  "rim": {
-    email: "rim",
-    password: "1234",
-    displayName: "Admin",
-    id: "user_admin_000",
-    age: "",
-    bio: "",
-    isPro: true,
-  },
+  const lang = sheetUser.language;
+  if (lang === "fr" || lang === "en") {
+    useLanguageStore.setState({ language: lang });
+  }
+}
+
+async function ensureBuiltinAccountInSheets(account: BuiltinAccount): Promise<void> {
+  if (!isGoogleSheetsWriteConfigured()) return;
+  const existing = await findViewerRowByEmail(account.email);
+  const passwordHash = builtinAccountPasswordHash(account);
+  if (existing) {
+    if (!existing.passwordHash?.trim()) {
+      try {
+        await upsertSheetRow("viewer_settings", account.id, {
+          userId: account.id,
+          id: account.id,
+          passwordHash,
+          emailVerified: account.emailVerified !== false ? "TRUE" : "FALSE",
+        });
+      } catch (err) {
+        console.warn("Impossible de réparer le compte intégré dans Sheets:", err);
+      }
+    }
+    return;
+  }
+  try {
+    await persistPendingSignupToSheets(
+      account.id,
+      account.email,
+      account.displayName,
+      !!account.isPro,
+      {
+        emailVerified: account.emailVerified !== false,
+        passwordHash: builtinAccountPasswordHash(account),
+        verificationToken: "",
+        verificationExpiresAt: null,
+      },
+      undefined,
+      {
+        age: account.age ?? "",
+        bio: account.bio ?? "",
+        language: "fr",
+      },
+    );
+  } catch (err) {
+    console.warn("Impossible de créer le compte intégré dans Sheets:", err);
+  }
+}
+
+/** Comptes staff (rim, admin@…) : mode admin activé par défaut à chaque session. */
+function restoreDefaultAdminMode(user: User | null | undefined): void {
+  if (user && isAdminAccount(user)) {
+    useMessagingStore.getState().setIsAdmin(true);
+  }
+}
+
+async function completeBuiltinLogin(
+  account: BuiltinAccount,
+  set: (partial: Partial<AuthState>) => void,
+): Promise<void> {
+  await ensureBuiltinAccountInSheets(account);
+  await finishBuiltinSession(account, set);
+}
+
+/** rim / 1234!! — session locale, sans Google Sheets. */
+async function completeFrontAdminLogin(
+  set: (partial: Partial<AuthState>) => void,
+): Promise<void> {
+  await finishBuiltinSession(getFrontAdminAccount(), set);
+}
+
+async function finishBuiltinSession(
+  account: BuiltinAccount,
+  set: (partial: Partial<AuthState>) => void,
+): Promise<void> {
+  const normalizedEmail = account.email.trim().toLowerCase();
+  const loggedInUser: User = {
+    id: account.id,
+    email: account.email,
+    displayName: account.displayName,
+    age: account.age || "",
+    bio: account.bio || "",
+    isPro: !!account.isPro,
+    emailVerified: account.emailVerified !== false,
+    isAdmin: isAdminAccount({ email: account.email, id: account.id }),
+    avatarUrl:
+      normalizedEmail === "admin@rim.com"
+        ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800"
+        : resolveAvatarUrl(),
+  };
+
+  const ipCheck = await enforceLoginIpSecurity({
+    userId: loggedInUser.id,
+    email: loggedInUser.email,
+    displayName: loggedInUser.displayName,
+    isAdmin: loggedInUser.isAdmin,
+  });
+  if (!ipCheck.allowed) {
+    set({ isLoading: false, error: ipCheck.message });
+    return;
+  }
+
+  applySheetProfileToStores({
+    age: loggedInUser.age ?? "",
+    bio: loggedInUser.bio ?? "",
+    language: "fr",
+  });
+
+  if (isChatApiConfigured()) {
+    await trySetSessionToken(loggedInUser);
+  }
+
+  localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
+  restoreDefaultAdminMode(loggedInUser);
+  set({ user: loggedInUser, isLoading: false, error: null });
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -121,11 +282,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: false,
   error: null,
   pendingVerificationEmail: null,
+  pendingVerificationUserId: null,
   verificationMessage: null,
   passwordResetMessage: null,
 
   clearPendingVerification: () =>
-    set({ pendingVerificationEmail: null, verificationMessage: null, error: null }),
+    set({
+      pendingVerificationEmail: null,
+      pendingVerificationUserId: null,
+      verificationMessage: null,
+      error: null,
+    }),
 
   clearPasswordResetMessage: () =>
     set({ passwordResetMessage: null, error: null }),
@@ -133,11 +300,55 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   verifyEmail: async (token: string) => {
     set({ isLoading: true, error: null });
     try {
-      if (!isChatApiConfigured()) {
-        set({ isLoading: false, error: "Backend non configuré" });
+      if (!isGoogleSheetsReadConfigured()) {
+        set({ isLoading: false, error: "Database problem" });
         return;
       }
-      const { user, token: jwt } = await verifyEmailWithApi(token);
+
+      let sheetUser: SheetAuthUser;
+
+      if (isChatApiConfigured()) {
+        const result = await verifyEmailWithApi(token);
+        setAuthToken(result.token);
+        const row = await findViewerRowById(result.user.id);
+        sheetUser = {
+          id: result.user.id,
+          email: result.user.email,
+          displayName: result.user.displayName,
+          emailVerified: true,
+          isPro: row ? boolFromSheet(row.isPro) : false,
+          age: row?.age?.trim() || "",
+          bio: row?.bio?.trim() || "",
+          language: row?.language?.trim() || "",
+          avatarUrl: row?.avatarUrl?.trim() || "",
+        };
+      } else {
+        try {
+          sheetUser = await verifyEmailFromViewerSettings(token);
+        } catch (verifyErr) {
+          const pendingId = get().pendingVerificationUserId?.trim();
+          if (pendingId) {
+            const row = await findViewerRowById(pendingId);
+            if (row && boolFromSheet(row.emailVerified)) {
+              sheetUser = {
+                id: row.id?.trim() || row.userId?.trim() || pendingId,
+                email: row.email?.trim().toLowerCase() || "",
+                displayName: row.displayName?.trim() || row.email?.trim() || pendingId,
+                emailVerified: true,
+                isPro: boolFromSheet(row.isPro),
+                age: row.age?.trim() || "",
+                bio: row.bio?.trim() || "",
+                language: row.language?.trim() || "",
+              };
+            } else {
+              throw verifyErr;
+            }
+          } else {
+            throw verifyErr;
+          }
+        }
+      }
+
       let extras: Partial<User> = {};
       try {
         const raw = sessionStorage.getItem("nel_signup_extras");
@@ -146,7 +357,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } catch {
         /* ignore */
       }
-      const loggedInUser = toAppUser(user, { ...extras, emailVerified: true });
+      const loggedInUser = toAppUser(sheetUser, {
+        ...extras,
+        emailVerified: true,
+        ...(sheetUser.avatarUrl?.trim()
+          ? { avatarUrl: resolveAvatarUrl(sheetUser.avatarUrl) }
+          : {}),
+      });
+      applySheetProfileToStores(sheetUser);
       const ipCheck = await enforceLoginIpSecurity({
         userId: loggedInUser.id,
         email: loggedInUser.email,
@@ -157,10 +375,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: false, error: ipCheck.message });
         return;
       }
-      setAuthToken(jwt);
-      localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
       const proContact = readViewerProContact();
-      syncEmailVerifiedToSheets(
+      await persistEmailVerifiedToSheets(
         loggedInUser.id,
         loggedInUser.email,
         loggedInUser.displayName,
@@ -171,11 +387,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         proContact.phone,
         ipCheck.currentIp || undefined,
       );
+      if (isChatApiConfigured()) {
+        await trySetSessionToken(loggedInUser);
+      }
+      localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
       set({
         user: loggedInUser,
         isLoading: false,
         pendingVerificationEmail: null,
-        verificationMessage: "Email confirmé — bienvenue sur Nel !",
+        verificationMessage: "Email confirmé — bienvenue sur Hlg !",
       });
     } catch (err) {
       set({
@@ -190,11 +410,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!target) return;
     set({ isLoading: true, error: null, verificationMessage: null });
     try {
-      const result = await resendVerificationWithApi(target);
+      const row = isGoogleSheetsReadConfigured()
+        ? await findViewerRowByEmail(target)
+        : null;
+      const userId =
+        row?.id?.trim() || row?.userId?.trim() || get().pendingVerificationUserId;
+      const verificationToken = generateVerificationToken();
+      const verificationExpiresAt = Date.now() + 24 * 60 * 60 * 1000;
+      if (userId && isGoogleSheetsWriteConfigured()) {
+        await persistVerificationTokenToSheets(
+          userId,
+          verificationToken,
+          verificationExpiresAt,
+        );
+      }
+      const result = await resendVerificationWithApi(
+        target,
+        row?.displayName?.trim() || target,
+        { verificationToken, verificationExpiresAt },
+      );
       const message = result.message ?? "Email renvoyé.";
       set({
         isLoading: false,
         pendingVerificationEmail: target,
+        pendingVerificationUserId: userId ?? get().pendingVerificationUserId,
         verificationMessage: message,
         error: null,
       });
@@ -217,7 +456,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: false, error: "Backend non configuré" });
         return;
       }
-      const result = await forgotPasswordWithApi(target);
+      const row = isGoogleSheetsReadConfigured()
+        ? await findViewerRowByEmail(target)
+        : null;
+      if (isGoogleSheetsReadConfigured() && !row) {
+        set({
+          isLoading: false,
+          passwordResetMessage:
+            "Si un compte existe pour cet email, un lien de réinitialisation a été envoyé.",
+          error: null,
+        });
+        return;
+      }
+      const userId = row?.id?.trim() || row?.userId?.trim();
+      const resetAuth = buildPasswordResetAuth();
+      if (userId && isGoogleSheetsWriteConfigured()) {
+        await persistPasswordResetTokenToSheets(
+          userId,
+          resetAuth.passwordResetToken,
+          resetAuth.passwordResetExpiresAt,
+        );
+      }
+      const result = await forgotPasswordWithApi(
+        target,
+        row?.displayName?.trim() || target,
+        resetAuth,
+      );
       set({
         isLoading: false,
         passwordResetMessage: result.message ?? "Email envoyé si le compte existe.",
@@ -234,21 +498,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   resetPassword: async (token: string, password: string) => {
     set({ isLoading: true, error: null });
     try {
-      if (!isChatApiConfigured()) {
-        set({ isLoading: false, error: "Backend non configuré" });
+      if (!isGoogleSheetsReadConfigured()) {
+        set({ isLoading: false, error: "Database problem" });
         return;
       }
-      const { user, token: jwt, message } = await resetPasswordWithApi(token, password);
-      const loggedInUser = toAppUser(user, { emailVerified: true });
-      setAuthToken(jwt);
-      localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
-      if (loggedInUser.isAdmin) {
-        useMessagingStore.getState().setIsAdmin(true);
+      if (password.length < 6) {
+        set({
+          isLoading: false,
+          error: "Le mot de passe doit contenir au moins 6 caractères",
+        });
+        return;
       }
+      const sheetUser = await validatePasswordResetToken(token);
+      const row = await findViewerRowByPasswordResetToken(token);
+      const userId = row?.id?.trim() || row?.userId?.trim() || sheetUser.id;
+      await persistPasswordHashToSheets(userId, hashPasswordForSheet(password));
+      const loggedInUser = toAppUser({ ...sheetUser, emailVerified: true });
+      if (isChatApiConfigured()) {
+        await trySetSessionToken(loggedInUser);
+      }
+      localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
+      restoreDefaultAdminMode(loggedInUser);
       set({
         user: loggedInUser,
         isLoading: false,
-        passwordResetMessage: message ?? "Mot de passe mis à jour.",
+        passwordResetMessage: "Mot de passe mis à jour — vous êtes connecté.",
         error: null,
       });
     } catch (err) {
@@ -263,7 +537,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const stored = localStorage.getItem(LS_USER);
       if (stored) {
-        set({ user: JSON.parse(stored) });
+        const user = JSON.parse(stored) as User;
+        set({ user });
+        restoreDefaultAdminMode(user);
       }
     } catch (err) {
       console.error("Failed to load user from storage:", err);
@@ -274,15 +550,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      if (isChatApiConfigured()) {
+      if (matchFrontAdminLogin(email, password)) {
+        await completeFrontAdminLogin(set);
+        return;
+      }
+
+      const builtin = matchBuiltinAccount(email, password);
+      if (builtin) {
+        await completeBuiltinLogin(builtin, set);
+        return;
+      }
+
+      if (isGoogleSheetsReadConfigured()) {
         const normalizedLogin = email.trim().toLowerCase();
-        const { user, token } = await loginWithApi(email, password);
-        const loggedInUser = toAppUser(user, {
-          age: normalizedLogin === "admin@rim.com" ? "28" : "",
-          bio: normalizedLogin === "admin@rim.com" ? "Bienvenue sur Nel!" : "",
-          isPro: normalizedLogin === "rim",
-          emailVerified: user.emailVerified !== false,
+        const sheetUser = await loginFromViewerSettings(email, password);
+        const loggedInUser = toAppUser(sheetUser, {
+          age: sheetUser.age,
+          bio: sheetUser.bio,
+          isPro: sheetUser.isPro || normalizedLogin === "rim",
+          ...(sheetUser.avatarUrl?.trim()
+            ? { avatarUrl: resolveAvatarUrl(sheetUser.avatarUrl) }
+            : {}),
         });
+        applySheetProfileToStores(sheetUser);
         const ipCheck = await enforceLoginIpSecurity({
           userId: loggedInUser.id,
           email: loggedInUser.email,
@@ -293,67 +583,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           set({ isLoading: false, error: ipCheck.message });
           return;
         }
-        setAuthToken(token);
+        if (isChatApiConfigured()) {
+          await trySetSessionToken(loggedInUser);
+        }
         localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
-        if (loggedInUser.isAdmin) {
-          useMessagingStore.getState().setIsAdmin(true);
-        }
-        if (loggedInUser.emailVerified) {
-          const proContact = readViewerProContact();
-          syncEmailVerifiedToSheets(
-            loggedInUser.id,
-            loggedInUser.email,
-            loggedInUser.displayName,
-            resolveAvatarUrl(loggedInUser.avatarUrl),
-            !!loggedInUser.isPro,
-            proContact.websiteUrl,
-            proContact.socialUrl,
-            proContact.phone,
-            ipCheck.currentIp || undefined,
-          );
-        }
+        restoreDefaultAdminMode(loggedInUser);
         set({ user: loggedInUser, isLoading: false });
         return;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const normalizedEmail = email.trim().toLowerCase();
-      const user = localUsers[normalizedEmail];
-      if (!user || user.password !== password) {
-        set({ isLoading: false, error: "Email ou mot de passe incorrect" });
-        return;
-      }
-
-      const loggedInUser: User = {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        age: user.age || "",
-        bio: user.bio || "",
-        isPro: !!user.isPro,
-        isAdmin: isAdminAccount({ email: user.email, id: user.id }),
-        avatarUrl:
-          normalizedEmail === "admin@rim.com"
-            ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800"
-            : resolveAvatarUrl(),
-      };
-
-      const ipCheck = await enforceLoginIpSecurity({
-        userId: loggedInUser.id,
-        email: loggedInUser.email,
-        displayName: loggedInUser.displayName,
-        isAdmin: loggedInUser.isAdmin,
+      set({
+        isLoading: false,
+        error:
+          "Connexion impossible : Database problem configuration. " +
+          "Ajoutez VITE_GOOGLE_SHEETS_URL_ENCODED dans .env puis relancez yarn dev (ou rebuild prod).",
       });
-      if (!ipCheck.allowed) {
-        set({ isLoading: false, error: ipCheck.message });
-        return;
-      }
-
-      localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
-      if (loggedInUser.isAdmin) {
-        useMessagingStore.getState().setIsAdmin(true);
-      }
-      set({ user: loggedInUser, isLoading: false });
     } catch (err) {
       set({
         isLoading: false,
@@ -374,6 +618,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       if (isChatApiConfigured()) {
+        if (!isGoogleSheetsReadConfigured() || !isGoogleSheetsWriteConfigured()) {
+          set({
+            isLoading: false,
+            error: "Database problem configuration (lecture ou écriture Apps Script).",
+          });
+          return;
+        }
         if (!isValidSignupAge(age)) {
           set({
             isLoading: false,
@@ -381,18 +632,71 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           });
           return;
         }
+        const normalizedEmail = email.trim().toLowerCase();
+        const existing = await findViewerRowByEmail(normalizedEmail);
+        if (existing) {
+          set({ isLoading: false, error: "Cet email est déjà utilisé" });
+          return;
+        }
         sessionStorage.setItem(
           "nel_signup_extras",
           JSON.stringify({ age: age ?? "", bio: bio ?? "", isPro: !!isPro }),
         );
-        const result = await signupWithApi(email, password, displayName);
-        if ("token" in result && result.token && "user" in result) {
-          const loggedInUser = toAppUser(result.user, {
-            age: age ?? "",
-            bio: bio ?? "",
-            isPro: !!isPro,
-            emailVerified: true,
+        const skipVerify = await shouldSkipEmailVerificationFromSheets();
+        const localAuth = buildLocalSignupAuth({ skipEmailVerification: skipVerify });
+        const passwordHash = hashPasswordForSheet(password);
+        const signupIp = await fetchClientIp();
+        try {
+          await persistPendingSignupToSheets(
+            localAuth.userId,
+            normalizedEmail,
+            displayName,
+            !!isPro,
+            {
+              emailVerified: localAuth.emailVerified,
+              verificationToken: localAuth.verificationToken,
+              verificationExpiresAt: localAuth.verificationExpiresAt,
+              passwordHash,
+            },
+            signupIp || undefined,
+            {
+              age: age ?? "",
+              bio: bio ?? "",
+              language: useLanguageStore.getState().language,
+            },
+          );
+        } catch (sheetErr) {
+          set({
+            isLoading: false,
+            error:
+              sheetErr instanceof Error
+                ? `Enregistrement Google Sheets échoué : ${sheetErr.message}`
+                : "Impossible d'enregistrer le compte dans Google Sheets.",
           });
+          return;
+        }
+        const result = await signupWithApi(email, password, displayName, {
+          userId: localAuth.userId,
+          verificationToken: localAuth.verificationToken,
+          verificationExpiresAt: localAuth.verificationExpiresAt,
+          skipEmailVerification: skipVerify,
+        });
+        const sheetUserId = localAuth.userId;
+        if ("token" in result && result.token && "user" in result) {
+          const loggedInUser = toAppUser(
+            {
+              id: sheetUserId,
+              email: normalizedEmail,
+              displayName: result.user.displayName || displayName,
+              emailVerified: true,
+            },
+            {
+              age: age ?? "",
+              bio: bio ?? "",
+              isPro: !!isPro,
+              emailVerified: true,
+            },
+          );
           const ipCheck = await enforceLoginIpSecurity({
             userId: loggedInUser.id,
             email: loggedInUser.email,
@@ -403,11 +707,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({ isLoading: false, error: ipCheck.message });
             return;
           }
-          setAuthToken(result.token);
-          localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
-          if (loggedInUser.isAdmin) {
-            useMessagingStore.getState().setIsAdmin(true);
+          if (isChatApiConfigured()) {
+            await trySetSessionToken(loggedInUser);
           }
+          useMessagingStore.getState().resetData();
+          localStorage.setItem(LS_USER, JSON.stringify(loggedInUser));
+          restoreDefaultAdminMode(loggedInUser);
+          applySheetProfileToStores({
+            age: age ?? "",
+            bio: bio ?? "",
+            language: useLanguageStore.getState().language,
+          });
+          applySignupProEntitlement(!!loggedInUser.isPro);
           const proContact = readViewerProContact();
           syncEmailVerifiedToSheets(
             loggedInUser.id,
@@ -430,28 +741,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           });
           return;
         }
-        if ("userId" in result && result.userId) {
-          const signupIp = await fetchClientIp();
-          syncPendingSignupToSheets(
-            result.userId,
-            result.email,
-            result.displayName ?? displayName,
-            !!isPro,
-            signupIp || undefined,
-          );
+        if ("pendingVerification" in result && result.pendingVerification) {
+          const tokenFromApi = result.sheetAuth?.verificationToken?.trim();
+          if (
+            tokenFromApi &&
+            tokenFromApi !== localAuth.verificationToken &&
+            isGoogleSheetsWriteConfigured()
+          ) {
+            await persistVerificationTokenToSheets(
+              sheetUserId,
+              tokenFromApi,
+              result.sheetAuth?.verificationExpiresAt ?? localAuth.verificationExpiresAt,
+            );
+          }
+          set({
+            isLoading: false,
+            pendingVerificationEmail: normalizedEmail,
+            pendingVerificationUserId: sheetUserId,
+            verificationMessage: result.message,
+            error: null,
+          });
+          return;
         }
-        set({
-          isLoading: false,
-          pendingVerificationEmail: result.email,
-          verificationMessage: result.message,
-          error: null,
-        });
-        return;
       }
 
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      if (localUsers[email]) {
+      if (isReservedBuiltinEmail(email) || offlineSignupUsers[email.trim().toLowerCase()]) {
         set({ isLoading: false, error: "Cet email est déjà utilisé" });
         return;
       }
@@ -478,7 +794,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      localUsers[email] = {
+      offlineSignupUsers[email.trim().toLowerCase()] = {
         email,
         password,
         displayName,
@@ -505,12 +821,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAdmin: false,
       });
       if (!ipCheck.allowed) {
-        delete localUsers[email];
+        delete offlineSignupUsers[email.trim().toLowerCase()];
         set({ isLoading: false, error: ipCheck.message });
         return;
       }
 
       localStorage.setItem(LS_USER, JSON.stringify(newUser));
+      useMessagingStore.getState().resetData();
       syncEmailVerifiedToSheets(
         newUser.id,
         newUser.email,
@@ -522,6 +839,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         undefined,
         ipCheck.currentIp || undefined,
       );
+      applySignupProEntitlement(!!newUser.isPro);
       set({ user: newUser, isLoading: false });
     } catch (err) {
       set({
@@ -535,7 +853,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     shutdownGlobalChatSync();
     setAuthToken(null);
     localStorage.removeItem(LS_USER);
-    set({ user: null, error: null, pendingVerificationEmail: null, verificationMessage: null });
+    const msg = useMessagingStore.getState();
+    msg.clearViewerSession();
+    msg.resetData();
+    set({
+      user: null,
+      error: null,
+      pendingVerificationEmail: null,
+      pendingVerificationUserId: null,
+      verificationMessage: null,
+    });
   },
 
   setUser: (user) => {

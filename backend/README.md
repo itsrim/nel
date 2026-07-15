@@ -1,4 +1,4 @@
-# Nel — Backend chat API
+# Hlg — Backend chat API
 
 Serveur **Node.js + TypeScript** : **Fastify** (HTTP) + **Socket.IO** (temps réel).  
 Auth JWT, messages en mémoire, notifications **Web Push**.
@@ -104,9 +104,12 @@ Créer un fichier `.env` à la racine de `backend/` (non versionné) ou les déf
 | `VAPID_PUBLIC_KEY` | — | Web Push (public) |
 | `VAPID_PRIVATE_KEY` | — | Web Push (privé) |
 | `VAPID_SUBJECT` | `mailto:hello@hlg.app` | Contact VAPID |
-| `MAILJET_API_KEY` | — | Clé API [Mailjet](https://www.mailjet.com) |
-| `MAILJET_API_SECRET` | — | Secret API Mailjet |
-| `EMAIL_FROM` | `Happy Let's GO <noreply@happyletsgo.fr>` | Expéditeur (domaine validé dans Mailjet) |
+| `BREVO_API_KEY` | — | **Requis sur Render free** — clé API v3 Brevo (`xkeysib-…`, HTTPS port 443) |
+| `EMAIL_FROM` | `Happy Let's GO <noreply@happyletsgo.fr>` | Expéditeur (domaine vérifié chez Brevo) |
+| `SMTP_HOST` | — | *(dev local)* Serveur SMTP — **bloqué sur Render free** (ports 587/465) |
+| `SMTP_PORT` | `587` | Port SMTP |
+| `SMTP_USER` / `SMTP_PASS` | — | Identifiants SMTP Brevo (local uniquement) |
+| `SKIP_EMAIL_VERIFICATION` | `false` | `true` = inscription sans email (secours admin) |
 | `APP_PUBLIC_URL` | `https://happyletsgo.fr` (prod) / `http://localhost:5173` (dev) | URL frontend pour le lien « Vérifier mon email » |
 
 Origines CORS autorisées par défaut :
@@ -123,6 +126,27 @@ npm run vapid
 ```
 
 Recopier `VITE_VAPID_PUBLIC_KEY` côté frontend (fichier `.env` à la racine du repo).
+
+### Configurer Brevo (recommandé)
+
+**Render plan free bloque SMTP (ports 587/465)** — utiliser l’**API HTTP Brevo**, pas Nodemailer/SMTP en prod.
+
+1. Compte [brevo.com](https://www.brevo.com) (300 emails/jour gratuits).
+2. **Paramètres** → **SMTP & API** → **Clé API v3** (`xkeysib-…`).
+3. Vérifier le domaine `happyletsgo.fr` ou un expéditeur unique.
+4. Sur **Render** (Environment) :
+
+```env
+BREVO_API_KEY=xkeysib-xxxxxxxx
+EMAIL_FROM=Happy Let's GO <noreply@happyletsgo.fr>
+APP_PUBLIC_URL=https://happyletsgo.fr
+```
+
+5. Redéployer, tester `/api/health` → `"email": "Brevo API (HTTPS)"`.
+
+En **local**, `SMTP_*` reste utilisable si tu n’as pas de `BREVO_API_KEY`.
+
+**Secours sans email** : `SKIP_EMAIL_VERIFICATION=true` sur Render, ou activer « Inscription sans vérification email » dans le profil admin (onglet `app_config` du Sheet).
 
 ---
 
@@ -338,7 +362,7 @@ Voir **`backend/render.yaml`** et les étapes détaillées ci-dessous.
 
 ### Variables Render (Environment)
 
-`JWT_SECRET`, `APP_PUBLIC_URL=https://happyletsgo.fr`, `ALLOWED_ORIGINS`, `MAILJET_API_KEY`, `MAILJET_API_SECRET`, `EMAIL_FROM`
+`JWT_SECRET`, `APP_PUBLIC_URL=https://happyletsgo.fr`, `ALLOWED_ORIGINS`, `BREVO_API_KEY`, `EMAIL_FROM`
 
 ### Frontend
 
@@ -419,4 +443,4 @@ Fichiers frontend liés :
 
 ## Licence
 
-Projet privé Nel.
+Projet privé Hlg.

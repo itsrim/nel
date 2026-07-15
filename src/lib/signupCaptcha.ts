@@ -3,7 +3,7 @@ export interface MathCaptcha {
   answer: number;
 }
 
-export function createMathCaptcha(): MathCaptcha {
+function buildMathCaptcha(): MathCaptcha {
   const a = Math.floor(Math.random() * 9) + 1;
   const b = Math.floor(Math.random() * 9) + 1;
   const add = Math.random() >= 0.5;
@@ -12,7 +12,18 @@ export function createMathCaptcha(): MathCaptcha {
   }
   const hi = Math.max(a, b);
   const lo = Math.min(a, b);
+  if (hi === lo) {
+    return { question: `${hi + 1} − ${lo} = ?`, answer: 1 };
+  }
   return { question: `${hi} − ${lo} = ?`, answer: hi - lo };
+}
+
+export function createMathCaptcha(exclude?: MathCaptcha): MathCaptcha {
+  for (let i = 0; i < 24; i++) {
+    const next = buildMathCaptcha();
+    if (!exclude || next.question !== exclude.question) return next;
+  }
+  return buildMathCaptcha();
 }
 
 export function isMathCaptchaAnswerValid(

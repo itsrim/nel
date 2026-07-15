@@ -1,4 +1,5 @@
 import type { Conversation, Event, Friend, GroupMember } from '../data/mockData';
+import { buildEventGroupMembers } from './eventGroupMembers';
 
 /** Photo membre (moi → profil, ami → imageUrl) ou absence. */
 export function resolveMemberPhotoUrl(
@@ -19,6 +20,7 @@ export type ConversationMiniSlot = { src: string; hasImage: boolean };
 
 /**
  * Une case par index : photo du iᵉ membre si dispo, sinon couverture de la sortie liée, sinon vide (dégradé).
+ * Pour les fils sortie, le roster est dérivé de l'événement (catalogue partagé) si les membres locaux sont vides.
  */
 export function buildConversationMiniSlots(
   conversation: Conversation,
@@ -26,9 +28,28 @@ export function buildConversationMiniSlots(
   friends: Friend[],
   viewerProfileAvatarUrl: string,
   count: number,
+  options?: {
+    viewerId?: string | null;
+    viewerDisplayName?: string;
+    suggestions?: { id: string; pseudo: string; imageUrl: string }[];
+  },
 ): ConversationMiniSlot[] {
   const cover = linkedEvent?.imageUri?.trim() ?? '';
-  const members = conversation.members ?? [];
+  let members = conversation.members ?? [];
+  if (
+    linkedEvent &&
+    options?.viewerId &&
+    (members.length === 0 ||
+      members.length < (linkedEvent.registeredParticipantIds?.length ?? 0) + 1)
+  ) {
+    members = buildEventGroupMembers(linkedEvent, {
+      viewerId: options.viewerId,
+      viewerDisplayName: options.viewerDisplayName ?? "Moi",
+      viewerAvatarUrl: viewerProfileAvatarUrl,
+      friends,
+      suggestions: options.suggestions,
+    });
+  }
   const out: ConversationMiniSlot[] = [];
   for (let i = 0; i < count; i++) {
     const photo = resolveMemberPhotoUrl(members[i], friends, viewerProfileAvatarUrl);

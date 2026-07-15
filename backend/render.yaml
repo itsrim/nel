@@ -1,8 +1,10 @@
-# Blueprint Render — déploiement du backend Nel / Happy Let's GO
+# Blueprint Render — déploiement du backend Hlg / Happy Let's GO
 # Dashboard : New → Blueprint → connecter le repo, ou créer un Web Service manuellement.
 #
 # Secrets à ajouter dans le dashboard Render (Environment) :
-#   MAILJET_API_KEY, MAILJET_API_SECRET, EMAIL_FROM, JWT_SECRET (ou laisser generateValue)
+#   BREVO_API_KEY, EMAIL_FROM, JWT_SECRET (ou laisser generateValue)
+#   Note: Render free bloque SMTP 587 — utiliser Brevo API HTTPS, pas SMTP_*
+#   Optionnel : SKIP_EMAIL_VERIFICATION=true si pas d'email configuré
 
 services:
   - type: web

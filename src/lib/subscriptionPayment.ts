@@ -29,9 +29,9 @@ function isExpiryValid(expiry: string): boolean {
 }
 
 /** Simulation paiement CB — prêt à brancher Stripe / PayPlug plus tard. */
-export async function processCardPayment(
-  plan: SubscriptionPlan,
+async function validateAndProcessCardPayment(
   input: CardPaymentInput,
+  transactionPrefix: string,
 ): Promise<CardPaymentResult> {
   const name = input.cardholderName.trim();
   const number = digitsOnly(input.cardNumber);
@@ -52,8 +52,22 @@ export async function processCardPayment(
 
   await new Promise((r) => setTimeout(r, 900));
 
-  const transactionId = `nel_${plan}_${Date.now().toString(36)}`;
+  const transactionId = `nel_${transactionPrefix}_${Date.now().toString(36)}`;
   return { ok: true, transactionId };
+}
+
+export async function processCardPayment(
+  plan: SubscriptionPlan,
+  input: CardPaymentInput,
+): Promise<CardPaymentResult> {
+  return validateAndProcessCardPayment(input, plan);
+}
+
+export async function processEventCardPayment(
+  eventId: string,
+  input: CardPaymentInput,
+): Promise<CardPaymentResult> {
+  return validateAndProcessCardPayment(input, `event_${eventId}`);
 }
 
 export function formatCardNumber(value: string): string {

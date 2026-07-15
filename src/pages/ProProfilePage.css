@@ -27,3 +27,23 @@
 .pro-profile-contact-btn:active {
   opacity: 0.92;
 }
+
+.pro-verify-admin {
+  margin-top: 28px;
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pro-verify-admin-check {
+  margin-top: 8px;
+}
+
+.pro-verify-admin-hint {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #8e8e93;
+  font-weight: 500;
+}

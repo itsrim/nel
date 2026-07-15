@@ -21,9 +21,10 @@ export const DEFAULT_EVENT_COVER_THEMES: DefaultEventCoverTheme[] = [
   { id: 'nature', tag: 'nature', imageUrl: coverPath('nature.jpg') },
   { id: 'partage', tag: 'partage', imageUrl: coverPath('partage.jpg') },
   { id: 'musique', tag: 'musique', imageUrl: coverPath('musique.jpg') },
-  { id: 'travail', tag: 'travail', imageUrl: coverPath('travail.jpg') },
-  { id: 'sortie', tag: 'sortie', imageUrl: coverPath('sortie.jpg') },
-  { id: 'autres', tag: 'autres', imageUrl: coverPath('autres.jpg') },
+  { id: 'danse', tag: 'danse', imageUrl: coverPath('danse.jpg') },
+  { id: 'sante-naturelle', tag: 'santé-naturelle', imageUrl: coverPath('autres.jpg') },
+  { id: 'evenement', tag: 'évènement', imageUrl: coverPath('sortie.jpg') },
+  { id: 'autres', tag: 'autres', imageUrl: coverPath('travail.jpg') },
 ];
 
 /** Même ordre que les chips couverture (#bien-être … #autres) — filtre liste événements. */
@@ -64,6 +65,11 @@ export function resolveEventCoverTheme(event: {
   for (const theme of DEFAULT_EVENT_COVER_THEMES) {
     if (hay.includes(foldThemeSearch(theme.tag))) return theme;
   }
+  for (const [legacy, tag] of Object.entries(LEGACY_THEME_TAG_ALIASES)) {
+    if (!hay.includes(foldThemeSearch(legacy))) continue;
+    const theme = DEFAULT_EVENT_COVER_THEMES.find((t) => t.tag === tag);
+    if (theme) return theme;
+  }
   return undefined;
 }
 
@@ -79,9 +85,16 @@ const THEME_BADGE_COLORS: Record<string, EventThemeBadgeColors> = {
   nature: { bg: '#16A34A', fg: '#FFFFFF' },
   partage: { bg: '#0891B2', fg: '#FFFFFF' },
   musique: { bg: '#2563EB', fg: '#FFFFFF' },
-  travail: { bg: '#4F46E5', fg: '#FFFFFF' },
-  sortie: { bg: '#9333EA', fg: '#FFFFFF' },
+  danse: { bg: '#E11D48', fg: '#FFFFFF' },
+  'santé-naturelle': { bg: '#4F46E5', fg: '#FFFFFF' },
+  'évènement': { bg: '#9333EA', fg: '#FFFFFF' },
   autres: { bg: '#475569', fg: '#FFFFFF' },
+};
+
+/** Anciens hashtags (#sortie, #travail) — compatibilité données existantes. */
+const LEGACY_THEME_TAG_ALIASES: Record<string, string> = {
+  sortie: 'évènement',
+  travail: 'santé-naturelle',
 };
 
 export function getEventThemeBadgeColors(tag: string): EventThemeBadgeColors {
