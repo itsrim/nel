@@ -563,7 +563,7 @@ export const translations = {
     // QuestionnaireModal topics/badges
     work: "Travail",
     money: "Argent",
-    help: "Aide",
+    help: "Aider",
     health: "Santé",
     fatigue: "Fatigue",
     pain: "Douleur",
@@ -575,6 +575,7 @@ export const translations = {
     calm: "Calme",
     nature: "Nature",
     creativity: "Créativité",
+    sex: "Sexualité",
 
     // QuestionnaireModal questions
     moodQuestion: "Quelle est votre humeur ?",

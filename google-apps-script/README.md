@@ -59,8 +59,12 @@ userId,id,name,age,avatarUrl,lastVisitAt,visitMultiplier,friendRequest,deleted
 
 ### `notifications`
 ```
-userId,id,createdAt,kind,eventId,eventTitle,inviteeName,inviteeProfilId,conversationId,senderName,messagePreview,deleted
+userId,id,createdAt,kind,eventId,eventTitle,inviteeName,inviteeProfilId,conversationId,senderName,messagePreview,readAt,deleted
 ```
+
+**Format compact (recommandé)** : une ligne par utilisateur (`id` = `userId`, `kind` = `inbox`).  
+Les notifications non lues sont stockées en JSON dans `messagePreview` (tableau d’objets).  
+Les notifications lues sont retirées du JSON (pas conservées en base).
 
 ### `admin_reports`
 ```

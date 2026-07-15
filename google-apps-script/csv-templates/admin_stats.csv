@@ -1,0 +1,15 @@
+Nom de l'onglet,Lignes utilisées (données),Lignes totales (vides incluses),Colonnes totales,Cellules totales (poids réel)
+messages,=NBVAL(messages!A:A),=LIGNES(messages!A:A),=COLONNES(messages!1:1),=C2*D2
+events,=NBVAL(events!A:A),=LIGNES(events!A:A),=COLONNES(events!1:1),=C3*D3
+conversations,=NBVAL(conversations!A:A),=LIGNES(conversations!A:A),=COLONNES(conversations!1:1),=C4*D4
+profiles,=NBVAL(profiles!A:A),=LIGNES(profiles!A:A),=COLONNES(profiles!1:1),=C5*D5
+suggestions,=NBVAL(suggestions!A:A),=LIGNES(suggestions!A:A),=COLONNES(suggestions!1:1),=C6*D6
+viewer_settings,=NBVAL(viewer_settings!A:A),=LIGNES(viewer_settings!A:A),=COLONNES(viewer_settings!1:1),=C7*D7
+profile_visits,=NBVAL(profile_visits!A:A),=LIGNES(profile_visits!A:A),=COLONNES(profile_visits!1:1),=C8*D8
+notifications,=NBVAL(notifications!A:A),=LIGNES(notifications!A:A),=COLONNES(notifications!1:1),=C9*D9
+admin_reports,=NBVAL(admin_reports!A:A),=LIGNES(admin_reports!A:A),=COLONNES(admin_reports!1:1),=C10*D10
+event_reminders,=NBVAL(event_reminders!A:A),=LIGNES(event_reminders!A:A),=COLONNES(event_reminders!1:1),=C11*D11
+professionals,=NBVAL(professionals!A:A),=LIGNES(professionals!A:A),=COLONNES(professionals!1:1),=C12*D12
+app_config,=NBVAL(app_config!A:A),=LIGNES(app_config!A:A),=COLONNES(app_config!1:1),=C13*D13
+TOTAL_GLOBAL,,,,=SOMME(E2:E13)
+POURCENTAGE_LIMITE_10M,,,,=(E14/10000000)

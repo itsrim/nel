@@ -44,6 +44,7 @@ import {
   syncNotificationToSheets,
   syncNotificationReadToSheets,
   syncNotificationToSheetsForUser,
+  syncUserUnreadNotificationsToSheets,
   syncProfileVisitToSheetsForUser,
   syncProfileDeleteToSheets,
   syncReportDeleteToSheets,
@@ -1915,31 +1916,25 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       set((s) => {
         const current = s.appNotifications.find((n) => n.id === id);
         if (!current || current.readAt != null) return s;
-        const updated: AppNotification = { ...current, readAt: Date.now() };
-        syncNotificationReadToSheets(updated);
+        syncNotificationReadToSheets(id);
         return {
-          appNotifications: s.appNotifications.map((n) =>
-            n.id === id ? updated : n,
-          ),
+          appNotifications: s.appNotifications.filter((n) => n.id !== id),
         };
       });
+      queueMicrotask(() => get().reconcileUserBadgeCounts());
     },
     markAllNotificationsRead: () =>
       set((s) => {
-        const now = Date.now();
-        let changed = false;
-        const appNotifications = s.appNotifications.map((n) => {
-          if (n.readAt != null) return n;
-          changed = true;
-          const updated = { ...n, readAt: now };
-          syncNotificationReadToSheets(updated);
-          return updated;
-        });
-        const next = changed ? { appNotifications } : s;
-        if (changed) {
-          queueMicrotask(() => get().reconcileUserBadgeCounts());
+        const hadUnread = s.appNotifications.some((n) => n.readAt == null);
+        if (!hadUnread) return s;
+        const ownerId = currentAuthUserId();
+        if (ownerId) {
+          syncUserUnreadNotificationsToSheets(ownerId, []);
         }
-        return next;
+        queueMicrotask(() => get().reconcileUserBadgeCounts());
+        return {
+          appNotifications: s.appNotifications.filter((n) => n.readAt != null),
+        };
       }),
     adminReports: [],
     submitAdminReport: ({ kind, subjectId, subjectLabel, explanation }) => {
@@ -2455,19 +2450,16 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       }
 
       set((state) => {
-        const now = Date.now();
-        const appNotifications = state.appNotifications.map((n) => {
-          if (
+        const appNotifications = state.appNotifications.filter(
+          (n) =>
             n.kind !== "chat_message" ||
             n.conversationId !== conversationId ||
-            n.readAt != null
-          ) {
-            return n;
-          }
-          const updated = { ...n, readAt: now };
-          syncNotificationReadToSheets(updated);
-          return updated;
-        });
+            n.readAt != null,
+        );
+        const ownerId = currentAuthUserId();
+        if (ownerId) {
+          syncUserUnreadNotificationsToSheets(ownerId, appNotifications);
+        }
         return {
           conversations: state.conversations.map((c) =>
             c.id === conversationId ? { ...c, unreadCount: 0 } : c,
@@ -3295,14 +3287,13 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           nextLastSeen.profile_notifications = now;
           break;
         case "profile_friends": {
-          const appNotifications = state.appNotifications.map((n) => {
-            if (n.kind !== "friend_request_received" || n.readAt != null) {
-              return n;
-            }
-            const updated = { ...n, readAt: now };
-            syncNotificationReadToSheets(updated);
-            return updated;
-          });
+          const appNotifications = state.appNotifications.filter(
+            (n) => n.kind !== "friend_request_received" || n.readAt != null,
+          );
+          const ownerId = currentAuthUserId();
+          if (ownerId) {
+            syncUserUnreadNotificationsToSheets(ownerId, appNotifications);
+          }
           set({ appNotifications, userBadgeLastSeenAt: nextLastSeen });
           break;
         }
@@ -3363,14 +3354,16 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           get().markAllNotificationsRead();
           break;
         case "profile_friends": {
-          const now = payload.updatedAt;
-          set((s) => ({
-            appNotifications: s.appNotifications.map((n) =>
-              n.kind === "friend_request_received" && n.readAt == null
-                ? { ...n, readAt: now }
-                : n,
-            ),
-          }));
+          set((s) => {
+            const appNotifications = s.appNotifications.filter(
+              (n) => n.kind !== "friend_request_received" || n.readAt != null,
+            );
+            const ownerId = currentAuthUserId();
+            if (ownerId) {
+              syncUserUnreadNotificationsToSheets(ownerId, appNotifications);
+            }
+            return { appNotifications };
+          });
           break;
         }
         case "profile_reports":

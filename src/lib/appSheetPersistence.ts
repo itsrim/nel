@@ -55,6 +55,12 @@ import {
   viewerSettingsRowToProfessional,
 } from "./proDirectory";
 import {
+  buildNotificationInboxRow,
+  isNotificationInboxRow,
+  mergeNotificationInbox,
+  parseNotificationInbox,
+} from "./notificationInbox";
+import {
   filterOutModerationDeletedConversations,
   isModerationDeletedConversation,
 } from "./moderationTombstones";
@@ -825,6 +831,63 @@ export function rowToNotification(row: Record<string, string>): AppNotification 
   };
 }
 
+/** Boîte JSON (kind=inbox) + lignes legacy encore présentes. */
+export function notificationsFromUserRows(
+  rows: Record<string, string>[],
+): AppNotification[] {
+  const active = rows.filter((r) => !isDeletedFromSheet(r.deleted));
+  const inboxRow = active.find((r) => isNotificationInboxRow(r));
+  const fromInbox = inboxRow
+    ? parseNotificationInbox(inboxRow.messagePreview ?? "")
+    : [];
+  const legacy = active
+    .filter((r) => !isNotificationInboxRow(r))
+    .map(rowToNotification)
+    .filter((n) => n.readAt == null);
+  return mergeNotificationInbox(fromInbox, legacy);
+}
+
+async function loadNotificationsForUser(userId: string): Promise<AppNotification[]> {
+  const uid = userId.trim();
+  if (!uid) return [];
+  try {
+    const rows = await sheetGet<Record<string, string>>("notifications");
+    return notificationsFromUserRows(rows.filter((r) => r.userId === uid));
+  } catch (err) {
+    console.error("loadNotificationsForUser failed:", err);
+    const cached = loadLocalCache("notifications", uid);
+    return notificationsFromUserRows(cached);
+  }
+}
+
+async function softDeleteLegacyNotificationRows(userId: string): Promise<void> {
+  const uid = userId.trim();
+  if (!uid || !isGoogleSheetsWriteConfigured()) return;
+  try {
+    const rows = await sheetGet<Record<string, string>>("notifications");
+    for (const row of rows) {
+      if (row.userId !== uid || isNotificationInboxRow(row)) continue;
+      if (isDeletedFromSheet(row.deleted)) continue;
+      const id = row.id?.trim();
+      if (!id) continue;
+      await softDeleteSheetRow("notifications", uid, id);
+    }
+  } catch (err) {
+    console.error("softDeleteLegacyNotificationRows failed:", err);
+  }
+}
+
+async function writeNotificationInbox(
+  userId: string,
+  notifications: AppNotification[],
+): Promise<void> {
+  const uid = userId.trim();
+  if (!uid) return;
+  const row = buildNotificationInboxRow(uid, notifications);
+  await upsertSheetRow("notifications", uid, row);
+  await softDeleteLegacyNotificationRows(uid);
+}
+
 export function reportToRow(r: AdminReportEntry, userId: string): Record<string, string> {
   return {
     userId,
@@ -1265,7 +1328,7 @@ export async function loadTabStateFromSheets(
       const appConfigRow = appConfigRows.find((r) => r.id === APP_CONFIG_GLOBAL_ID);
       return {
         ...emptyLoadedState(),
-        appNotifications: notifRows.map(rowToNotification),
+        appNotifications: notificationsFromUserRows(notifRows),
         adminReports: reportRows.map(rowToReport),
         eventReminders: reminderRows.map(rowToEventReminder),
         adminAppInfo: appConfigRow ? rowToAdminAppInfo(appConfigRow) : undefined,
@@ -1419,7 +1482,7 @@ export async function loadAppStateFromSheets(
       friends: profileRows.map(rowToFriend),
       suggestions: suggestionRows.map(rowToSuggestion),
       profileVisits: visitRows.map(rowToVisit),
-      appNotifications: notifRows.map(rowToNotification),
+      appNotifications: notificationsFromUserRows(notifRows),
       adminReports: reportRows.map(rowToReport),
       eventReminders: reminderRows.map(rowToEventReminder),
       professionals,
@@ -1768,8 +1831,11 @@ export function syncViewerSettingsToSheets(data: {
 
 export function syncNotificationToSheets(n: AppNotification): void {
   const userId = currentUserId();
-  if (!userId) return;
-  syncLater(() => upsertSheetRow("notifications", n.id, notificationToRow(n, userId)));
+  if (!userId || n.readAt != null) return;
+  syncLater(async () => {
+    const existing = await loadNotificationsForUser(userId);
+    await writeNotificationInbox(userId, mergeNotificationInbox(existing, [n]));
+  });
 }
 
 export function syncNotificationToSheetsForUser(
@@ -1777,8 +1843,34 @@ export function syncNotificationToSheetsForUser(
   userId: string,
 ): void {
   const owner = userId?.trim();
+  if (!owner || n.readAt != null) return;
+  syncLater(async () => {
+    const existing = await loadNotificationsForUser(owner);
+    await writeNotificationInbox(owner, mergeNotificationInbox(existing, [n]));
+  });
+}
+
+export function syncUserUnreadNotificationsToSheets(
+  userId: string,
+  notifications: AppNotification[],
+): void {
+  const owner = userId.trim();
   if (!owner) return;
-  syncLater(() => upsertSheetRow("notifications", n.id, notificationToRow(n, owner)));
+  const unread = notifications.filter((n) => n.readAt == null);
+  syncLater(() => writeNotificationInbox(owner, unread));
+}
+
+export function syncNotificationReadToSheets(notificationId: string): void {
+  const userId = currentUserId();
+  const id = notificationId.trim();
+  if (!userId || !id) return;
+  syncLater(async () => {
+    const existing = await loadNotificationsForUser(userId);
+    await writeNotificationInbox(
+      userId,
+      existing.filter((n) => n.id !== id),
+    );
+  });
 }
 
 export function syncProfileVisitToSheetsForUser(
@@ -1792,11 +1884,6 @@ export function syncProfileVisitToSheetsForUser(
   );
 }
 
-export function syncNotificationReadToSheets(n: AppNotification): void {
-  const userId = currentUserId();
-  if (!userId) return;
-  syncLater(() => upsertSheetRow("notifications", n.id, notificationToRow(n, userId)));
-}
 
 export function syncEventReminderToSheets(r: EventReminder): void {
   const userId = currentUserId();
