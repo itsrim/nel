@@ -122,10 +122,10 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
   const waitlist = event?.waitlistEntries ?? [];
   const waitlistPending = waitlist.some((w) => w.reason === "en_attente");
   const waitlistOverflow = waitlist.some((w) => w.reason === "overflow");
-  const viewerOnWaitlist = waitlist.some(
-    (w) =>
-      w.profilId === VIEWER_KARMA_PARTICIPANT_ID ||
-      (!!user?.id && w.profilId === user.id),
+  const viewerOnWaitlist = waitlist.some((w) =>
+    user?.id
+      ? w.profilId === user.id
+      : w.profilId === VIEWER_KARMA_PARTICIPANT_ID,
   );
 
   const resolveWaitlistPhoto = (entry: (typeof waitlist)[number]) => {

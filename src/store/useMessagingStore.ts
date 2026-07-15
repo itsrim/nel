@@ -170,8 +170,14 @@ function waitlistEntryBelongsToViewer(
 ): boolean {
   const pid = entry.profilId?.trim();
   if (!pid) return false;
-  if (pid === VIEWER_KARMA_PARTICIPANT_ID) return true;
-  return !!viewerId && pid === viewerId;
+  // "__viewer__" n’appartient qu’à une session locale sans compte — jamais à
+  // tous les utilisateurs connectés (sinon liste d’attente partagée = à tous).
+  if (viewerId) return pid === viewerId;
+  return pid === VIEWER_KARMA_PARTICIPANT_ID;
+}
+
+function karmaPaidIdForViewer(viewerId: string | null): string {
+  return viewerId?.trim() || VIEWER_KARMA_PARTICIPANT_ID;
 }
 
 function viewerOnEventWaitlist(
@@ -2632,15 +2638,21 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         const viewerIsOrganizer = hostedByCurrentViewer(event);
 
         if (viewerId && !viewerIsOrganizer) {
+          const paidId = karmaPaidIdForViewer(viewerId);
           const paidIds = event.karmaJoinPaidProfilIds ?? [];
-          const wasValidated = (event.validatedPresentProfilIds ?? []).includes(
-            VIEWER_KARMA_PARTICIPANT_ID,
-          );
+          const wasValidated =
+            (event.validatedPresentProfilIds ?? []).includes(paidId) ||
+            (event.validatedPresentProfilIds ?? []).includes(
+              VIEWER_KARMA_PARTICIPANT_ID,
+            );
           const wasRegistered = (event.registeredParticipantIds ?? []).includes(
             viewerId,
           );
+          const hadPaidKarma =
+            paidIds.includes(paidId) ||
+            paidIds.includes(VIEWER_KARMA_PARTICIPANT_ID);
           if (
-            (wasRegistered || paidIds.includes(VIEWER_KARMA_PARTICIPANT_ID)) &&
+            (wasRegistered || hadPaidKarma) &&
             !wasValidated &&
             !hasViewerProAccess(state)
           ) {
@@ -2659,7 +2671,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
             events: s.events.map((e) => {
               if (e.id !== event.id) return e;
               const paid = (e.karmaJoinPaidProfilIds ?? []).filter(
-                (id) => id !== VIEWER_KARMA_PARTICIPANT_ID,
+                (id) => id !== paidId && id !== VIEWER_KARMA_PARTICIPANT_ID,
               );
               return {
                 ...e,
@@ -2748,7 +2760,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           if (e.id !== eventId) return e;
           const paid = new Set(e.karmaJoinPaidProfilIds ?? []);
           if (!hasViewerProAccess(s)) {
-            paid.add(VIEWER_KARMA_PARTICIPANT_ID);
+            paid.add(karmaPaidIdForViewer(viewerId));
+            paid.delete(VIEWER_KARMA_PARTICIPANT_ID);
           }
           return {
             ...e,
@@ -2905,7 +2918,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           if (e.id !== eventId) return e;
           const paid = new Set(e.karmaJoinPaidProfilIds ?? []);
           if (isViewer && !hasViewerProAccess(s)) {
-            paid.add(VIEWER_KARMA_PARTICIPANT_ID);
+            paid.add(karmaPaidIdForViewer(viewerId ?? participantId));
+            paid.delete(VIEWER_KARMA_PARTICIPANT_ID);
           }
           return {
             ...e,
@@ -3015,11 +3029,12 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         );
       }
 
+      const paidId = karmaPaidIdForViewer(viewerId);
       set((s) => ({
         events: s.events.map((e) => {
           if (e.id !== eventId) return e;
           const paid = (e.karmaJoinPaidProfilIds ?? []).filter(
-            (id) => id !== VIEWER_KARMA_PARTICIPANT_ID,
+            (id) => id !== paidId && id !== VIEWER_KARMA_PARTICIPANT_ID,
           );
           return {
             ...e,
@@ -3044,11 +3059,16 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       }
 
       const paidIds = event.karmaJoinPaidProfilIds ?? [];
-      const wasValidated = (event.validatedPresentProfilIds ?? []).includes(
-        VIEWER_KARMA_PARTICIPANT_ID,
-      );
+      const wasValidated =
+        (event.validatedPresentProfilIds ?? []).includes(paidId) ||
+        (event.validatedPresentProfilIds ?? []).includes(
+          VIEWER_KARMA_PARTICIPANT_ID,
+        );
+      const hadPaidKarma =
+        paidIds.includes(paidId) ||
+        paidIds.includes(VIEWER_KARMA_PARTICIPANT_ID);
       if (
-        (wasRegistered || paidIds.includes(VIEWER_KARMA_PARTICIPANT_ID)) &&
+        (wasRegistered || hadPaidKarma) &&
         !wasValidated &&
         !hasViewerProAccess(state)
       ) {

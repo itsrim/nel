@@ -1,7 +1,6 @@
 import type { Event, Friend, GroupMember, SuggestionProfile } from "../data/mockData";
 import { resolveAvatarUrl } from "./avatarUrl";
 import { eventOrganizerUserId } from "./eventHost";
-import { VIEWER_KARMA_PARTICIPANT_ID } from "./karma";
 
 const ORGANIZER_GRADIENT = ["#FFD60A", "#FF9F0A"] as const;
 const MEMBER_GRADIENT = ["#78909C", "#546E7A"] as const;
@@ -50,11 +49,13 @@ export function collectEventParticipantUserIds(
     push(pid);
   }
 
+  // Ne jamais dériver une inscription depuis le sentinel partagé "__viewer__"
+  // (écrit autrefois dans Sheets) : ça « inscrivait » n’importe quel visiteur.
   if (
     viewerId &&
     viewerId !== organizerId &&
     !(event.registeredParticipantIds ?? []).includes(viewerId) &&
-    (event.karmaJoinPaidProfilIds ?? []).includes(VIEWER_KARMA_PARTICIPANT_ID)
+    (event.karmaJoinPaidProfilIds ?? []).includes(viewerId)
   ) {
     push(viewerId);
   }

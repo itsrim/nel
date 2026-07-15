@@ -50,7 +50,7 @@ export function viewerIsRegisteredParticipant(
 export function effectiveViewerEventStatus(
   event: Event,
   viewer?: ViewerContext | null,
-  options?: { conversationMembers?: Array<{ isSelf?: boolean }> },
+  _options?: { conversationMembers?: Array<{ isSelf?: boolean }> },
 ): Event["status"] {
   if (eventHostedByViewer(event, viewer)) {
     return "organisateur";
@@ -58,16 +58,12 @@ export function effectiveViewerEventStatus(
   if (viewerIsRegisteredParticipant(event, viewer)) {
     return "inscrit";
   }
-  if (options?.conversationMembers?.some((m) => m.isSelf)) {
-    return "inscrit";
-  }
+  // Ne pas déduire l’inscription du roster chat (isSelf) : un GET / sync
+  // pouvait y ajouter le viewer par erreur sans registeredParticipantIds.
   const viewerId = viewer?.id?.trim();
   if (
     viewerId &&
-    (event.waitlistEntries ?? []).some(
-      (w) =>
-        w.profilId === VIEWER_KARMA_PARTICIPANT_ID || w.profilId === viewerId,
-    )
+    (event.waitlistEntries ?? []).some((w) => w.profilId === viewerId)
   ) {
     return "en_attente";
   }
