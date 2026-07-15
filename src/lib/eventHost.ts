@@ -84,15 +84,12 @@ export function effectiveViewerEventStatus(
   return event.status;
 }
 
-/** Photo hôte à l’affichage — profil visiteur à jour si la sortie est la vôtre. */
+/** Photo organisateur — toujours `hostAvatar` Sheets (identique pour tous les comptes). */
 export function resolveEventHostAvatar(
   event: Event,
-  viewerProfileAvatarUrl: string,
-  viewer?: ViewerContext | null,
+  _viewerProfileAvatarUrl?: string,
+  _viewer?: ViewerContext | null,
 ): string {
-  if (eventHostedByViewer(event, viewer)) {
-    return resolveAvatarUrl(viewerProfileAvatarUrl);
-  }
   const stored = event.hostAvatar?.trim();
   return stored ? resolveAvatarUrl(stored) : resolveAvatarUrl();
 }

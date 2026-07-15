@@ -159,6 +159,11 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     [conversations, event?.conversationId],
   );
 
+  const hostAvatar = useMemo(
+    () => (event ? resolveEventHostAvatar(event) : resolveAvatarUrl()),
+    [event],
+  );
+
   const participantSlots = useMemo((): ParticipantSlot[] => {
     if (!event) return [];
 
@@ -176,7 +181,8 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
       if (m.profilId && organizerId && m.profilId === organizerId) {
         slots.push({
           kind: "host",
-          imageUrl: resolveAvatarUrl(m.avatarUrl),
+          // Même URL que la ligne « Proposé par » (pas une 2ᵉ résolution).
+          imageUrl: hostAvatar,
           name: m.name,
           profilId: m.profilId,
           key: `host-${m.profilId}`,
@@ -202,6 +208,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     viewerContext,
     viewerProfileAvatarUrl,
     viewerProfileDisplayName,
+    hostAvatar,
   ]);
 
   const allAppProfiles = useMemo(
@@ -248,11 +255,6 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
     conversationMembers: eventConversation?.members,
   });
   const viewerHosts = eventHostedByViewer(event, viewerContext);
-  const hostAvatar = resolveEventHostAvatar(
-    event,
-    viewerProfileAvatarUrl,
-    viewerContext,
-  );
   const hostName = viewerHosts
     ? viewerProfileDisplayName
     : event.hostName?.trim() || "Organisateur";

@@ -75,7 +75,7 @@ export function resolveEventParticipantAvatars(
   viewer?: ViewerContext | null,
 ): string[] {
   const viewerIsHost = eventHostedByViewer(event, viewer);
-  const hostAvatar = resolveEventHostAvatar(event, viewerProfileAvatarUrl, viewer);
+  const hostAvatar = resolveEventHostAvatar(event);
   const participantCount = Math.max(0, event.participantCount ?? 0);
   const host = resolveAvatarUrl(hostAvatar);
   const limit = Math.min(max, Math.max(1, participantCount || 1));

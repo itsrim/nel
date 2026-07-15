@@ -1129,7 +1129,28 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       } catch {
         /* ignore */
       }
-      set({ viewerProfileAvatarUrl: resolved });
+      const viewerId = currentAuthUserId();
+      set((s) => {
+        const events = s.events.map((e) => {
+          if (
+            !viewerId ||
+            !eventHostedByViewer(e, {
+              id: viewerId,
+              displayName: s.viewerProfileDisplayName,
+            })
+          ) {
+            return e;
+          }
+          const next = {
+            ...e,
+            hostAvatar: resolved,
+            participantAvatars: [resolved, ...(e.participantAvatars ?? []).slice(1)],
+          };
+          syncEventToSheets(next);
+          return next;
+        });
+        return { viewerProfileAvatarUrl: resolved, events };
+      });
       syncViewerSettingsFromState(get());
     },
 

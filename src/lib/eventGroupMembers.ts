@@ -120,11 +120,7 @@ export function buildEventGroupMembers(
           : event.hostName?.trim() || profile.name || "Organisateur",
         isSelf: !!(markSelf && viewerId === organizerId),
         profilId: participantId,
-        avatarUrl: resolveAvatarUrl(
-          viewerId === organizerId && markSelf
-            ? opts.viewerAvatarUrl
-            : event.hostAvatar || profile.avatarUrl,
-        ),
+        avatarUrl: resolveAvatarUrl(event.hostAvatar || profile.avatarUrl),
         avatarGradient: ORGANIZER_GRADIENT,
       });
       continue;
