@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   ChevronLeft,
   Send,
@@ -6,6 +6,7 @@ import {
   Eye,
   Settings,
   Image as ImageIcon,
+  UserPlus,
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
@@ -39,12 +40,14 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
     viewerProfileDisplayName,
     viewerProfileAvatarUrl,
     ensureEventConversationRoster,
+    addMemberToGroup,
   } = useMessagingStore();
   const user = useAuthStore((s) => s.user);
 
   const conversation = conversations.find((c) => c.id === id);
   const messages = messagesByConversation[id] || [];
   const linkedEvent = getEventByConversationId(id);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
@@ -109,6 +112,44 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
     messages,
     eventDateKey: linkedEvent?.dateKey,
   });
+
+  const groupMembers = useMemo(() => {
+    if (!conversation || !isGroup) return [];
+    if (linkedEvent && user?.id) {
+      return buildEventGroupMembers(linkedEvent, {
+        viewerId: user.id,
+        viewerDisplayName: viewerProfileDisplayName,
+        viewerAvatarUrl: viewerProfileAvatarUrl,
+        friends,
+        suggestions,
+      });
+    }
+    return conversation.members || [];
+  }, [
+    conversation,
+    isGroup,
+    linkedEvent,
+    user?.id,
+    viewerProfileDisplayName,
+    viewerProfileAvatarUrl,
+    friends,
+    suggestions,
+  ]);
+
+  const invitableFriends = useMemo(() => {
+    const memberIds = new Set(groupMembers.map((m) => m.profilId).filter(Boolean));
+    return friends.filter((f) => !memberIds.has(f.profilId));
+  }, [groupMembers, friends]);
+
+  const handleAddFriend = (profilId: string, name: string) => {
+    addMemberToGroup(id, {
+      id: `m-${profilId}`,
+      name,
+      avatarGradient: ["#7C9EFF", "#42A5F5"],
+      isSelf: false,
+      profilId,
+    });
+  };
 
   const handleSend = () => {
     if (!canWrite || !draft.trim()) return;
@@ -257,7 +298,53 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
         )}
 
         <div className="cr-header-actions">
+          {isGroup ? (
+            <div className="cr-invite-wrap">
+              <button
+                type="button"
+                className="cr-add-member-btn"
+                onClick={() => setInviteOpen((open) => !open)}
+                aria-expanded={inviteOpen}
+                aria-label={t("addMemberHint")}
+              >
+                <UserPlus size={18} color="#7C9EFF" />
+                {/* <span>{t("addMemberHint")}</span> */}
+              </button>
+              {inviteOpen ? (
+                <div className="cr-invite-dropdown">
+                  <p className="cr-invite-title">{t("inviteMembersTitle")}</p>
+                  {invitableFriends.length === 0 ? (
+                    <p className="cr-invite-empty">{t("noMoreFriendsToAdd")}</p>
+                  ) : (
+                    <div className="cr-friends-scroll">
+                      {invitableFriends.map((f) => (
+                        <button
+                          key={f.profilId}
+                          type="button"
+                          className="cr-friend-chip"
+                          onClick={() => handleAddFriend(f.profilId, f.name)}
+                        >
+                          <div
+                            className="cr-friend-avatar"
+                            style={{
+                              background: "linear-gradient(45deg, #7C9EFF, #42A5F5)",
+                            }}
+                          >
+                            {f.name[0]}
+                          </div>
+                          <span className="cr-friend-name">
+                            {f.name.split(" ")[0]}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <button
+            type="button"
             className="cr-icon-btn"
             onClick={() => toggleConversationFavorite(id)}
           >
@@ -316,6 +403,7 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
         </button>
         <textarea
           className="cr-input"
+          rows={1}
           placeholder={
             canWrite ? t("messageInputHint") : t("chatThreadClosedPlaceholder")
           }
