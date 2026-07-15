@@ -15,6 +15,7 @@ import {
 import { isChatApiConfigured } from "../lib/chatConfig";
 import {
   emitEventInviteRemote,
+  emitFriendRemovedRemote,
   emitFriendRequestRemote,
   emitFriendRequestRespondRemote,
   emitGroupMemberAddedRemote,
@@ -45,6 +46,8 @@ import {
   syncEventDeleteToSheets,
   syncEventReminderToSheets,
   syncEventToSheets,
+  notePendingFriendMutual,
+  notePendingVisitFriendRequest,
   syncFriendToSheets,
   syncFriendToSheetsForUser,
   syncNotificationToSheets,
@@ -1781,6 +1784,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       const { friends } = get();
       if (friends.find((f) => f.profilId === id)?.mutualFriend === true) return;
 
+      notePendingFriendMutual(id, true);
+      notePendingVisitFriendRequest(id, false);
+
       set((state) => {
         const visit = state.profileVisits.find((v) => v.id === id);
         const sug = state.suggestions.find((s) => s.id === id);
@@ -1832,6 +1838,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       }
       syncViewerSettingsFromState(get());
       get().showToast("Demande acceptée.");
+      queueMicrotask(() => get().reconcileUserBadgeCounts());
 
       if (accepterId && accepterId !== id) {
         const accepter = useAuthStore.getState().user;
@@ -1869,6 +1876,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     rejectFriendRequest: (profilId) => {
       const id = profilId.trim();
       if (!id) return;
+      notePendingVisitFriendRequest(id, false);
       set((state) => ({
         profileVisits: state.profileVisits.map((v) =>
           v.id === id ? { ...v, friendRequest: false } : v,
@@ -1885,6 +1893,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       }
       syncViewerSettingsFromState(get());
       get().showToast("Demande refusée.");
+      queueMicrotask(() => get().reconcileUserBadgeCounts());
 
       const rejector = useAuthStore.getState().user;
       const rejectorId = rejector?.id?.trim() ?? "";
@@ -1912,6 +1921,13 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
     removeMutualFriend: (profilId) => {
       const id = profilId.trim();
       if (!id) return;
+      const removerId = useAuthStore.getState().user?.id?.trim() ?? "";
+      if (isSelfProfilId(id, removerId)) return;
+      if (get().friends.find((f) => f.profilId === id)?.mutualFriend !== true) {
+        return;
+      }
+
+      notePendingFriendMutual(id, false);
       set((state) => ({
         friends: state.friends.map((f) =>
           f.profilId === id && f.mutualFriend === true
@@ -1921,7 +1937,34 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       }));
       const updated = get().friends.find((f) => f.profilId === id);
       if (updated) syncFriendToSheets(updated);
+
+      if (removerId) {
+        const state = get();
+        const removerName =
+          state.viewerProfileDisplayName.trim() ||
+          useAuthStore.getState().user?.displayName?.trim() ||
+          "Quelqu'un";
+        const ageParsed = parseInt(state.viewerProfileAge, 10);
+        const removerAsFriend: Friend = {
+          ...buildMutualFriendRecord({
+            profilId: removerId,
+            name: removerName,
+            avatarUrl: state.viewerProfileAvatarUrl,
+            age: Number.isFinite(ageParsed) ? ageParsed : null,
+            city: state.viewerProfileCity,
+          }),
+          mutualFriend: false,
+        };
+        syncFriendToSheetsForUser(removerAsFriend, id);
+        emitFriendRemovedRemote({
+          recipientUserId: id,
+          removerUserId: removerId,
+          removerName,
+        });
+      }
+
       get().showToast("Retiré de vos amis.");
+      queueMicrotask(() => get().reconcileUserBadgeCounts());
     },
     appNotifications: [],
     markNotificationRead: (notificationId) => {

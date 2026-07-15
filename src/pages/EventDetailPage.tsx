@@ -215,7 +215,7 @@ export function EventDetailPage({ id }: EventDetailPageProps) {
       ? allAppProfiles
       : allAppProfiles.filter((p) =>
           friends.some(
-            (f) => f.profilId === p.profilId && f.mutualFriend !== false,
+            (f) => f.profilId === p.profilId && f.mutualFriend === true,
           ),
         );
     return listInvitableProfiles(event, conversations, pool);

@@ -115,6 +115,21 @@ export function emitFriendRequestRespondRemote(payload: {
   });
 }
 
+export function emitFriendRemovedRemote(payload: {
+  recipientUserId: string;
+  removerUserId: string;
+  removerName: string;
+}): void {
+  const s = getChatSocket();
+  if (!s) return;
+
+  s.emit("friend:remove", {
+    recipientUserId: payload.recipientUserId,
+    removerUserId: payload.removerUserId,
+    removerName: payload.removerName,
+  });
+}
+
 export function emitEventInviteRemote(payload: {
   recipientUserId: string;
   notification: AppNotification;

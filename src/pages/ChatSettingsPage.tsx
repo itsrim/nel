@@ -113,7 +113,9 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
 
   // ... (Previous logic for members remains same) ...
   const memberIds = new Set(members.map((m) => m.profilId).filter(Boolean));
-  const invitableFriends = friends.filter((f) => !memberIds.has(f.profilId));
+  const invitableFriends = friends.filter(
+    (f) => f.mutualFriend === true && !memberIds.has(f.profilId),
+  );
 
   const handleAddFriend = (f: any) => {
     addMemberToGroup(id, {

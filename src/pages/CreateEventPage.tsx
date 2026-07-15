@@ -180,7 +180,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     const all = listAllAppProfiles(friends, suggestions);
     if (isAdmin) return all;
     return all.filter((p) =>
-      friends.some((f) => f.profilId === p.profilId && f.mutualFriend !== false),
+      friends.some((f) => f.profilId === p.profilId && f.mutualFriend === true),
     );
   }, [friends, suggestions, isAdmin]);
 

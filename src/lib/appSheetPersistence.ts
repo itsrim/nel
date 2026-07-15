@@ -70,6 +70,42 @@ const LS_CACHE_PREFIX = "nel_sheet_cache_";
 const GLOBAL_CACHE_USER = "__global__";
 const syncedRowKeys = new Set<string>();
 
+/** Override optimiste amitié : survit aux GET Sheets tant que le remote n’a pas catch-up. */
+const PENDING_FRIEND_MUTUAL_TTL_MS = 120_000;
+const pendingFriendMutual = new Map<string, { value: boolean; at: number }>();
+const pendingVisitFriendRequest = new Map<string, { value: boolean; at: number }>();
+
+export function notePendingFriendMutual(
+  profilId: string,
+  mutual: boolean,
+): void {
+  const id = profilId.trim();
+  if (!id) return;
+  pendingFriendMutual.set(id, { value: mutual, at: Date.now() });
+}
+
+export function notePendingVisitFriendRequest(
+  profilId: string,
+  friendRequest: boolean,
+): void {
+  const id = profilId.trim();
+  if (!id) return;
+  pendingVisitFriendRequest.set(id, { value: friendRequest, at: Date.now() });
+}
+
+function readPendingFlag(
+  map: Map<string, { value: boolean; at: number }>,
+  id: string,
+): boolean | undefined {
+  const entry = map.get(id);
+  if (!entry) return undefined;
+  if (Date.now() - entry.at > PENDING_FRIEND_MUTUAL_TTL_MS) {
+    map.delete(id);
+    return undefined;
+  }
+  return entry.value;
+}
+
 function cacheKey(table: SheetTableName, userId: string): string {
   return `${LS_CACHE_PREFIX}${table}_${userId}`;
 }
@@ -1397,7 +1433,45 @@ function mergeFriends(base: Friend[], remote: Friend[]): Friend[] {
     syncProfileDeleteToSheets(viewerId);
   }
   const map = new Map(safeBase.map((f) => [f.profilId, f]));
-  safeRemote.forEach((f) => map.set(f.profilId, f));
+  safeRemote.forEach((f) => {
+    const pending = readPendingFlag(pendingFriendMutual, f.profilId);
+    if (pending !== undefined && Boolean(f.mutualFriend) !== pending) {
+      map.set(f.profilId, { ...f, mutualFriend: pending });
+      return;
+    }
+    if (pending !== undefined && Boolean(f.mutualFriend) === pending) {
+      pendingFriendMutual.delete(f.profilId);
+    }
+    map.set(f.profilId, f);
+  });
+  // Conserve les amis locaux pas encore présents côté Sheets.
+  for (const [id, pending] of pendingFriendMutual) {
+    const existing = map.get(id);
+    if (!existing) continue;
+    if (Boolean(existing.mutualFriend) !== pending.value) {
+      map.set(id, { ...existing, mutualFriend: pending.value });
+    }
+  }
+  return [...map.values()];
+}
+
+function mergeProfileVisits(
+  base: ProfileVisit[],
+  remote: ProfileVisit[],
+): ProfileVisit[] {
+  if (remote.length === 0) return base;
+  const map = new Map(base.map((v) => [v.id, v]));
+  for (const visit of remote) {
+    const pending = readPendingFlag(pendingVisitFriendRequest, visit.id);
+    if (pending !== undefined && Boolean(visit.friendRequest) !== pending) {
+      map.set(visit.id, { ...visit, friendRequest: pending });
+      continue;
+    }
+    if (pending !== undefined && Boolean(visit.friendRequest) === pending) {
+      pendingVisitFriendRequest.delete(visit.id);
+    }
+    map.set(visit.id, visit);
+  }
   return [...map.values()];
 }
 
@@ -1603,7 +1677,10 @@ export function mergeLoadedAppState(
     patch.suggestions = filterPublicSuggestions(loaded.registeredMemberSuggestions);
   }
   if (loaded.profileVisits.length > 0) {
-    patch.profileVisits = mergeById(current.profileVisits, loaded.profileVisits);
+    patch.profileVisits = mergeProfileVisits(
+      current.profileVisits,
+      loaded.profileVisits,
+    );
   }
   if (loaded.appNotifications.length > 0) {
     patch.appNotifications = mergeNotifications(

@@ -14,6 +14,10 @@ import {
 import { isChatApiConfigured } from "./chatConfig";
 import { getAuthToken } from "./authApi";
 import {
+  notePendingFriendMutual,
+  notePendingVisitFriendRequest,
+} from "./appSheetPersistence";
+import {
   findDmConversationByPeer,
   resolveLocalDmConversationId,
 } from "./dmConversation";
@@ -201,6 +205,7 @@ function applyIncomingFriendRequest(
   visit: ProfileVisit,
   notif: AppNotification,
 ): void {
+  notePendingVisitFriendRequest(visit.id, true);
   useMessagingStore.setState((s) => {
     const idx = s.profileVisits.findIndex((v) => v.id === visit.id);
     const profileVisits =
@@ -228,6 +233,7 @@ function applyFriendRequestAccepted(notif: AppNotification): void {
   const accepterName =
     notif.senderName?.trim() || notif.inviteeName?.trim() || "Quelqu'un";
 
+  notePendingFriendMutual(accepterId, true);
   useMessagingStore.setState((s) => {
     const visit = s.profileVisits.find((v) => v.id === accepterId);
     const sug = s.suggestions.find((x) => x.id === accepterId);
@@ -274,6 +280,29 @@ function applyFriendRequestAccepted(notif: AppNotification): void {
   useMessagingStore
     .getState()
     .showToast(`${accepterName} a accepté votre demande d'ami.`);
+  queueMicrotask(() => useMessagingStore.getState().reconcileUserBadgeCounts());
+}
+
+function applyFriendRemoved(payload: {
+  removerUserId?: string;
+  removerName?: string;
+}): void {
+  const removerId = payload.removerUserId?.trim();
+  if (!removerId) return;
+  const viewerId = useAuthStore.getState().user?.id?.trim() ?? "";
+  if (viewerId && removerId === viewerId) return;
+
+  notePendingFriendMutual(removerId, false);
+  useMessagingStore.setState((s) => ({
+    friends: s.friends.map((f) =>
+      f.profilId === removerId && f.mutualFriend === true
+        ? { ...f, mutualFriend: false }
+        : f,
+    ),
+  }));
+  const name = payload.removerName?.trim() || "Quelqu'un";
+  useMessagingStore.getState().showToast(`${name} vous a retiré de ses amis.`);
+  queueMicrotask(() => useMessagingStore.getState().reconcileUserBadgeCounts());
 }
 
 function applyFriendRequestRejected(notif: AppNotification): void {
@@ -426,6 +455,14 @@ function ensureSocketListeners(): void {
       if (!notification?.id || notification.kind !== "friend_request_rejected")
         return;
       applyFriendRequestRejected(notification);
+    },
+  );
+
+  socket.on(
+    "friend:removed",
+    (payload: { removerUserId?: string; removerName?: string }) => {
+      if (!payload?.removerUserId?.trim()) return;
+      applyFriendRemoved(payload);
     },
   );
 
