@@ -561,34 +561,8 @@ export function ProfilePage() {
 
   return (
     <div className="profile-page">
-      {/* Hero Section */}
+      {/* Hero — avatar miniature + infos compactes */}
       <div className="profile-hero">
-        <img
-          src={heroAvatarSrc}
-          alt="Profile"
-          className="hero-img"
-          onError={() => setHeroAvatarBroken(true)}
-        />
-        <div className="hero-overlay" />
-
-        {uploadingPhoto ? (
-          <div
-            className="hero-upload-loader"
-            role="status"
-            aria-live="polite"
-            aria-label={t("photoUploading")}
-          >
-            <Loader2
-              className="hero-upload-spinner"
-              size={40}
-              color="#fff"
-              strokeWidth={2.2}
-              aria-hidden
-            />
-            <p className="hero-upload-loader-text">{t("photoUploading")}</p>
-          </div>
-        ) : null}
-
         <div className="hero-top-btns">
           <button
             type="button"
@@ -596,7 +570,7 @@ export function ProfilePage() {
             onClick={() => setSettingsOpen(true)}
             aria-label={t("settingsAriaLabel")}
           >
-            <Settings size={22} color="#fff" />
+            <Settings size={20} color="#fff" />
           </button>
           <div style={{ flex: 1 }} />
           <div className="hero-top-btns-right">
@@ -615,9 +589,9 @@ export function ProfilePage() {
               aria-pressed={notificationSoundEnabled}
             >
               {notificationSoundEnabled ? (
-                <Bell size={22} color="#fff" />
+                <Bell size={20} color="#fff" />
               ) : (
-                <BellOff size={22} color="#fff" />
+                <BellOff size={20} color="#fff" />
               )}
             </button>
             <button
@@ -628,9 +602,34 @@ export function ProfilePage() {
               aria-label={t("changePhoto")}
               aria-busy={uploadingPhoto}
             >
-              <Camera size={22} color="#fff" />
+              <Camera size={20} color="#fff" />
             </button>
           </div>
+        </div>
+
+        <div className="hero-avatar-wrap">
+          <img
+            src={heroAvatarSrc}
+            alt="Profile"
+            className="hero-img"
+            onError={() => setHeroAvatarBroken(true)}
+          />
+          {uploadingPhoto ? (
+            <div
+              className="hero-upload-loader"
+              role="status"
+              aria-live="polite"
+              aria-label={t("photoUploading")}
+            >
+              <Loader2
+                className="hero-upload-spinner"
+                size={28}
+                color="#fff"
+                strokeWidth={2.2}
+                aria-hidden
+              />
+            </div>
+          ) : null}
         </div>
 
         <input

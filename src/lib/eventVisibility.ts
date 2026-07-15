@@ -21,20 +21,21 @@ export function viewerParticipatesInEvent(
   if (viewerIsRegisteredParticipant(e, viewer)) return true;
 
   const viewerId = viewer?.id?.trim();
-  const pid = VIEWER_KARMA_PARTICIPANT_ID;
-  if ((e.karmaJoinPaidProfilIds ?? []).includes(pid)) return true;
-  if ((e.validatedPresentProfilIds ?? []).includes(pid)) return true;
-  if (
-    (e.waitlistEntries ?? []).some(
-      (w) =>
-        w.profilId === pid || (!!viewerId && w.profilId === viewerId),
-    )
-  ) {
-    return true;
+  if (!viewerId) {
+    // Session locale sans compte : le placeholder __viewer__ = profil connecté.
+    const pid = VIEWER_KARMA_PARTICIPANT_ID;
+    if ((e.karmaJoinPaidProfilIds ?? []).includes(pid)) return true;
+    if ((e.validatedPresentProfilIds ?? []).includes(pid)) return true;
+    if ((e.waitlistEntries ?? []).some((w) => w.profilId === pid)) return true;
+    if (e.status === "inscrit" || e.status === "en_attente") return true;
+    return false;
   }
 
-  // Legacy / session locale (statut viewer sur la fiche)
-  if (e.status === "inscrit" || e.status === "en_attente") return true;
+  // Catalogue Sheets partagé : uniquement l'id réel du viewer (pas status global ni __viewer__).
+  if ((e.karmaJoinPaidProfilIds ?? []).includes(viewerId)) return true;
+  if ((e.validatedPresentProfilIds ?? []).includes(viewerId)) return true;
+  if ((e.waitlistEntries ?? []).some((w) => w.profilId === viewerId)) return true;
+  if ((e.invitedProfilIds ?? []).includes(viewerId)) return true;
 
   return false;
 }
