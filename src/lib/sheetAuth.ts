@@ -115,7 +115,7 @@ export async function loginFromViewerSettings(
   password: string,
 ): Promise<SheetAuthUser> {
   if (!isGoogleSheetsReadConfigured()) {
-    throw new Error("Google Sheets non configuré pour la connexion.");
+    throw new Error("Database problem for connexion.");
   }
 
   if (isReservedBuiltinEmail(email)) {

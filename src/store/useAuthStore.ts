@@ -284,7 +284,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       if (!isGoogleSheetsReadConfigured()) {
-        set({ isLoading: false, error: "Google Sheets non configuré" });
+        set({ isLoading: false, error: "Database problem" });
         return;
       }
 
@@ -482,7 +482,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       if (!isGoogleSheetsReadConfigured()) {
-        set({ isLoading: false, error: "Google Sheets non configuré" });
+        set({ isLoading: false, error: Database problem });
         return;
       }
       if (password.length < 6) {
@@ -580,7 +580,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         isLoading: false,
         error:
-          "Connexion impossible : Google Sheets non configuré. " +
+          "Connexion impossible : Database problem configuration. " +
           "Ajoutez VITE_GOOGLE_SHEETS_URL_ENCODED dans .env puis relancez yarn dev (ou rebuild prod).",
       });
     } catch (err) {
@@ -606,7 +606,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (!isGoogleSheetsReadConfigured() || !isGoogleSheetsWriteConfigured()) {
           set({
             isLoading: false,
-            error: "Google Sheets non configuré (lecture ou écriture Apps Script).",
+            error: "Database problem configuration (lecture ou écriture Apps Script).",
           });
           return;
         }
