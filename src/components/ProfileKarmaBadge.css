@@ -1,3 +1,8 @@
+.profile-karma-badge-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
 .profile-karma-badge {
   display: inline-flex;
   align-items: center;
@@ -9,6 +14,37 @@
   color: #ddd6fe;
   font-size: 13px;
   font-weight: 800;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.2;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.profile-karma-badge:hover,
+.profile-karma-badge:focus-visible {
+  background: rgba(139, 92, 246, 0.32);
+  border-color: rgba(196, 181, 253, 0.65);
+  outline: none;
+}
+
+.profile-karma-tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 30;
+  min-width: 220px;
+  max-width: min(280px, 78vw);
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(20, 20, 20, 0.96);
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color: #e4e4e7;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
 }
 
 .profile-karma-badge-value {

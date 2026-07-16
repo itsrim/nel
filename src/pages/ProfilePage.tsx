@@ -470,17 +470,6 @@ export function ProfilePage() {
   }, [selectedDayKey]);
 
   const todayKey = todayDateKey();
-  const upcomingEvents = useMemo(
-    () =>
-      events.filter(
-        (e) =>
-          !isEventDateBeforeToday(e.dateKey) &&
-          (e.status === "inscrit" ||
-            e.status === "organisateur" ||
-            e.status === "en_attente"),
-      ),
-    [events],
-  );
 
   const sortedNotifications = useMemo(
     () => [...appNotifications].sort((a, b) => b.createdAt - a.createdAt),
@@ -908,41 +897,19 @@ export function ProfilePage() {
           </div>
         </div>
 
-        {/* Badges */}
-        <div className="section-title">{t("badges")}</div>
-        <ProfileBadgesSection
-          badges={viewerProfileBadges}
-          suggestions={profileBadgeSuggestions}
-          editable={canEditBadges}
-          manageSuggestions={canEditBadges}
-          onChange={setViewerProfileBadges}
-          onSuggestionsChange={setProfileBadgeSuggestions}
-        />
-
-        {/* Stats */}
-        <div className="stats-row">
-          <div className="stat-item">
-            <span className="stat-num" style={{ color: "#A78BFA" }}>
-              {viewerKarma}
-            </span>
-            <span className="stat-label stat-label--with-icon">
-              <Sparkles size={12} color="#A78BFA" aria-hidden />
-              {t("karmaShort")}
-            </span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-num" style={{ color: "#8B5CF6" }}>
-              {upcomingEvents.length}
-            </span>
-            <span className="stat-label">{t("upcomingOutings")}</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-num" style={{ color: "#9CA3AF" }}>
-              0
-            </span>
-            <span className="stat-label">{t("noShows")}</span>
-          </div>
-        </div>
+        {canEditBadges ? (
+          <>
+            <div className="section-title">{t("badges")}</div>
+            <ProfileBadgesSection
+              badges={viewerProfileBadges}
+              suggestions={profileBadgeSuggestions}
+              editable
+              manageSuggestions
+              onChange={setViewerProfileBadges}
+              onSuggestionsChange={setProfileBadgeSuggestions}
+            />
+          </>
+        ) : null}
 
         {/* Sub Tabs */}
         <div

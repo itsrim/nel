@@ -243,6 +243,8 @@ export const translations = {
     linkCopied: "Lien copié dans le presse-papier !",
     karmaShort: "Karma",
     karmaPointsLabel: "{count} points karma",
+    karmaTooltip:
+      "Points de participation, de communauté, présence et échanges. −{organizeCost} pour créer, −{joinCost} pour rejoindre, +{organizeReward} si la sortie réussit, +{attendanceReward} si tu es présent. Comptes Pro : +{proBonus} au démarrage.",
     validatePresenceAriaLabel: "Valider la présence (+2 karma)",
     rateOrganizerTitle: "Comment s'est passée la sortie ?",
     rateOrganizerSubtitle: "Votre note influence le karma de l'organisateur.",
@@ -1039,6 +1041,8 @@ export const translations = {
     linkCopied: "Link copied to clipboard!",
     karmaShort: "Karma",
     karmaPointsLabel: "{count} karma points",
+    karmaTooltip:
+      "Participation, attendance and engagement points. −{organizeCost} to create, −{joinCost} to join, +{organizeReward} when your event succeeds, +{attendanceReward} when you're present. Pro accounts: +{proBonus} at signup.",
     validatePresenceAriaLabel: "Validate attendance (+2 karma)",
     rateOrganizerTitle: "How was the outing?",
     rateOrganizerSubtitle: "Your rating affects the organizer's karma.",

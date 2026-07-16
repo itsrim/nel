@@ -7,6 +7,8 @@ export const KARMA_ORGANIZE_SUCCESS_REWARD = 6;
 export const KARMA_JOIN_COST = 1;
 export const KARMA_ATTENDANCE_REWARD = 2;
 export const KARMA_PREMIUM_PER_MONTH = 50;
+/** Bonus karma au démarrage pour les comptes Pro. */
+export const KARMA_PRO_START_BONUS = 50;
 
 export type OrganizerRatingValue = "good" | "bad";
 
