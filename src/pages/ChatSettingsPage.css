@@ -118,22 +118,6 @@
   transform: translateX(19px);
 }
 
-.cs-test-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 0;
-  margin-top: 4px;
-  background: none;
-  border: none;
-  border-bottom: 1px solid #3a3a3c;
-  color: #8E8E93;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  width: 100%;
-}
-
 .cs-members-header {
   display: flex;
   align-items: center;

@@ -143,6 +143,8 @@
   font-weight: 800;
   margin: 0 0 4px;
   line-height: 1.2;
+  -webkit-text-stroke: 1.5px #000;
+  paint-order: stroke fill;
 }
 
 .hero-edit-fields {

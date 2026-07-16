@@ -4,7 +4,6 @@ import {
   VolumeX,
   Bell,
   BellOff,
-  FlaskConical,
   UserPlus,
   ChevronDown,
   ChevronUp,
@@ -191,12 +190,6 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
               >
                 <div className="cs-toggle-thumb" />
               </div>
-            </button>
-            {/* ... */}
-
-            <button className="cs-test-btn">
-              <FlaskConical size={18} color="#8E8E93" />
-              <span>{t("simpleTestMessage")}</span>
             </button>
           </div>
 

@@ -278,7 +278,7 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
             <Heart
               size={24}
               fill={conversation.isFavorite ? "#FF4081" : "none"}
-              color={conversation.isFavorite ? "#FF4081" : "#fff"}
+              color={conversation.isFavorite ? "#FF4081" : "currentColor"}
             />
           </button>
 

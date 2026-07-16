@@ -32,6 +32,7 @@
 [data-theme="light"] .op-stat-value,
 [data-theme="light"] .op-stat-label,
 [data-theme="light"] .visit-name-age,
+[data-theme="light"] .friend-name,
 [data-theme="light"] .chat-user-search-name,
 [data-theme="light"] .modal-header h3,
 [data-theme="light"] .modal-header button,
@@ -42,12 +43,19 @@
   color: var(--text-primary);
 }
 
+[data-theme="light"] .ed-title,
+[data-theme="light"] .hero-name {
+  -webkit-text-stroke: 1.5px #fff;
+  paint-order: stroke fill;
+}
+
 [data-theme="light"] .sub-tab-label,
 [data-theme="light"] .conv-sub,
 [data-theme="light"] .cr-subtitle,
 [data-theme="light"] .p-tab-inner span,
 [data-theme="light"] .notification-meta,
 [data-theme="light"] .visit-time,
+[data-theme="light"] .friend-sub,
 [data-theme="light"] .chat-user-search-sub,
 [data-theme="light"] .setting-sub,
 [data-theme="light"] .profile-email-field,
@@ -71,8 +79,7 @@
 [data-theme="light"] .ed-participant-row,
 [data-theme="light"] .ed-waitlist-row,
 [data-theme="light"] .pros-card-body,
-[data-theme="light"] .chat-user-search-row,
-[data-theme="light"] .premium-banner {
+[data-theme="light"] .chat-user-search-row {
   background: var(--surface-card);
 }
 
@@ -253,9 +260,39 @@
 [data-theme="light"] .p-event-row,
 [data-theme="light"] .op-bio-card,
 [data-theme="light"] .op-stat-cell,
-[data-theme="light"] .op-badge-pill {
+[data-theme="light"] .op-badge-pill,
+[data-theme="light"] .friend-card {
   background: var(--surface-card);
   border: 1px solid var(--border-subtle);
+}
+
+[data-theme="light"] .friends-network-list .visit-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+}
+
+[data-theme="light"] .friends-network-list .visit-name-age {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .friends-network-list .visit-time {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .friends-network-list .visit-friend-badge,
+[data-theme="light"] .friends-network-list .visit-mult-badge {
+  border-color: var(--surface-card);
+}
+
+[data-theme="light"] .friends-network-list .visit-like-btn--sent,
+[data-theme="light"] .friends-network-list .visit-like-btn--rejected {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .friends-network-list .visit-like-btn--friend {
+  background: #d1fae5;
+  color: #065f46;
 }
 
 [data-theme="light"] .op-badge-pill {
@@ -360,4 +397,14 @@
 [data-theme="light"] .op-back-btn,
 [data-theme="light"] .ed-back-btn {
   color: #fbbf24;
+}
+
+[data-theme="light"] .cr-back-btn,
+[data-theme="light"] .cr-event-btn {
+  background: var(--surface-card);
+  border-color: var(--border-subtle);
+}
+
+[data-theme="light"] .cr-event-btn {
+  color: var(--text-primary);
 }

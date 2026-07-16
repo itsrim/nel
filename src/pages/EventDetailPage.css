@@ -142,6 +142,8 @@
   font-weight: 800;
   margin: 8px 0;
   letter-spacing: -0.5px;
+  -webkit-text-stroke: 1.5px #000;
+  paint-order: stroke fill;
 }
 
 .ed-host-row {
