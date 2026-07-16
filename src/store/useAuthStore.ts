@@ -32,6 +32,7 @@ import {
   persistPasswordHashToSheets,
   persistPendingSignupToSheets,
   persistVerificationTokenToSheets,
+  touchViewerLastLoginAt,
   upsertSheetRow,
 } from "../lib/appSheetPersistence";
 import { hashPasswordForSheet } from "../lib/passwordHash";
@@ -540,6 +541,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const user = JSON.parse(stored) as User;
         set({ user });
         restoreDefaultAdminMode(user);
+        touchViewerLastLoginAt(user.id);
       }
     } catch (err) {
       console.error("Failed to load user from storage:", err);

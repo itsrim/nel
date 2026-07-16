@@ -47,11 +47,15 @@ import {
   writeAdminAppInfo,
   type AdminAppInfo,
 } from "./adminAppInfo";
-import { ADMIN_USER_ID, shouldExcludeFromPublicCatalog } from "./accountRoles";
+import { ADMIN_USER_ID, isAdminAccount, shouldExcludeFromPublicCatalog } from "./accountRoles";
 import {
   buildSuggestionCatalog,
   filterPublicSuggestions,
 } from "./suggestionCatalog";
+import {
+  canNotifyInactiveUser,
+  parseLastLoginAt,
+} from "./userActivity";
 import { shouldSkipEmailVerificationFromSheets } from "./sheetAuth";
 import {
   isActiveProMemberRow,
@@ -714,6 +718,7 @@ export interface ViewerSettingsRow {
   userBadgeLastSeenJson?: string;
   signupIp?: string;
   lastLoginIp?: string;
+  lastLoginAt?: string;
 }
 
 function subscriptionPaymentFromRow(
@@ -809,6 +814,7 @@ export function viewerSettingsToRow(
     userBadgeLastSeenJson?: string;
     signupIp?: string;
     lastLoginIp?: string;
+    lastLoginAt?: string;
   } & ViewerSettingsAuthFields,
 ): Record<string, string> {
   return {
@@ -850,6 +856,7 @@ export function viewerSettingsToRow(
     userBadgeLastSeenJson: str(data.userBadgeLastSeenJson),
     ...(data.signupIp != null ? { signupIp: str(data.signupIp) } : {}),
     ...(data.lastLoginIp != null ? { lastLoginIp: str(data.lastLoginIp) } : {}),
+    ...(data.lastLoginAt != null ? { lastLoginAt: str(data.lastLoginAt) } : {}),
     deleted: "false",
   };
 }
@@ -1125,6 +1132,7 @@ export interface LoadedAppSheetState {
     userBadgeLastSeenJson?: string;
     signupIp?: string;
     lastLoginIp?: string;
+    lastLoginAt?: string;
   };
   hasRemoteData: boolean;
 }
@@ -1186,6 +1194,7 @@ function parseViewerSettingsFromRow(
     userBadgeLastSeenJson: str(viewerRow.userBadgeLastSeenJson) || undefined,
     signupIp: str(viewerRow.signupIp) || undefined,
     lastLoginIp: str(viewerRow.lastLoginIp) || undefined,
+    lastLoginAt: str(viewerRow.lastLoginAt) || undefined,
   };
 }
 
@@ -1246,6 +1255,59 @@ function viewerSettingsRowToFriend(row: Record<string, string>): Friend {
     verified: boolFromSheet(row.emailVerified),
     isPro: boolFromSheet(row.isPro),
   };
+}
+
+export async function loadViewerSettingsRowByUserId(
+  userId: string,
+): Promise<Record<string, string> | undefined> {
+  const id = userId.trim();
+  if (!id || !isGoogleSheetsReadConfigured()) return undefined;
+  try {
+    const rows = await sheetGet<Record<string, string>>("viewer_settings");
+    return rows.find(
+      (row) =>
+        (row.id?.trim() || row.userId?.trim()) === id &&
+        !isDeletedFromSheet(row.deleted),
+    );
+  } catch (err) {
+    console.error("loadViewerSettingsRowByUserId failed:", err);
+    return undefined;
+  }
+}
+
+async function recipientAcceptsUserNotifications(
+  recipientUserId: string,
+  sender?: { userId?: string | null; email?: string | null },
+): Promise<boolean> {
+  const row = await loadViewerSettingsRowByUserId(recipientUserId);
+  if (!row) return true;
+  const lastLoginAt = parseLastLoginAt(row);
+  const senderId = sender?.userId?.trim() ?? "";
+  const senderEmail = sender?.email?.trim() ?? "";
+  return canNotifyInactiveUser(lastLoginAt, {
+    id: senderId || undefined,
+    email: senderEmail || undefined,
+    isAdmin: senderId || senderEmail
+      ? isAdminAccount({ id: senderId, email: senderEmail })
+      : false,
+  });
+}
+
+function currentSenderForNotification(): {
+  userId?: string;
+  email?: string;
+} {
+  try {
+    const raw = localStorage.getItem("nel_auth_user");
+    if (!raw) return {};
+    const user = JSON.parse(raw) as { id?: string; email?: string };
+    return {
+      userId: user.id?.trim() || undefined,
+      email: user.email?.trim() || undefined,
+    };
+  } catch {
+    return {};
+  }
 }
 
 /** Annuaire découverte : tous les inscrits actifs dans viewer_settings (hors soi). */
@@ -1964,10 +2026,13 @@ export function syncNotificationToSheets(n: AppNotification): void {
 export function syncNotificationToSheetsForUser(
   n: AppNotification,
   userId: string,
+  sender?: { userId?: string | null; email?: string | null },
 ): void {
   const owner = userId?.trim();
   if (!owner || n.readAt != null) return;
   syncLater(async () => {
+    const senderCtx = sender ?? currentSenderForNotification();
+    if (!(await recipientAcceptsUserNotifications(owner, senderCtx))) return;
     const existing = await loadNotificationsForUser(owner);
     await writeNotificationInbox(owner, mergeNotificationInbox(existing, [n]));
   });
@@ -2028,14 +2093,28 @@ export async function syncAdminSecurityAlertToSheets(r: AdminReportEntry): Promi
 /** Enregistre l’IP de création / dernière connexion (PUT partiel). */
 export async function syncViewerLoginIpToSheets(
   userId: string,
-  ips: { signupIp: string; lastLoginIp: string },
+  ips: { signupIp: string; lastLoginIp: string; lastLoginAt?: number },
 ): Promise<void> {
   await upsertSheetRow("viewer_settings", userId, {
     userId,
     id: userId,
     signupIp: ips.signupIp,
     lastLoginIp: ips.lastLoginIp,
+    lastLoginAt: String(ips.lastLoginAt ?? Date.now()),
   });
+}
+
+/** Met à jour la date de dernière activité (ouverture app / session). */
+export function touchViewerLastLoginAt(userId: string): void {
+  const uid = userId.trim();
+  if (!uid) return;
+  syncLater(() =>
+    upsertSheetRow("viewer_settings", uid, {
+      userId: uid,
+      id: uid,
+      lastLoginAt: String(Date.now()),
+    }),
+  );
 }
 
 export function syncReportDeleteToSheets(reportId: string): void {
@@ -2142,6 +2221,7 @@ export async function persistPendingSignupToSheets(
     language: profileExtras?.language ?? "fr",
     isPro,
     signupIp,
+    lastLoginAt: String(Date.now()),
     friendRequestSentProfilIds: [],
     friendRequestRejectedProfilIds: [],
     favoriteConversationIds: [],

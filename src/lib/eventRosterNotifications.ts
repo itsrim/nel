@@ -80,7 +80,9 @@ export function deliverEventRosterNotifications(options: {
       recipientId,
       options.actorProfilId ?? options.actorUserId ?? undefined,
     );
-    syncNotificationToSheetsForUser(notif, recipientId);
+    syncNotificationToSheetsForUser(notif, recipientId, {
+      userId: options.actorUserId ?? undefined,
+    });
     if (recipientId === options.currentUserId) {
       local.push(notif);
     }
@@ -110,7 +112,9 @@ export function deliverWaitlistDecisionNotification(options: {
     eventTitle: options.event.title,
     inviteeName: options.organizerName.trim() || "L'organisateur",
   };
-  syncNotificationToSheetsForUser(notif, recipientId);
+  syncNotificationToSheetsForUser(notif, recipientId, {
+    userId: eventOrganizerUserId(options.event) ?? undefined,
+  });
   if (recipientId === options.currentUserId) {
     options.onLocal(notif);
   }

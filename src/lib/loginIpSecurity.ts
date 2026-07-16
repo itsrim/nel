@@ -55,6 +55,7 @@ export async function enforceLoginIpSecurity(input: {
       await syncViewerLoginIpToSheets(input.userId, {
         signupIp: currentIp,
         lastLoginIp: currentIp,
+        lastLoginAt: Date.now(),
       });
     }
     return { allowed: true, currentIp, isFirstLogin: true };
@@ -91,6 +92,7 @@ export async function enforceLoginIpSecurity(input: {
     await syncViewerLoginIpToSheets(input.userId, {
       signupIp,
       lastLoginIp: currentIp,
+      lastLoginAt: Date.now(),
     });
   }
   return { allowed: true, currentIp, isFirstLogin: false };
