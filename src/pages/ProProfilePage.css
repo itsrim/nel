@@ -6,6 +6,45 @@
   margin-top: 8px;
 }
 
+.pro-profile-page .pro-contact-edit-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  color: #8e8e93;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pro-profile-page .bio-text {
+  margin: 0 0 12px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.pro-profile-page .member-since {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  color: #8e8e93;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pro-profile-page .pro-category-display {
+  margin-bottom: 12px;
+  color: #fff;
+}
+
+.pro-profile-page .pro-category-display span {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+}
+
 .pro-profile-contact-btn {
   display: flex;
   align-items: center;

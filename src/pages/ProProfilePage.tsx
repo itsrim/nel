@@ -7,13 +7,14 @@ import {
   ChevronLeft,
   MessageCircle,
   ShieldCheck,
+  Tags,
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { ReportModal } from "../components/ReportModal";
 import { ProProfileDetails } from "../components/ProProfileDetails";
 import { useTranslation } from "../i18n/useTranslation";
-import { proDemoStats, proFullName } from "../data/mockProfessionals";
+import { proFullName } from "../data/mockProfessionals";
 import { getProfessionalById, useProsStore } from "../store/useProsStore";
 import { adminSetProfessionalVerified } from "../lib/proVerification";
 import "./OtherProfilePage.css";
@@ -68,7 +69,6 @@ export function ProProfilePage({ id }: ProProfilePageProps) {
   );
   if (!pro) return null;
 
-  const stats = proDemoStats(pro.id);
   const name = proFullName(pro);
 
   const handleContact = () => {
@@ -125,35 +125,32 @@ export function ProProfilePage({ id }: ProProfilePageProps) {
 
       <div className="op-content">
         <div className="op-bio-card">
-          <p className="op-bio-text">{pro.description}</p>
+          <label className="pro-contact-edit-label">
+            <Briefcase size={16} aria-hidden />
+            <span>{t("proJobLabel")}</span>
+          </label>
+          <p className="bio-text op-bio-text">{pro.description || "—"}</p>
           <div className="op-divider" />
+          <div className="member-since">
+            <Calendar size={16} color="#8E8E93" aria-hidden />
+            <span>{t("memberSince")}</span>
+          </div>
+          <label className="pro-contact-edit-label">
+            <Tags size={16} aria-hidden />
+            <span>{t("proCategoryTypeLabel")}</span>
+          </label>
+          <div className="member-since pro-category-display">
+            <span>{pro.categoryLabel}</span>
+          </div>
           <ProProfileDetails
             city={pro.city}
             address={pro.address}
             websiteUrl={pro.websiteUrl}
             socialUrl={pro.socialUrl}
             phone={pro.phone}
+            showEmptyContactFields
             className="pro-contact-links--profile"
           />
-          <div className="op-info-row">
-            <Calendar size={18} color="#8E8E93" />
-            <span>{t("memberSince")}</span>
-          </div>
-        </div>
-
-        <div className="op-stats-row">
-          <div className="op-stat-cell">
-            <span className="op-stat-value">{stats.reliability.toFixed(1)}</span>
-            <span className="op-stat-label">{t("reliability")}</span>
-          </div>
-          <div className="op-stat-cell">
-            <span className="op-stat-value">{stats.events}</span>
-            <span className="op-stat-label">{t("events")}</span>
-          </div>
-          <div className="op-stat-cell">
-            <span className="op-stat-value">{stats.clients}</span>
-            <span className="op-stat-label">{t("proClientsLabel")}</span>
-          </div>
         </div>
 
         <h2 className="op-section-title">{t("badges")}</h2>

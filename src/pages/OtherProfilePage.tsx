@@ -27,7 +27,6 @@ import { KARMA_DEFAULT } from '../lib/karma';
 import { syncProfessionalVerifiedFromProfile } from '../lib/proVerification';
 import { hasReachedDailyFriendRequestLimit } from '../lib/eventDateKey';
 import { hasViewerPremiumAccess } from '../lib/viewerEntitlements';
-import { ProfileBadgesSection } from '../components/ProfileBadgesSection';
 import { useTranslation } from '../i18n/useTranslation';
 import { isEventDateBeforeToday } from '../lib/eventDateKey';
 import { formatBadgeCount } from '../data/mockData';
@@ -288,7 +287,7 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
           <h1 className="op-title">
             {displayName}, {(p.age as number | null | undefined) ?? '—'}
           </h1>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+          <div className="op-hero-meta">
             {(profile as { verified?: boolean }).verified && (
               <div className="op-verified-row">
                 <ShieldCheck size={18} color="#34C759" />
@@ -302,6 +301,11 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
               </div>
             )}
             <ProfileKarmaBadge karma={profileKarma} className="op-karma-badge" />
+            {profileBadges.map((label) => (
+              <span key={label} className="op-hero-badge-chip">
+                {label}
+              </span>
+            ))}
           </div>
         </div>
       </div>
@@ -519,15 +523,6 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
             <span className="op-stat-label">Amis</span>
           </div>
         </div>
-
-        <h2 className="op-section-title">Badges</h2>
-        <ProfileBadgesSection
-          badges={profileBadges}
-          suggestions={[]}
-          editable={false}
-          className="op-badges-wrap"
-          chipClassName="op-badge-pill"
-        />
 
         {isMutualFriend ? (
           <button

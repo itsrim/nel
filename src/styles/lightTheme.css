@@ -34,6 +34,7 @@
 [data-theme="light"] .visit-name-age,
 [data-theme="light"] .chat-user-search-name,
 [data-theme="light"] .modal-header h3,
+[data-theme="light"] .modal-header button,
 [data-theme="light"] .setting-label,
 [data-theme="light"] .cs-header-kicker,
 [data-theme="light"] .cs-toggle-label,
@@ -249,9 +250,37 @@
 /* ── Profile ── */
 [data-theme="light"] .bio-card,
 [data-theme="light"] .stats-row,
-[data-theme="light"] .p-event-row {
+[data-theme="light"] .p-event-row,
+[data-theme="light"] .op-bio-card,
+[data-theme="light"] .op-stat-cell,
+[data-theme="light"] .op-badge-pill {
   background: var(--surface-card);
   border: 1px solid var(--border-subtle);
+}
+
+[data-theme="light"] .op-badge-pill {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .op-bio-text,
+[data-theme="light"] .op-section-title,
+[data-theme="light"] .pro-profile-page .bio-text,
+[data-theme="light"] .pro-profile-page .pro-category-display,
+[data-theme="light"] .pro-profile-page .pro-category-display span {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .op-info-row,
+[data-theme="light"] .op-divider {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .op-divider {
+  background-color: var(--border-subtle);
+}
+
+[data-theme="light"] .other-profile-page {
+  background-color: var(--bg-primary);
 }
 
 [data-theme="light"] .profile-tabs-rail {

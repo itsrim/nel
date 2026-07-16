@@ -81,6 +81,28 @@
   right: 20px;
 }
 
+.op-hero-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.op-hero-badge-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255, 214, 10, 0.2);
+  border: 1px solid rgba(255, 214, 10, 0.45);
+  color: #ffd60a;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
 .op-title {
   color: #fff;
   font-size: 28px;
@@ -93,7 +115,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 0;
   color: rgba(255,255,255,0.95);
   font-size: 15px;
   font-weight: 600;
