@@ -43,6 +43,7 @@ import {
   syncConversationDeleteGlobalToSheets,
   syncMessageThreadDeleteToSheets,
   syncConversationToSheets,
+  syncConversationToSheetsForUser,
   syncEventDeleteToSheets,
   syncEventReminderToSheets,
   syncEventToSheets,
@@ -88,8 +89,10 @@ import {
 } from "../lib/subscriptionPersistence";
 import {
   buildCanonicalDmConversationId,
+  dmConversationForPeerView,
   dmRecipientUserIds,
   findDmConversationByPeer,
+  peerIdFromDmConversationId,
 } from "../lib/dmConversation";
 import { buildEventPublicUrl } from "../lib/eventPublicUrl";
 import {
@@ -2475,7 +2478,42 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
       const conv = get().conversations.find((c) => c.id === conversationId);
       if (conv) syncConversationToSheets(conv);
-      pushMessageRemote(newMessage, dmRecipientUserIds(conv));
+      const recipients = [...dmRecipientUserIds(conv)];
+      // Fallback id canonique si members incomplets.
+      if (recipients.length === 0 && conv?.type === "dm" && authorId) {
+        const peer = peerIdFromDmConversationId(conversationId, authorId);
+        if (peer) recipients.push(peer);
+      }
+      pushMessageRemote(newMessage, recipients);
+
+      // Miroir Sheets + notif pour que le destinataire voie le fil même sans socket.
+      for (const peerId of recipients) {
+        if (!peerId || peerId === authorId) continue;
+        if (conv?.type === "dm" && authorId) {
+          const peerView = dmConversationForPeerView({
+            conv: {
+              ...conv,
+              lastMessagePreview: trimmed,
+              updatedAt: newMessage.sentAt,
+            },
+            viewerId: authorId,
+            viewerDisplayName: authorName,
+            viewerAvatarUrl: get().viewerProfileAvatarUrl,
+            peerId,
+            unreadCount: 1,
+          });
+          syncConversationToSheetsForUser(peerView, peerId);
+        }
+        const chatNotif: AppNotification = {
+          id: `n_chat_${newMessage.id}`,
+          createdAt: newMessage.sentAt,
+          kind: "chat_message",
+          conversationId,
+          senderName: authorName,
+          messagePreview: trimmed.slice(0, 120),
+        };
+        syncNotificationToSheetsForUser(chatNotif, peerId);
+      }
     },
 
     openOrCreateDmConversation: ({
@@ -2494,7 +2532,40 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
               c.type === "dm" &&
               c.members.some((m) => !m.isSelf && m.profilId === peer),
           );
-      if (existing) return existing.id;
+      if (existing) {
+        // Répare un DM legacy sans profilId membre (sinon pas de recipient socket).
+        if (
+          viewerId &&
+          peer &&
+          !existing.members.some((m) => !m.isSelf && m.profilId === peer)
+        ) {
+          const repaired: Conversation = {
+            ...existing,
+            members: existing.members.map((m) =>
+              m.isSelf
+                ? { ...m, profilId: m.profilId || viewerId }
+                : { ...m, profilId: m.profilId || peer },
+            ),
+          };
+          set((s) => ({
+            conversations: s.conversations.map((c) =>
+              c.id === existing.id ? repaired : c,
+            ),
+          }));
+          syncConversationToSheets(repaired);
+          const peerView = dmConversationForPeerView({
+            conv: repaired,
+            viewerId,
+            viewerDisplayName: state.viewerProfileDisplayName,
+            viewerAvatarUrl: state.viewerProfileAvatarUrl,
+            peerId: peer,
+            unreadCount: repaired.unreadCount,
+          });
+          syncConversationToSheetsForUser(peerView, peer);
+          return repaired.id;
+        }
+        return existing.id;
+      }
 
       const id =
         viewerId && peer
@@ -2534,6 +2605,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
             id: "me",
             name: "Moi",
             isSelf: true,
+            profilId: viewerId || undefined,
             avatarGradient: ["#78909C", "#546E7A"],
           },
         ],
@@ -2547,6 +2619,17 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         },
       }));
       syncConversationToSheets(conv);
+      if (viewerId && peer) {
+        const peerView = dmConversationForPeerView({
+          conv,
+          viewerId,
+          viewerDisplayName: state.viewerProfileDisplayName,
+          viewerAvatarUrl: state.viewerProfileAvatarUrl,
+          peerId: peer,
+          unreadCount: 0,
+        });
+        syncConversationToSheetsForUser(peerView, peer);
+      }
       return id;
     },
 

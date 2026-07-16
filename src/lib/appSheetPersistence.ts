@@ -1888,6 +1888,18 @@ export function syncConversationToSheets(conv: Conversation): void {
   syncLater(() => upsertSheetRow("conversations", conv.id, conversationToRow(conv, userId)));
 }
 
+/** Écrit la conversation dans le scope Sheets d’un autre utilisateur (ex. miroir DM). */
+export function syncConversationToSheetsForUser(
+  conv: Conversation,
+  targetUserId: string,
+): void {
+  const uid = targetUserId.trim();
+  if (!uid) return;
+  syncLater(() =>
+    upsertSheetRow("conversations", conv.id, conversationToRow(conv, uid)),
+  );
+}
+
 export function syncConversationDeleteToSheets(conversationId: string): void {
   const userId = currentUserId();
   if (!userId) return;

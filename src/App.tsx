@@ -10,10 +10,10 @@ import { updateAllBadges } from "./lib/appBadge";
 import { isChatApiConfigured } from "./lib/chatConfig";
 import { trySetSessionToken } from "./lib/authApi";
 import {
-  getChatSocket,
   initGlobalChatSync,
   setActiveChatConversationId,
   shutdownGlobalChatSync,
+  syncChatConversationRooms,
 } from "./lib/chatSync";
 import { registerPushNotifications } from "./lib/pushNotifications";
 import {
@@ -328,10 +328,7 @@ function App() {
   useEffect(() => {
     if (!user || !isChatApiConfigured()) return;
     const ids = conversationIdsKey ? conversationIdsKey.split(",") : [];
-    const s = getChatSocket();
-    if (s && s.connected) {
-      s.emit("user:sync", { conversationIds: ids });
-    }
+    syncChatConversationRooms(ids);
   }, [user?.id, conversationIdsKey]);
 
   // Polling global : rafraîchit les notifications, conversations et événements depuis Sheets

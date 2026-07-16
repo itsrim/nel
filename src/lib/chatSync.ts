@@ -18,11 +18,12 @@ import {
   notePendingVisitFriendRequest,
 } from "./appSheetPersistence";
 import {
-  findDmConversationByPeer,
+  peerIdFromDmConversationId,
   resolveLocalDmConversationId,
 } from "./dmConversation";
 
 let listenersAttached = false;
+let attachedSocket: ReturnType<typeof getChatSocket> = null;
 let activeConversationId: string | null = null;
 let lastConversationIds: string[] = [];
 
@@ -135,11 +136,17 @@ function ensureConversationForIncoming(
   }
 
   const user = useAuthStore.getState().user;
-  const peerId = authorUserId?.trim();
+  const viewerId = user?.id?.trim();
+  let peerId =
+    authorUserId?.trim() ||
+    (viewerId
+      ? peerIdFromDmConversationId(remoteConversationId, viewerId)
+      : null);
+
   if (
     peerId &&
-    user?.id &&
-    peerId !== user.id &&
+    viewerId &&
+    peerId !== viewerId &&
     remoteConversationId.startsWith("dm-")
   ) {
     const createdId = state.openOrCreateDmConversation({
@@ -151,7 +158,7 @@ function ensureConversationForIncoming(
         remoteConversationId,
         peerId,
         useMessagingStore.getState().conversations,
-        user.id,
+        viewerId,
       ) || createdId
     );
   }
@@ -358,9 +365,16 @@ function applyEventInvite(notif: AppNotification): void {
 
 function ensureSocketListeners(): void {
   const socket = getChatSocket();
-  if (!socket || listenersAttached) return;
+  if (!socket) return;
+
+  // Nouveau socket (ex. refresh token) → réattacher les listeners.
+  if (listenersAttached && attachedSocket === socket) return;
+  if (attachedSocket && attachedSocket !== socket) {
+    attachedSocket.removeAllListeners();
+  }
 
   listenersAttached = true;
+  attachedSocket = socket;
 
   const emitUserSync = () => {
     if (lastConversationIds.length > 0) {
@@ -387,18 +401,27 @@ function ensureSocketListeners(): void {
         sentAt: number;
       }>;
     }) => {
-      const conversationId = payload?.conversationId?.trim();
-      if (!conversationId || !Array.isArray(payload.messages)) return;
+      const remoteConversationId = payload?.conversationId?.trim();
+      if (!remoteConversationId || !Array.isArray(payload.messages)) return;
 
       const user = useAuthStore.getState().user;
       const viewerName = useMessagingStore.getState().viewerProfileDisplayName;
-      const current =
-        useMessagingStore.getState().messagesByConversation[conversationId] ??
-        [];
-      const incoming = payload.messages.map((m) =>
-        toUiMessage(m, user?.id, viewerName),
+      const localConversationId = resolveLocalDmConversationId(
+        remoteConversationId,
+        payload.messages.find((m) => m.authorId && m.authorId !== user?.id)
+          ?.authorId,
+        useMessagingStore.getState().conversations,
+        user?.id,
       );
-      applyMessages(conversationId, mergeMessages(current, incoming));
+      const current =
+        useMessagingStore.getState().messagesByConversation[
+          localConversationId
+        ] ?? [];
+      const incoming = payload.messages.map((m) => ({
+        ...toUiMessage(m, user?.id, viewerName),
+        conversationId: localConversationId,
+      }));
+      applyMessages(localConversationId, mergeMessages(current, incoming));
     },
   );
 
@@ -574,6 +597,19 @@ export function setActiveChatConversationId(
   activeConversationId = conversationId;
 }
 
+/** Met à jour les rooms suivies (reconnect / nouvelle conversation DM). */
+export function syncChatConversationRooms(conversationIds: string[]): void {
+  lastConversationIds = conversationIds;
+  const socket = getChatSocket();
+  if (!socket) return;
+  ensureSocketListeners();
+  const sync = () => {
+    socket.emit("user:sync", { conversationIds: lastConversationIds });
+  };
+  if (socket.connected) sync();
+  else socket.once("connect", sync);
+}
+
 export { getChatSocket } from "./chatSocket";
 
 export function initGlobalChatSync(conversationIds: string[]): void {
@@ -598,7 +634,9 @@ export function initGlobalChatSync(conversationIds: string[]): void {
 
 export function shutdownGlobalChatSync(): void {
   listenersAttached = false;
+  attachedSocket = null;
   activeConversationId = null;
+  lastConversationIds = [];
   disconnectChatSocket();
 }
 
