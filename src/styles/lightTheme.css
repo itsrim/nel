@@ -254,7 +254,10 @@
   border: 1px solid var(--border-subtle);
 }
 
-[data-theme="light"] .profile-tabs {
+[data-theme="light"] .profile-tabs-rail {
+  --h-scroll-fade: var(--bg-primary);
+  --h-scroll-chevron-bg: rgba(0, 0, 0, 0.08);
+  --h-scroll-chevron-fg: var(--text-primary);
   background: var(--bg-primary);
 }
 

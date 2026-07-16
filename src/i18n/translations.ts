@@ -799,6 +799,7 @@ export const translations = {
     viewButton: "Voir",
     organizerLabel: "Organisateur",
     eventsInCommon: "communs",
+    scrollHorizontallyMore: "Voir plus (défiler)",
   },
   en: {
     // ProfilePage
@@ -1591,6 +1592,7 @@ export const translations = {
     viewButton: "View",
     organizerLabel: "Organizer",
     eventsInCommon: "in common",
+    scrollHorizontallyMore: "See more (scroll)",
   },
 };
 

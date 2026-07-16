@@ -5,6 +5,7 @@ import { useProsStore } from "../store/useProsStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { ProsMapView } from "../components/ProsMapView";
+import { HScrollRail } from "../components/HScrollRail";
 import { mapCenterForCity } from "../lib/proCoordinates";
 import {
   filterPublicProfessionals,
@@ -148,7 +149,13 @@ export function ProsPage() {
           />
         </div>
 
-        <div className="pros-filters" role="listbox" aria-label={t("proFilterLabel")}>
+        <HScrollRail
+          className="pros-filters-rail"
+          scrollClassName="pros-filters"
+          fadeTone="peach"
+          role="listbox"
+          aria-label={t("proFilterLabel")}
+        >
           <button
             type="button"
             role="option"
@@ -170,7 +177,7 @@ export function ProsPage() {
               {opt.label}
             </button>
           ))}
-        </div>
+        </HScrollRail>
       </header>
 
       <div className="pros-body">

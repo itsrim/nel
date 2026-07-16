@@ -1,0 +1,87 @@
+/* ── Horizontal scroll affordance: peek + fade + chevron ── */
+
+.h-scroll-rail {
+  --h-scroll-fade: #000;
+  --h-scroll-chevron-bg: rgba(255, 255, 255, 0.14);
+  --h-scroll-chevron-fg: #fff;
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
+.h-scroll-rail[data-fade="peach"] {
+  --h-scroll-fade: #fadccb;
+  --h-scroll-chevron-bg: rgba(122, 52, 40, 0.16);
+  --h-scroll-chevron-fg: #7a3428;
+}
+
+.h-scroll-rail__scroll {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  /* Peek: leave a sliver so the next chip is partially visible */
+  padding-right: 18px;
+  box-sizing: border-box;
+}
+
+.h-scroll-rail__scroll > * {
+  flex-shrink: 0;
+}
+
+.h-scroll-rail__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.h-scroll-rail--more .h-scroll-rail__scroll {
+  /* Room under fade + chevron while still peeking */
+  padding-right: 48px;
+}
+
+.h-scroll-rail__fade {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 56px;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--h-scroll-fade) 55%, transparent) 42%,
+    var(--h-scroll-fade) 100%
+  );
+}
+
+.h-scroll-rail__chevron {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: var(--h-scroll-chevron-bg);
+  color: var(--h-scroll-chevron-fg);
+  backdrop-filter: blur(6px);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.h-scroll-rail__chevron:active {
+  transform: translateY(-50%) scale(0.94);
+}

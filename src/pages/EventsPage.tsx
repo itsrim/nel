@@ -15,6 +15,7 @@ import { useMessagingStore } from "../store/useMessagingStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { EventCard } from "../components/EventCard";
 import { EventsSearchVirtualList } from "../components/EventsSearchVirtualList";
+import { HScrollRail } from "../components/HScrollRail";
 import type { Event } from "../data/mockData";
 import {
   EVENT_THEME_TAG_OPTIONS,
@@ -465,8 +466,10 @@ export function EventsPage() {
               </button>
             </div>
           </div>
-          <div
-            className="events-theme-filters"
+          <HScrollRail
+            className="events-theme-filters-rail"
+            scrollClassName="events-theme-filters"
+            fadeTone="peach"
             role="listbox"
             aria-label={t("themeFilterAriaLabel")}
           >
@@ -495,7 +498,7 @@ export function EventsPage() {
                 </button>
               );
             })}
-          </div>
+          </HScrollRail>
         </div>
       )}
 

@@ -63,6 +63,7 @@ import { formatVisitTimeAgo } from "../data/mockData";
 import { ProProfileDetails } from "../components/ProProfileDetails";
 import { ProfileKarmaBadge } from "../components/ProfileKarmaBadge";
 import { ProfileBadgesSection } from "../components/ProfileBadgesSection";
+import { HScrollRail } from "../components/HScrollRail";
 import { SubscriptionCheckoutModal } from "../components/SubscriptionCheckoutModal";
 import { SubscriptionSettingActions } from "../components/SubscriptionSettingActions";
 import { canManageProfileBadges, isAdminAccount } from "../lib/accountRoles";
@@ -340,6 +341,8 @@ export function ProfilePage() {
   const heroAvatarSrc = heroAvatarBroken
     ? DEFAULT_AVATAR_URL
     : resolveAvatarUrl(viewerProfileAvatarUrl);
+  const hasHeroPhoto =
+    Boolean(viewerProfileAvatarUrl?.trim()) && !heroAvatarBroken;
   useEffect(() => {
     setHeroAvatarBroken(false);
   }, [viewerProfileAvatarUrl]);
@@ -587,7 +590,14 @@ export function ProfilePage() {
   return (
     <div className="profile-page">
       {/* Hero — avatar miniature + infos compactes */}
-      <div className="profile-hero">
+      <div
+        className={`profile-hero${hasHeroPhoto ? " profile-hero--with-photo" : ""}`}
+        style={
+          hasHeroPhoto
+            ? { backgroundImage: `url("${heroAvatarSrc}")` }
+            : undefined
+        }
+      >
         <div className="hero-top-btns">
           <button
             type="button"
@@ -912,10 +922,12 @@ export function ProfilePage() {
         ) : null}
 
         {/* Sub Tabs */}
-        <div
+        <HScrollRail
           id="profile-tabs-anchor"
-          className="profile-tabs"
-          ref={profileTabsRef}
+          className="profile-tabs-rail"
+          scrollClassName="profile-tabs"
+          fadeTone="ink"
+          railRef={profileTabsRef}
           onMouseDown={(e) => {
             if ((e.target as HTMLElement).closest("button.p-tab"))
               e.preventDefault();
@@ -1052,7 +1064,7 @@ export function ProfilePage() {
               </span>
             </div>
           </button>
-        </div>
+        </HScrollRail>
 
         {/* Tab Content */}
         <div className="tab-container">

@@ -9,15 +9,22 @@
 }
 
 /* ── Header gradient ── */
-/* Aligné sur .cal-gradient (Events) : safe-area + 6 / 8, rangée titre ~44px + 8, rangée ~48px */
+/* Aligné sur .search-header-gradient (Events) */
 .chat-header-gradient {
   background: #fadccb;
-  padding: calc(env(safe-area-inset-top, 0px) + 6px) 0 8px;
+  padding: calc(env(safe-area-inset-top, 0px) + 2px) 0 4px;
   box-sizing: border-box;
 }
 
 .chat-header-gradient .favorites-title {
   color: #7a3428;
+  margin: 0 0 4px 0;
+  min-height: 44px;
+  font-size: 18px;
+  font-weight: 800;
+  justify-content: center;
+  text-align: center;
+  padding: 0 14px;
 }
 
 .chat-header-gradient .story-label,
@@ -33,16 +40,18 @@
 .favorites-section { width: 100%; }
 
 .favorites-title {
-  margin: 0 0 8px 0;
-  padding: 0 12px 0 14px;
+  margin: 0 0 4px 0;
+  padding: 0 14px;
   min-height: 44px;
   display: flex;
   align-items: center;
+  justify-content: center;
   box-sizing: border-box;
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
   color: rgba(255,255,255,0.96);
   letter-spacing: 0.2px;
+  text-align: center;
 }
 
 .stories-wrap {

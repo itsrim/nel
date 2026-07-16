@@ -17,6 +17,32 @@
   gap: 10px 14px;
   padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 8px;
   background: var(--bg-primary);
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-hero--with-photo {
+  background-color: #1c1c1e;
+}
+
+.profile-hero--with-photo::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.28) 0%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.profile-hero > * {
+  position: relative;
+  z-index: 1;
 }
 
 .hero-avatar-wrap {
@@ -507,25 +533,45 @@
   gap: 4px;
 }
 
-/* ── Tabs : ancrage scroll (sticky + scroll-margin) pour limiter les sauts au changement d’onglet ── */
-.profile-tabs {
-  display: flex;
-  overflow-x: auto;
-  gap: 16px;
+/* ── Tabs : shell sticky + rangée scroll (HScrollRail) ── */
+.profile-tabs-rail {
+  --h-scroll-fade: #000;
+  --h-scroll-chevron-bg: rgba(255, 255, 255, 0.16);
+  --h-scroll-chevron-fg: #fff;
   margin-bottom: 16px;
-  scrollbar-width: none;
   position: sticky;
   top: 0;
   z-index: 8;
   background: #000;
   padding-top: 2px;
   margin-top: -2px;
-  /* Ancre de défilement : le navigateur garde une marge lors d’un alignement / focus */
   scroll-margin-top: 12px;
   scroll-margin-bottom: 8px;
   overflow-anchor: none;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
-.profile-tabs::-webkit-scrollbar { display: none; }
+
+/* Rangée scroll — mêmes règles qu’avant HScrollRail */
+.profile-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 16px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.profile-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.profile-tabs .p-tab {
+  flex-shrink: 0;
+}
 
 .tab-container {
   overflow-anchor: none;

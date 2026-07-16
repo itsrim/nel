@@ -14,6 +14,7 @@
 
 /* Onglets (styles de base : ProfilePage.css) — fond aligné sur la fiche autre profil */
 .other-profile-page .op-profile-tabs {
+  --h-scroll-fade: var(--bg-primary);
   margin-top: 8px;
   margin-bottom: 8px;
   background: transparent;

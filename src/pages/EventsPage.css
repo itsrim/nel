@@ -87,7 +87,8 @@
 }
 
 .search-header-gradient .events-theme-filters {
-  padding: 0 12px 2px;
+  padding-left: 12px;
+  padding-bottom: 2px;
 }
 
 .search-header-gradient .events-theme-chip {
@@ -241,17 +242,14 @@
   margin-bottom: 8px;
 }
 
-.events-theme-filters {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 0 12px 10px;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+.events-theme-filters-rail {
+  --h-scroll-fade: #fadccb;
 }
 
-.events-theme-filters::-webkit-scrollbar {
-  display: none;
+.events-theme-filters {
+  gap: 8px;
+  padding-left: 12px;
+  padding-bottom: 10px;
 }
 
 .events-theme-chip {

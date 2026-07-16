@@ -22,6 +22,7 @@ import { useMessagingStore } from '../store/useMessagingStore';
 import { ReportModal } from '../components/ReportModal';
 import { ProProfileDetails } from '../components/ProProfileDetails';
 import { ProfileKarmaBadge } from '../components/ProfileKarmaBadge';
+import { HScrollRail } from '../components/HScrollRail';
 import { KARMA_DEFAULT } from '../lib/karma';
 import { syncProfessionalVerifiedFromProfile } from '../lib/proVerification';
 import { canManageProfileBadges } from '../lib/accountRoles';
@@ -549,7 +550,12 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
 
         {showInsightTabs ? (
           <>
-            <div id="op-profile-tabs-anchor" className="profile-tabs op-profile-tabs">
+            <HScrollRail
+              id="op-profile-tabs-anchor"
+              className="profile-tabs-rail op-profile-tabs"
+              scrollClassName="profile-tabs"
+              fadeTone="ink"
+            >
               <button
                 type="button"
                 className={`p-tab ${activeOpTab === 'favorites' ? 'p-tab--active' : ''}`}
@@ -589,7 +595,7 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
                   </span>
                 </div>
               </button>
-            </div>
+            </HScrollRail>
 
             <div className="tab-container op-tab-container">
               {activeOpTab === 'favorites' && (
