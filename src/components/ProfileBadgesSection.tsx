@@ -8,6 +8,8 @@ interface ProfileBadgesSectionProps {
   suggestions: string[];
   editable?: boolean;
   manageSuggestions?: boolean;
+  /** N’affiche que le catalogue (création / édition / suppression des labels). */
+  catalogOnly?: boolean;
   onChange?: (badges: string[]) => void;
   onSuggestionsChange?: (suggestions: string[]) => void;
   className?: string;
@@ -19,6 +21,7 @@ export function ProfileBadgesSection({
   suggestions,
   editable = false,
   manageSuggestions = false,
+  catalogOnly = false,
   onChange,
   onSuggestionsChange,
   className = "badges-grid",
@@ -69,6 +72,15 @@ export function ProfileBadgesSection({
     onChange([...badges, label]);
   };
 
+  const toggleSuggestionOnProfile = (label: string) => {
+    if (!onChange) return;
+    if (badges.some((b) => b.toLowerCase() === label.toLowerCase())) {
+      onChange(badges.filter((b) => b.toLowerCase() !== label.toLowerCase()));
+      return;
+    }
+    onChange([...badges, label]);
+  };
+
   const commitCatalogAdd = () => {
     const label = catalogDraft.trim();
     setCatalogDraft("");
@@ -112,15 +124,14 @@ export function ProfileBadgesSection({
     }
   };
 
-  const availableSuggestions = suggestions.filter(
-    (s) => !badges.some((b) => b.toLowerCase() === s.toLowerCase()),
-  );
-
   return (
     <div className="profile-badges-section">
-      {editable ? (
-        <p className="badge-admin-hint">{t("badgeAdminHint")}</p>
+      {editable && !catalogOnly ? (
+        <p className="badge-admin-hint">
+          {manageSuggestions ? t("badgeAdminHint") : t("badgeAssignHint")}
+        </p>
       ) : null}
+      {!catalogOnly ? (
       <div className={className}>
         {badges.map((label) => (
           <div key={label} className={chipClassName}>
@@ -176,14 +187,15 @@ export function ProfileBadgesSection({
           )
         ) : null}
       </div>
+      ) : null}
 
-      {editable && (manageSuggestions || availableSuggestions.length > 0) ? (
+      {editable && (manageSuggestions || suggestions.length > 0) ? (
         <div className="badge-catalog-block">
           <p className="badge-catalog-title">
             {manageSuggestions ? t("badgeCatalogTitle") : t("badgeQuickAddTitle")}
           </p>
           <div className="badge-suggestions">
-            {(manageSuggestions ? suggestions : availableSuggestions).map((s) => {
+            {suggestions.map((s) => {
               const onProfile = badges.some(
                 (b) => b.toLowerCase() === s.toLowerCase(),
               );
@@ -214,14 +226,27 @@ export function ProfileBadgesSection({
               }
               return (
                 <div key={s} className="badge-catalog-item">
-                  <button
-                    type="button"
-                    className={`badge-suggestion-btn${onProfile ? " badge-suggestion-btn--on-profile" : ""}`}
-                    onClick={() => addSuggestionToProfile(s)}
-                    disabled={onProfile}
-                  >
-                    + {s}
-                  </button>
+                  {catalogOnly ? (
+                    <span className="badge-suggestion-btn badge-suggestion-btn--label">
+                      {s}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className={`badge-suggestion-btn${onProfile ? " badge-suggestion-btn--on-profile" : ""}`}
+                      onClick={() => {
+                        if (manageSuggestions) {
+                          if (!onProfile) addSuggestionToProfile(s);
+                          return;
+                        }
+                        toggleSuggestionOnProfile(s);
+                      }}
+                      disabled={manageSuggestions && onProfile}
+                      aria-pressed={onProfile}
+                    >
+                      {onProfile && !manageSuggestions ? `− ${s}` : `+ ${s}`}
+                    </button>
+                  )}
                   {manageSuggestions ? (
                     <>
                       <button

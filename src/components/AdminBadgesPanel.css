@@ -1,0 +1,133 @@
+.admin-badges-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding-bottom: 24px;
+}
+
+.admin-badges-block {
+  min-width: 0;
+}
+
+.admin-badges-heading {
+  margin: 0 0 6px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.admin-badges-sub {
+  margin: 0 0 14px;
+  color: #8e8e93;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.admin-badges-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #1c1c1e;
+  color: #8e8e93;
+}
+
+.admin-badges-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+}
+
+.admin-badges-people {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+  padding-right: 2px;
+}
+
+.admin-badges-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: #1c1c1e;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.admin-badges-person--active {
+  border-color: rgba(255, 214, 10, 0.55);
+  background: rgba(255, 214, 10, 0.1);
+}
+
+.admin-badges-person-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #2c2c2e;
+}
+
+.admin-badges-person-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-badges-person-name {
+  font-size: 15px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-badges-person-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  color: #8e8e93;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-badges-empty,
+.admin-badges-pick-hint {
+  margin: 0;
+  color: #8e8e93;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-badges-selected {
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-badges-selected-title {
+  margin: 12px 0 10px;
+  color: #ffd60a;
+  font-size: 14px;
+  font-weight: 800;
+}

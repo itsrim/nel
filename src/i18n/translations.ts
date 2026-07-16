@@ -123,6 +123,21 @@ export const translations = {
     badgeAddAria: "Ajouter un badge",
     badgeRemoveAria: "Retirer le badge",
     badgeAdminHint: "Mode admin : cliquez sur × pour retirer, + pour ajouter un badge.",
+    badgeAssignHint:
+      "Mode admin : + pour attribuer un badge à ce profil, − ou × pour le retirer.",
+    adminBadgesTab: "Badges",
+    adminBadgesCatalogHeading: "Catalogue",
+    adminBadgesCatalogSub:
+      "Créez, renommez ou supprimez les badges proposés. Ensuite attribuez-les aux profils ci-dessous.",
+    adminBadgesAssignHeading: "Attribuer à un profil",
+    adminBadgesAssignSub:
+      "Choisissez une personne, puis ajoutez ou retirez ses badges. L’utilisateur ne gère pas cela lui-même.",
+    adminBadgesSearchPlaceholder: "Rechercher un profil…",
+    adminBadgesPeopleLabel: "Profils",
+    adminBadgesNoPeople: "Aucun profil trouvé.",
+    adminBadgesPickPerson: "Sélectionnez un profil pour gérer ses badges.",
+    adminBadgesEditing: "Badges de",
+    adminBadgesSelfLabel: "moi",
     badgeCatalogTitle: "Catalogue de badges",
     badgeQuickAddTitle: "Ajout rapide",
     badgeCatalogAdd: "Nouveau badge",
@@ -923,6 +938,21 @@ export const translations = {
     badgeAddAria: "Ajouter un badge",
     badgeRemoveAria: "Retirer le badge",
     badgeAdminHint: "Admin mode: tap × to remove, + to add a badge.",
+    badgeAssignHint:
+      "Admin mode: tap + to assign a badge to this profile, − or × to remove it.",
+    adminBadgesTab: "Badges",
+    adminBadgesCatalogHeading: "Catalog",
+    adminBadgesCatalogSub:
+      "Create, rename or delete suggested badges. Then assign them to profiles below.",
+    adminBadgesAssignHeading: "Assign to a profile",
+    adminBadgesAssignSub:
+      "Pick a person, then add or remove their badges. Users cannot manage this themselves.",
+    adminBadgesSearchPlaceholder: "Search a profile…",
+    adminBadgesPeopleLabel: "Profiles",
+    adminBadgesNoPeople: "No profile found.",
+    adminBadgesPickPerson: "Select a profile to manage their badges.",
+    adminBadgesEditing: "Badges for",
+    adminBadgesSelfLabel: "me",
     badgeCatalogTitle: "Badge catalog",
     badgeQuickAddTitle: "Quick add",
     badgeCatalogAdd: "New badge",

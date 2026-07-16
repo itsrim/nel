@@ -25,8 +25,6 @@ import { ProfileKarmaBadge } from '../components/ProfileKarmaBadge';
 import { HScrollRail } from '../components/HScrollRail';
 import { KARMA_DEFAULT } from '../lib/karma';
 import { syncProfessionalVerifiedFromProfile } from '../lib/proVerification';
-import { canManageProfileBadges } from '../lib/accountRoles';
-import { useAuthStore } from '../store/useAuthStore';
 import { hasReachedDailyFriendRequestLimit } from '../lib/eventDateKey';
 import { hasViewerPremiumAccess } from '../lib/viewerEntitlements';
 import { ProfileBadgesSection } from '../components/ProfileBadgesSection';
@@ -64,7 +62,6 @@ type AdminProfileDraft = {
 
 export function OtherProfilePage({ id }: OtherProfilePageProps) {
   const { t } = useTranslation();
-  const { user } = useAuthStore();
   const { closeDetail, openDetail, setActiveTab } = useNavigationStore();
   const {
     suggestions,
@@ -80,11 +77,8 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
     events,
     conversations,
     toggleEventFavorite,
-    updateProfileBadges,
     updateProfile,
     adminDeleteProfile,
-    profileBadgeSuggestions,
-    setProfileBadgeSuggestions,
   } = useMessagingStore();
 
   const [reportOpen, setReportOpen] = useState(false);
@@ -108,7 +102,6 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
   });
 
   const showInsightTabs = useMessagingStore(hasViewerPremiumAccess);
-  const canEditBadges = canManageProfileBadges(user, isAdmin);
 
   // Fiche enrichie (amis / profils) + libellé public toujours issu de viewer_settings
   // via l’annuaire suggestions (registered members).
@@ -119,9 +112,11 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
 
   if (!profile) return null;
 
-  const profileBadges = friendRecord?.badges?.length
+  const profileBadges = friendRecord && Array.isArray(friendRecord.badges)
     ? friendRecord.badges
-    : ((profile as { badges?: string[] }).badges ?? ['Pionnier']);
+    : Array.isArray((profile as { badges?: string[] }).badges)
+      ? ((profile as { badges?: string[] }).badges as string[])
+      : ["Pionnier"];
   const isMutualFriend = friendRecord?.mutualFriend === true;
   const requestSent = friendRequestSentProfilIds.includes(id);
   const requestRejected = friendRequestRejectedProfilIds.includes(id);
@@ -528,11 +523,8 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
         <h2 className="op-section-title">Badges</h2>
         <ProfileBadgesSection
           badges={profileBadges}
-          suggestions={profileBadgeSuggestions}
-          editable={canEditBadges}
-          manageSuggestions={canEditBadges}
-          onChange={(next) => updateProfileBadges(id, next)}
-          onSuggestionsChange={setProfileBadgeSuggestions}
+          suggestions={[]}
+          editable={false}
           className="op-badges-wrap"
           chipClassName="op-badge-pill"
         />

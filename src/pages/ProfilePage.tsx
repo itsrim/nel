@@ -62,7 +62,7 @@ import { formatBadgeCount } from "../data/mockData";
 import { formatVisitTimeAgo } from "../data/mockData";
 import { ProProfileDetails } from "../components/ProProfileDetails";
 import { ProfileKarmaBadge } from "../components/ProfileKarmaBadge";
-import { ProfileBadgesSection } from "../components/ProfileBadgesSection";
+import { AdminBadgesPanel } from "../components/AdminBadgesPanel";
 import { HScrollRail } from "../components/HScrollRail";
 import { SubscriptionCheckoutModal } from "../components/SubscriptionCheckoutModal";
 import { SubscriptionSettingActions } from "../components/SubscriptionSettingActions";
@@ -101,7 +101,8 @@ type TabId =
   | "notifications"
   | "reports"
   | "info"
-  | "calendar";
+  | "calendar"
+  | "badges";
 
 const PROFILE_CAL_WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"] as const;
 
@@ -223,6 +224,7 @@ export function ProfilePage() {
     setViewerProfileBadges,
     profileBadgeSuggestions,
     setProfileBadgeSuggestions,
+    updateProfileBadges,
     adminAppInfo,
     updateAdminAppInfo,
     publishAnnouncement,
@@ -333,6 +335,12 @@ export function ProfilePage() {
   const canEditBadges = canManageProfileBadges(user, isAdmin);
   const adminModerationView = isAdmin && userIsAdmin;
   const calendarTabAccess = viewerProAccess || adminModerationView;
+
+  useEffect(() => {
+    if (activeTab === "badges" && !canEditBadges) {
+      setActiveTab("favorites");
+    }
+  }, [activeTab, canEditBadges]);
 
   // Photo partagée avec EventDetail / création de sortie ; nom et âge figés après inscription.
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -907,20 +915,6 @@ export function ProfilePage() {
           </div>
         </div>
 
-        {canEditBadges ? (
-          <>
-            <div className="section-title">{t("badges")}</div>
-            <ProfileBadgesSection
-              badges={viewerProfileBadges}
-              suggestions={profileBadgeSuggestions}
-              editable
-              manageSuggestions
-              onChange={setViewerProfileBadges}
-              onSuggestionsChange={setProfileBadgeSuggestions}
-            />
-          </>
-        ) : null}
-
         {/* Sub Tabs */}
         <HScrollRail
           id="profile-tabs-anchor"
@@ -1033,6 +1027,21 @@ export function ProfilePage() {
               </div>
             </button>
           )}
+          {canEditBadges ? (
+            <button
+              type="button"
+              className={`p-tab ${activeTab === "badges" ? "p-tab--active" : ""}`}
+              onClick={() => selectProfileTab("badges")}
+            >
+              <div className="p-tab-inner">
+                <Award
+                  size={18}
+                  color={activeTab === "badges" ? "#FFD60A" : "#8E8E93"}
+                />
+                <span>{t("adminBadgesTab")}</span>
+              </div>
+            </button>
+          ) : null}
           {isAdmin && userIsAdmin && (
             <button
               type="button"
@@ -1510,6 +1519,22 @@ export function ProfilePage() {
               </div>
             </div>
           )}
+
+          {activeTab === "badges" && canEditBadges ? (
+            <AdminBadgesPanel
+              selfId={user?.id}
+              selfName={viewerProfileDisplayName}
+              selfAge={viewerProfileAge}
+              selfAvatarUrl={viewerProfileAvatarUrl}
+              selfBadges={viewerProfileBadges}
+              onChangeSelfBadges={setViewerProfileBadges}
+              friends={friends}
+              suggestions={suggestions}
+              catalog={profileBadgeSuggestions}
+              onChangeCatalog={setProfileBadgeSuggestions}
+              onChangePersonBadges={updateProfileBadges}
+            />
+          ) : null}
 
           {activeTab === "reports" && (
             <div className="reports-list">
