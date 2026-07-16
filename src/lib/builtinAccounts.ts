@@ -14,8 +14,8 @@ export type BuiltinAccount = {
 };
 
 const BUILTIN_ACCOUNTS: Record<string, BuiltinAccount> = {
-  "admin@rim.com": {
-    email: "admin@rim.com",
+  "demo@test.com": {
+    email: "demo@test.com",
     password: "password",
     displayName: "Utilisateur Demo",
     id: "user_demo_001",

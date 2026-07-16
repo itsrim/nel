@@ -32,6 +32,7 @@ import { CreateGroupModal } from "../components/CreateGroupModal";
 import { hasReachedDailyFriendRequestLimit } from "../lib/eventDateKey";
 import { hasViewerPremiumAccess } from "../lib/viewerEntitlements";
 import { filterPublicSuggestions } from "../lib/suggestionCatalog";
+import { isSelfProfilId } from "../lib/friendGuards";
 import "./ChatPage.css";
 
 /* ── Helpers ── */
@@ -519,8 +520,8 @@ export function ChatPage() {
         suggestions.filter(
           (s) => !moderationHiddenProfilIds.includes(s.id),
         ),
-      ),
-    [suggestions, moderationHiddenProfilIds],
+      ).filter((s) => !isSelfProfilId(s.id, user?.id)),
+    [suggestions, moderationHiddenProfilIds, user?.id],
   );
 
   const sortedSuggestions = suggestionsVisible;

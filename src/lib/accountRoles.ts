@@ -1,7 +1,7 @@
 import type { User } from "../store/useAuthStore";
 
 /** Comptes staff / démo avec accès au mode admin. */
-const ADMIN_EMAILS = new Set(["admin@yo.com", "admin@rim.com", "rim"]);
+const ADMIN_EMAILS = new Set(["admin@yo.com", "demo@test.com", "rim"]);
 export const ADMIN_USER_ID = "user_admin_001";
 export const DEMO_ADMIN_USER_ID = "user_demo_001";
 const ADMIN_USER_IDS = new Set([
@@ -12,7 +12,7 @@ const ADMIN_USER_IDS = new Set([
 
 export function isDemoAccount(user: User | null | undefined): boolean {
   const email = user?.email?.trim().toLowerCase();
-  return email === "admin@rim.com";
+  return email === "demo@test.com";
 }
 
 export function isAdminAccount(

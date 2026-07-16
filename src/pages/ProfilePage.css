@@ -1352,6 +1352,33 @@
   cursor: not-allowed;
 }
 
+.language-switch-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.language-flag {
+  font-size: 18px;
+  line-height: 1;
+  user-select: none;
+}
+
+.language-flag--inactive {
+  opacity: 0.38;
+}
+
+.setting-spinner {
+  animation: setting-spin 0.8s linear infinite;
+}
+
+@keyframes setting-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .setting-subscribe-btn {
   flex-shrink: 0;
   border: none;

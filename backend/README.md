@@ -156,7 +156,7 @@ En **local**, `SMTP_*` reste utilisable si tu n’as pas de `BREVO_API_KEY`.
 
 | Email | Mot de passe | ID |
 |-------|--------------|-----|
-| `demo@hlg.com` | `password` | `user_demo_001` |
+| `demo@hlg.com` | `******` | `user_demo_001` |
 | `rim` | `1234` | `user_admin_001` |
 
 ### REST
@@ -164,7 +164,7 @@ En **local**, `SMTP_*` reste utilisable si tu n’as pas de `BREVO_API_KEY`.
 #### `POST /api/auth/login`
 
 ```json
-{ "email": "demo@hlg.com", "password": "password" }
+{ "email": "demo@hlg.com", "password": "......" }
 ```
 
 Réponse `200` :

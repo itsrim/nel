@@ -6,12 +6,12 @@ import { useMessagingStore } from "../store/useMessagingStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { ProsMapView } from "../components/ProsMapView";
 import { mapCenterForCity } from "../lib/proCoordinates";
-import { buildViewerProfessional, VIEWER_PRO_ID } from "../lib/proLocation";
 import {
   filterPublicProfessionals,
-  shouldShowViewerInProsDirectory,
 } from "../lib/proDirectory";
 import { useAuthStore } from "../store/useAuthStore";
+import { isSelfProfilId } from "../lib/friendGuards";
+import { VIEWER_PRO_ID } from "../lib/proLocation";
 import {
   PRO_CATEGORY_OPTIONS,
   proFullName,
@@ -72,29 +72,8 @@ export function ProsPage() {
   const { t } = useTranslation();
   const { openDetail } = useNavigationStore();
   const professionals = useProsStore((s) => s.professionals);
-  const {
-    viewerProfileCity,
-    viewerProfileDisplayName,
-    viewerProfileAvatarUrl,
-    viewerProAddress,
-    viewerProLat,
-    viewerProLng,
-    viewerProWebsiteUrl,
-    viewerProSocialUrl,
-    viewerProPhone,
-    viewerProCategory,
-    viewerProfileBio,
-  } = useMessagingStore();
+  const { viewerProfileCity } = useMessagingStore();
   const user = useAuthStore((s) => s.user);
-  const viewerProAccess = useMessagingStore((s) =>
-    shouldShowViewerInProsDirectory(user, {
-      isAdmin: s.isAdmin,
-      nelDemoIsPremium: s.nelDemoIsPremium,
-      viewerPremiumExpiresAt: s.viewerPremiumExpiresAt,
-      viewerProfileIsPro: s.viewerProfileIsPro,
-      viewerProExpiresAt: s.viewerProExpiresAt,
-    }),
-  );
   const mapCenter = useMemo(
     () => mapCenterForCity(viewerProfileCity),
     [viewerProfileCity],
@@ -104,69 +83,19 @@ export function ProsPage() {
   const [categoryFilter, setCategoryFilter] = useState<ProCategory | "all">("all");
   const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
 
-  const professionalsWithViewer = useMemo(() => {
-    const publicPros = filterPublicProfessionals(professionals);
-    const viewerUserId = user?.id?.trim();
-    const storedViewer = publicPros.find(
-      (p) =>
-        p.id === VIEWER_PRO_ID || (viewerUserId != null && p.id === viewerUserId),
+  const visibleProfessionals = useMemo(() => {
+    const viewerUserId = user?.id;
+    return filterPublicProfessionals(professionals).filter(
+      (p) => p.id !== VIEWER_PRO_ID && !isSelfProfilId(p.id, viewerUserId),
     );
-    const [fallbackLat, fallbackLng] = mapCenterForCity(viewerProfileCity);
-    const viewerPro = viewerProAccess
-      ? buildViewerProfessional({
-          displayName: viewerProfileDisplayName,
-          avatarUrl: viewerProfileAvatarUrl,
-          city: viewerProfileCity,
-          address: viewerProAddress,
-          lat: viewerProLat ?? fallbackLat,
-          lng: viewerProLng ?? fallbackLng,
-          websiteUrl: viewerProWebsiteUrl,
-          socialUrl: viewerProSocialUrl,
-          phone: viewerProPhone,
-          proCategory: viewerProCategory,
-          bio: viewerProfileBio,
-        })
-      : null;
-    if (!viewerPro) return publicPros;
-    const mergedViewer = storedViewer
-      ? {
-          ...viewerPro,
-          ...storedViewer,
-          category: viewerPro.category,
-          categoryLabel: viewerPro.categoryLabel,
-          description: viewerPro.description || storedViewer.description,
-          verified: storedViewer.verified === true,
-        }
-      : { ...viewerPro, verified: false };
-    return [
-      mergedViewer,
-      ...publicPros.filter(
-        (p) => p.id !== VIEWER_PRO_ID && p.id !== viewerUserId,
-      ),
-    ];
-  }, [
-    professionals,
-    viewerProAccess,
-    user?.id,
-    viewerProfileDisplayName,
-    viewerProfileAvatarUrl,
-    viewerProfileCity,
-    viewerProAddress,
-    viewerProLat,
-    viewerProLng,
-    viewerProWebsiteUrl,
-    viewerProSocialUrl,
-    viewerProPhone,
-    viewerProCategory,
-    viewerProfileBio,
-  ]);
+  }, [professionals, user?.id]);
 
   const filtered = useMemo(() => {
-    return professionalsWithViewer.filter((pro) => {
+    return visibleProfessionals.filter((pro) => {
       if (categoryFilter !== "all" && pro.category !== categoryFilter) return false;
       return matchesSearch(pro, searchQuery);
     });
-  }, [professionalsWithViewer, categoryFilter, searchQuery]);
+  }, [visibleProfessionals, categoryFilter, searchQuery]);
 
   const selectedMapPro = selectedMapId
     ? (filtered.find((p) => p.id === selectedMapId) ?? null)

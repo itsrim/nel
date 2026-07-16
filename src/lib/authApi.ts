@@ -203,7 +203,7 @@ export function toAppUser(
   extras?: Partial<User>,
 ): User {
   const emailNorm = apiUser.email.trim().toLowerCase();
-  const isDemo = emailNorm === "admin@rim.com";
+  const isDemo = emailNorm === "demo@test.com";
   const isRimAdmin = emailNorm === "rim" || apiUser.id === "user_admin_001";
   const avatarFromSource =
     extras?.avatarUrl?.trim() ||

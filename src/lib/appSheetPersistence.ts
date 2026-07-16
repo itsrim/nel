@@ -48,7 +48,10 @@ import {
   type AdminAppInfo,
 } from "./adminAppInfo";
 import { ADMIN_USER_ID, shouldExcludeFromPublicCatalog } from "./accountRoles";
-import { buildSuggestionCatalog, filterPublicSuggestions } from "./suggestionCatalog";
+import {
+  buildSuggestionCatalog,
+  filterPublicSuggestions,
+} from "./suggestionCatalog";
 import { shouldSkipEmailVerificationFromSheets } from "./sheetAuth";
 import {
   isActiveProMemberRow,
@@ -139,6 +142,25 @@ function loadLocalCache(table: SheetTableName, userId: string): Record<string, s
   } catch {
     return [];
   }
+}
+
+/** Vide les caches Sheets locaux (suggestions obsolètes, doublons, etc.). */
+export function clearSheetsLocalCache(userId?: string | null): number {
+  const uid = userId?.trim();
+  let removed = 0;
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith(LS_CACHE_PREFIX)) continue;
+    if (uid) {
+      const suffixUser = `_${uid}`;
+      const suffixGlobal = `_${GLOBAL_CACHE_USER}`;
+      if (!key.endsWith(suffixUser) && !key.endsWith(suffixGlobal)) continue;
+    }
+    localStorage.removeItem(key);
+    removed += 1;
+  }
+  syncedRowKeys.clear();
+  return removed;
 }
 
 function rowsForUser(rows: Record<string, string>[], userId: string): Record<string, string>[] {
@@ -615,11 +637,12 @@ export function suggestionToRow(s: SuggestionProfile, userId: string): Record<st
 }
 
 export function rowToSuggestion(row: Record<string, string>): SuggestionProfile {
+  const id = row.id?.trim() || row.userId?.trim() || "";
   return {
-    id: row.id,
-    pseudo: row.pseudo,
+    id,
+    pseudo: row.pseudo?.trim() || id,
     age: numFromSheet(row.age, 25),
-    imageUrl: row.imageUrl,
+    imageUrl: resolveAvatarUrl(row.imageUrl),
     aspectRatio: parseFloat(row.aspectRatio) || 0.75,
   };
 }
@@ -1253,7 +1276,6 @@ async function attachRegisteredMemberSuggestions(
   state: LoadedAppSheetState,
   excludeUserId: string,
 ): Promise<LoadedAppSheetState> {
-  if (state.suggestions.length > 0) return state;
   const registeredMemberSuggestions = await loadRegisteredMemberSuggestions(
     excludeUserId,
     state.profileVisits,
@@ -1328,10 +1350,9 @@ export async function loadTabStateFromSheets(
       };
     }
     case "chat": {
-      const [convRows, suggestionRows, profileRows, visitRows, professionals] =
+      const [convRows, profileRows, visitRows, professionals] =
         await Promise.all([
         readScopedUserTable("conversations", userId, isAdmin),
-        readScopedUserTable("suggestions", userId, isAdmin),
         readScopedUserTable("profiles", userId, isAdmin),
         readScopedUserTable("profile_visits", userId, isAdmin),
         loadMergedProfessionalsCatalog(userId),
@@ -1341,13 +1362,12 @@ export async function loadTabStateFromSheets(
         {
           ...emptyLoadedState(),
           conversations: convRows.map(rowToConversation),
-          suggestions: filterPublicSuggestions(suggestionRows.map(rowToSuggestion)),
+          suggestions: [],
           friends: friendsFromProfileRows(profileRows, userId),
           profileVisits,
           professionals,
           hasRemoteData:
             convRows.length > 0 ||
-            suggestionRows.length > 0 ||
             profileRows.length > 0 ||
             visitRows.length > 0,
         },
@@ -1537,7 +1557,6 @@ export async function loadAppStateFromSheets(
     eventRows,
     convRows,
     profileRows,
-    suggestionRows,
     visitRows,
     viewerRows,
     notifRows,
@@ -1549,7 +1568,6 @@ export async function loadAppStateFromSheets(
     readSharedCatalogTable("events"),
     readScopedUserTable("conversations", userId, isAdmin),
     readScopedUserTable("profiles", userId, isAdmin),
-    readScopedUserTable("suggestions", userId, isAdmin),
     readScopedUserTable("profile_visits", userId, isAdmin),
     readTable("viewer_settings", userId),
     readTable("notifications", userId),
@@ -1564,7 +1582,6 @@ export async function loadAppStateFromSheets(
     eventRows.length > 0 ||
     convRows.length > 0 ||
     profileRows.length > 0 ||
-    suggestionRows.length > 0 ||
     visitRows.length > 0 ||
     viewerRow != null ||
     notifRows.length > 0 ||
@@ -1583,7 +1600,7 @@ export async function loadAppStateFromSheets(
       events: eventRows.map(rowToEvent),
       conversations: convRows.map(rowToConversation),
       friends: friendsFromProfileRows(profileRows, userId),
-      suggestions: suggestionRows.map(rowToSuggestion),
+      suggestions: [],
       profileVisits: visitRows.map(rowToVisit),
       appNotifications: notificationsFromUserRows(notifRows),
       adminReports: reportRows.map(rowToReport),
@@ -1669,12 +1686,10 @@ export function mergeLoadedAppState(
   if (loaded.friends.length > 0) {
     patch.friends = mergeFriends(current.friends, loaded.friends);
   }
-  if (loaded.suggestions.length > 0) {
+  if (loaded.registeredMemberSuggestions?.length) {
     patch.suggestions = filterPublicSuggestions(
-      mergeById(current.suggestions, loaded.suggestions),
+      loaded.registeredMemberSuggestions,
     );
-  } else if (loaded.registeredMemberSuggestions?.length) {
-    patch.suggestions = filterPublicSuggestions(loaded.registeredMemberSuggestions);
   }
   if (loaded.profileVisits.length > 0) {
     patch.profileVisits = mergeProfileVisits(

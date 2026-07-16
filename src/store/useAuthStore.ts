@@ -246,7 +246,7 @@ async function finishBuiltinSession(
     emailVerified: account.emailVerified !== false,
     isAdmin: isAdminAccount({ email: account.email, id: account.id }),
     avatarUrl:
-      normalizedEmail === "admin@rim.com"
+      normalizedEmail === "demo@test.com"
         ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800"
         : resolveAvatarUrl(),
   };

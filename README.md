@@ -120,8 +120,7 @@ backend/                    # API Node (voir backend/README.md)
 - **Sans** `VITE_CHAT_API_URL` : auth locale (démo en mémoire + `localStorage`)
 - **Avec** backend : `POST /api/auth/login` et `signup`, JWT stocké (`nel_auth_token`)
 
-Compte démo (backend + local) : `demo@nel.com` / `password`  
-Compte admin test : `admin@yo.com` / `1234`
+Compte démo (backend + local) : `demo@nel.com` / `password / 1234`  
 
 ### Chat
 

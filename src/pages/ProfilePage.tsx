@@ -84,6 +84,13 @@ import { PRO_CATEGORY_OPTIONS, resolveProCategoryFields } from "../lib/proCatego
 import { unlockNotificationSound } from "../lib/notificationSound";
 import { useProsStore } from "../store/useProsStore";
 import { useNotificationSoundStore } from "../store/useNotificationSoundStore";
+import { resolveSheetsAdminScope } from "../lib/accessScope";
+import {
+  clearSheetsLocalCache,
+  loadTabStateFromSheets,
+} from "../lib/appSheetPersistence";
+import { applySheetsLoadedState } from "../lib/applySheetsState";
+import { isGoogleSheetsReadConfigured } from "../lib/googleSheetsDb";
 import "./ProfilePage.css";
 
 type TabId =
@@ -317,6 +324,7 @@ export function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlan | null>(null);
   const [draftBio, setDraftBio] = useState("");
   useLockBodyScroll(settingsOpen || installGuideOpen);
@@ -561,6 +569,29 @@ export function ProfilePage() {
         : t("subscriptionCancelledPro"),
     );
   };
+
+  const handleClearCache = useCallback(async () => {
+    if (!window.confirm(t("clearCacheConfirm"))) return;
+    setClearingCache(true);
+    try {
+      clearSheetsLocalCache(user?.id);
+      if (user?.id && isGoogleSheetsReadConfigured()) {
+        const isAdminScope = resolveSheetsAdminScope(user);
+        const [chatLoaded, proLoaded] = await Promise.all([
+          loadTabStateFromSheets("chat", user.id, isAdminScope),
+          loadTabStateFromSheets("pro", user.id, isAdminScope),
+        ]);
+        applySheetsLoadedState(chatLoaded);
+        applySheetsLoadedState(proLoaded);
+      }
+      showToast(t("clearCacheSuccess"));
+    } catch (err) {
+      console.error("clearCache failed:", err);
+      showToast(t("clearCacheError"));
+    } finally {
+      setClearingCache(false);
+    }
+  }, [showToast, t, user]);
 
   const subscriptionLocale = language === "en" ? "en-GB" : "fr-FR";
 
@@ -1968,21 +1999,57 @@ export function ProfilePage() {
                       {language === "fr" ? "Français" : "English"}
                     </div>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={language === "en"}
-                    onChange={(e) => {
-                      const next = e.target.checked ? "en" : "fr";
-                      setLanguage(next);
-                      persistViewerSettingsToSheets();
-                    }}
-                    className="switch"
-                    aria-label="Toggle language"
-                  />
+                  <div className="language-switch-wrap">
+                    <span
+                      className={`language-flag${language === "fr" ? "" : " language-flag--inactive"}`}
+                      aria-hidden
+                    >
+                      🇫🇷
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={language === "en"}
+                      onChange={(e) => {
+                        const next = e.target.checked ? "en" : "fr";
+                        setLanguage(next);
+                        persistViewerSettingsToSheets();
+                      }}
+                      className="switch"
+                      aria-label={t("language")}
+                    />
+                    <span
+                      className={`language-flag${language === "en" ? "" : " language-flag--inactive"}`}
+                      aria-hidden
+                    >
+                      🇬🇧
+                    </span>
+                  </div>
                 </div>
               </div>
 
               <div className="setting-section">
+                <div className="setting-item">
+                  <div className="setting-icon blue">
+                    <RefreshCw size={20} />
+                  </div>
+                  <div className="setting-text">
+                    <div className="setting-label">{t("clearCache")}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="setting-subscribe-btn setting-info-btn"
+                    onClick={() => void handleClearCache()}
+                    disabled={clearingCache}
+                    aria-label={t("clearCacheButton")}
+                  >
+                    {clearingCache ? (
+                      <Loader2 size={16} className="setting-spinner" aria-hidden />
+                    ) : (
+                      <RefreshCw size={16} aria-hidden />
+                    )}
+                    <span>{t("clearCacheButton")}</span>
+                  </button>
+                </div>
                 <div className="setting-item">
                   <div className="setting-icon blue">
                     <Smartphone size={20} />
