@@ -109,15 +109,15 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
   const showInsightTabs = useMessagingStore(hasViewerPremiumAccess);
   const canEditBadges = canManageProfileBadges(user, isAdmin);
 
-  // Find profile in suggestions, visites de profil ou amis
-  const profile =
-    friends.find((f) => f.profilId === id) ||
-    suggestions.find((s) => s.id === id) ||
-    profileVisits.find((v) => v.id === id);
+  // Fiche enrichie (amis / profils) + libellé public toujours issu de viewer_settings
+  // via l’annuaire suggestions (registered members).
+  const friendRecord = friends.find((f) => f.profilId === id);
+  const suggestionRecord = suggestions.find((s) => s.id === id);
+  const visitRecord = profileVisits.find((v) => v.id === id);
+  const profile = friendRecord || suggestionRecord || visitRecord;
 
   if (!profile) return null;
 
-  const friendRecord = friends.find((f) => f.profilId === id);
   const profileBadges = friendRecord?.badges?.length
     ? friendRecord.badges
     : ((profile as { badges?: string[] }).badges ?? ['Pionnier']);
@@ -129,7 +129,12 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
   );
 
   const p = profile as unknown as Record<string, unknown>;
-  const displayName = (p.pseudo as string | undefined) || (p.name as string);
+  const displayName =
+    suggestionRecord?.pseudo?.trim() ||
+    (typeof p.name === 'string' && p.name.trim()) ||
+    (typeof p.pseudo === 'string' && p.pseudo.trim()) ||
+    visitRecord?.name?.trim() ||
+    id;
   const profileAvatarUrl =
     ('imageUrl' in profile ? profile.imageUrl : profile.avatarUrl) as string;
   const profileKarma = friendRecord?.karma ?? KARMA_DEFAULT;
@@ -236,7 +241,7 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
     const name = adminDraft.name.trim();
     updateProfile(id, {
       name,
-      pseudo: name.split(/\s+/)[0] || name,
+      pseudo: name,
       age: Number.isFinite(ageNum) ? ageNum : null,
       bio: adminDraft.bio,
       city: adminDraft.city,

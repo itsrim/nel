@@ -28,7 +28,7 @@ export function buildMutualFriendRecord(params: {
   return {
     profilId: params.profilId.trim(),
     name,
-    pseudo: name.split(/\s+/)[0] || name,
+    pseudo: name,
     age: params.age ?? null,
     city: params.city?.trim() ?? "",
     imageUrl: resolveAvatarUrl(params.avatarUrl),

@@ -26,7 +26,8 @@ export function buildSuggestionCatalog(
     if (!id || shouldExcludeFromPublicCatalog(id)) continue;
     map.set(id, {
       id,
-      pseudo: f.pseudo?.trim() || f.name.trim().split(/\s+/)[0] || id,
+      // Nom complet issu de viewer_settings (via registered members).
+      pseudo: f.name.trim() || f.pseudo?.trim() || id,
       age: f.age ?? 26,
       imageUrl: f.imageUrl,
       aspectRatio: 0.72,

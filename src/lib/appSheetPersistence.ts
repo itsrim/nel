@@ -1251,7 +1251,8 @@ function viewerSettingsRowToFriend(row: Record<string, string>): Friend {
     imageUrl: resolveAvatarUrl(row.avatarUrl),
     eventsInCommon: 0,
     mainChatConversationId: "",
-    pseudo: name.split(/\s+/)[0] || undefined,
+    // Même libellé que viewer_settings.displayName (pas le 1er mot seul).
+    pseudo: name,
     verified: boolFromSheet(row.emailVerified),
     isPro: boolFromSheet(row.isPro),
   };

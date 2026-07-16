@@ -80,6 +80,18 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
     }
   }, [id, messages.length]);
 
+  // Conversation disparue (quittée / supprimée) : retirer la salle + couches au-dessus
+  // (sinon overlay full-screen transparent → plus de clics, footer masqué).
+  useEffect(() => {
+    if (conversation) return;
+    const { detailStack, popDetails } = useNavigationStore.getState();
+    const chatIndex = detailStack.findIndex(
+      (d) => d.type === "chat" && d.id === id,
+    );
+    if (chatIndex < 0) return;
+    popDetails(detailStack.length - chatIndex);
+  }, [conversation, id]);
+
   if (!conversation) return null;
 
   const memberN =

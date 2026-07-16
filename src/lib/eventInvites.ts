@@ -83,7 +83,7 @@ export function inviteProfileToFriend(profile: EventInviteProfile): Friend {
   return {
     profilId: profile.profilId,
     name: profile.name,
-    pseudo: profile.name.split(/\s+/)[0] || profile.name,
+    pseudo: profile.name,
     age: null,
     city: "",
     imageUrl: profile.imageUrl,

@@ -94,14 +94,13 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
   const blockNotifications = !!conversation.blockNotifications;
 
   const handleLeave = () => {
-    const title = isGroup ? t("leaveGroupLabel") : t("leaveConversationLabel");
     const confirmMessage = isGroup
       ? t("leaveGroupConfirmMessage")
       : t("leaveConversationConfirmMessage");
     if (confirm(confirmMessage)) {
       leaveConversation(id);
-      closeDetail(); // Close settings
-      // ChatRoom will automatically close because conversation is now undefined
+      // Ferme paramètres + salle de chat (sinon couche vide full-screen qui bloque clics + footer).
+      popDetails(2);
     }
   };
 

@@ -3431,7 +3431,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           break;
         case "profile":
         case "profile_notifications":
-          get().markAllNotificationsRead();
+          // Pastille seulement — les notifs restent jusqu’au clic (markNotificationRead).
           nextLastSeen.profile = now;
           nextLastSeen.profile_notifications = now;
           break;
@@ -3500,7 +3500,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           break;
         case "profile":
         case "profile_notifications":
-          get().markAllNotificationsRead();
+          // Ne pas vider l’inbox : lecture = clic explicite uniquement.
           break;
         case "profile_friends": {
           set((s) => {
