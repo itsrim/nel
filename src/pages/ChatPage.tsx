@@ -28,6 +28,7 @@ import {
   type Event,
 } from "../data/mockData";
 import { buildConversationMiniSlots } from "../lib/conversationMiniSlots";
+import { CreateGroupModal } from "../components/CreateGroupModal";
 import { hasReachedDailyFriendRequestLimit } from "../lib/eventDateKey";
 import { hasViewerPremiumAccess } from "../lib/viewerEntitlements";
 import { filterPublicSuggestions } from "../lib/suggestionCatalog";
@@ -199,30 +200,33 @@ function FavoriteStripItem({ conversation }: { conversation: Conversation }) {
 function NewGroupStripItem() {
   const { t } = useTranslation();
   const { openDetail } = useNavigationStore();
-  const { createEmptyGroup, toggleConversationFavorite } = useMessagingStore();
+  const { createEmptyGroup } = useMessagingStore();
+  const [modalOpen, setModalOpen] = useState(false);
 
-  const handleCreateGroup = () => {
-    const title = window
-      .prompt(t("createGroupNamePrompt"), t("newGroup"))
-      ?.trim();
-    if (!title) return;
+  const handleCreateGroup = (title: string) => {
     const id = createEmptyGroup(title);
-    toggleConversationFavorite(id);
     openDetail("chat", id);
   };
 
   return (
-    <button
-      type="button"
-      className="story-cell"
-      aria-label={t("newGroup")}
-      onClick={handleCreateGroup}
-    >
-      <div className="story-new-ring">
-        <Plus size={26} color="rgba(0,0,0,0.92)" />
-      </div>
-      <span className="story-label-new">{t("addGroup")}</span>
-    </button>
+    <>
+      <button
+        type="button"
+        className="story-cell"
+        aria-label={t("newGroup")}
+        onClick={() => setModalOpen(true)}
+      >
+        <div className="story-new-ring">
+          <Plus size={26} color="rgba(0,0,0,0.92)" />
+        </div>
+        <span className="story-label-new">{t("addGroup")}</span>
+      </button>
+      <CreateGroupModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onCreate={handleCreateGroup}
+      />
+    </>
   );
 }
 

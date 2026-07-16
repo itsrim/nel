@@ -2731,8 +2731,14 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         }
 
         set((s) => ({
-          conversations: s.conversations.filter((c) => c.id !== conversationId),
+          conversations: s.conversations.filter(
+            (c) => c.id !== conversationId,
+          ),
+          favoriteConversationIds: s.favoriteConversationIds.filter(
+            (id) => id !== conversationId,
+          ),
         }));
+        syncViewerSettingsFromState(get());
         return;
       }
 
@@ -2741,7 +2747,11 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         conversations: state.conversations.filter(
           (c) => c.id !== conversationId,
         ),
+        favoriteConversationIds: state.favoriteConversationIds.filter(
+          (id) => id !== conversationId,
+        ),
       }));
+      syncViewerSettingsFromState(get());
     },
 
     ensureEventConversationRoster: (conversationId) => {

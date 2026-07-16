@@ -286,6 +286,7 @@ export const translations = {
     newGroup: "Nouveau groupe",
     addGroup: "+ Chat",
     createGroupNamePrompt: "Nom du groupe :",
+    createGroupNameRequired: "Indiquez un nom pour le groupe.",
     noChatRooms: "Aucune conversation pour le moment.",
     favoriteChatConversations: "Conversations favoris",
 
@@ -1076,6 +1077,7 @@ export const translations = {
     newGroup: "New Group",
     addGroup: "+ Group",
     createGroupNamePrompt: "Group name:",
+    createGroupNameRequired: "Please enter a group name.",
     noChatRooms: "No conversations yet.",
     favoriteChatConversations: "Favorite Conversations",
 
