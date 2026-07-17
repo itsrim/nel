@@ -124,6 +124,17 @@
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
 }
 
+[data-theme="light"] .pros-refresh-bar {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .pros-loading-text,
+[data-theme="light"] .pros-spinner {
+  color: var(--text-secondary);
+}
+
 [data-theme="light"] * {
   scrollbar-color: var(--scrollbar-thumb) transparent;
 }

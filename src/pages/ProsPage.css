@@ -175,6 +175,22 @@
   min-height: 0;
 }
 
+/* ── Loader — même design que Chat (Conversations / Suggestions) ── */
+.pros-refresh-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+  padding: 8px 16px;
+  margin: 8px 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .pros-loading-container {
   display: flex;
   flex-direction: column;
@@ -188,45 +204,18 @@
   margin: 16px 0 0;
   font-size: 15px;
   font-weight: 600;
-  color: #7a3428;
-}
-
-.dark .pros-loading-text {
   color: rgba(255, 255, 255, 0.6);
 }
 
 .pros-spinner {
-  color: #7a3428;
+  color: rgba(255, 255, 255, 0.6);
   animation: pros-spin 1s linear infinite;
-}
-
-.dark .pros-spinner {
-  color: #fadccb;
 }
 
 @keyframes pros-spin {
   to {
     transform: rotate(360deg);
   }
-}
-
-.pros-refresh-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 16px;
-  margin: 8px 14px 0;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #7a3428;
-  background: rgba(250, 220, 203, 0.55);
-}
-
-.dark .pros-refresh-bar {
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.06);
 }
 
 .pros-empty {
@@ -243,6 +232,11 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   padding: 14px;
+}
+
+.pros-grid .pros-refresh-bar {
+  grid-column: 1 / -1;
+  margin: 0;
 }
 
 .pros-card {

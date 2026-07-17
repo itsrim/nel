@@ -119,7 +119,8 @@ import {
 import {
   hasReachedDailyFriendRequestLimit,
   isEventDateBeforeToday,
-  todayDateKey,
+  nextDailyFriendRequestSentState,
+  dailyFriendRequestLimitForViewer,
 } from "../lib/eventDateKey";
 import { eventHostedByViewer, eventOrganizerUserId } from "../lib/eventHost";
 import { viewerHasEventChatAccess } from "../lib/eventVisibility";
@@ -1753,15 +1754,37 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         friendRequestSentProfilIds,
         friendRequestRejectedProfilIds,
         friendRequestDailySentDateKey,
+        isAdmin,
+        nelDemoIsPremium,
+        viewerPremiumExpiresAt,
+        viewerProfileIsPro,
+        viewerProExpiresAt,
       } = get();
       if (friends.find((f) => f.profilId === id)?.mutualFriend === true) return;
       if (friendRequestRejectedProfilIds.includes(id)) return;
       if (friendRequestSentProfilIds.includes(id)) {
         return;
       }
-      if (hasReachedDailyFriendRequestLimit(friendRequestDailySentDateKey)) {
+      const entitlementState = {
+        isAdmin,
+        nelDemoIsPremium,
+        viewerPremiumExpiresAt,
+        viewerProfileIsPro,
+        viewerProExpiresAt,
+      };
+      if (
+        hasReachedDailyFriendRequestLimit(
+          friendRequestDailySentDateKey,
+          entitlementState,
+        )
+      ) {
+        const limit = dailyFriendRequestLimitForViewer(entitlementState);
         get().showToast(
-          "Vous ne pouvez envoyer qu’une demande d’ami par jour.",
+          limit == null
+            ? "Limite de demandes d’ami atteinte."
+            : limit === 1
+              ? "Vous ne pouvez envoyer qu’une demande d’ami par jour."
+              : `Vous ne pouvez envoyer que ${limit} demandes d’ami par jour.`,
         );
         return;
       }
@@ -1813,7 +1836,9 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
       set({
         friendRequestSentProfilIds: [...friendRequestSentProfilIds, id],
-        friendRequestDailySentDateKey: todayDateKey(),
+        friendRequestDailySentDateKey: nextDailyFriendRequestSentState(
+          friendRequestDailySentDateKey,
+        ),
       });
       syncViewerSettingsFromState(get());
       get().showToast("Demande d’ami envoyée.");

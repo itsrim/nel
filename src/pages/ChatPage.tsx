@@ -29,7 +29,7 @@ import {
 } from "../data/mockData";
 import { buildConversationMiniSlots } from "../lib/conversationMiniSlots";
 import { CreateGroupModal } from "../components/CreateGroupModal";
-import { hasReachedDailyFriendRequestLimit } from "../lib/eventDateKey";
+import { hasReachedDailyFriendRequestLimit, friendRequestDailyLimitTranslationKey } from "../lib/eventDateKey";
 import { hasViewerPremiumAccess } from "../lib/viewerEntitlements";
 import { filterPublicSuggestions } from "../lib/suggestionCatalog";
 import { isSelfProfilId } from "../lib/friendGuards";
@@ -395,12 +395,32 @@ export function ChatPage() {
     moderationHiddenProfilIds,
     showToast,
     isAdmin: adminModeActive,
+    nelDemoIsPremium,
+    viewerPremiumExpiresAt,
+    viewerProfileIsPro,
+    viewerProExpiresAt,
     getEventByConversationId,
     chatLoading,
     userBadgeCounts,
     markUserBadgeSeen,
   } = useMessagingStore();
   const viewerPremiumAccess = useMessagingStore(hasViewerPremiumAccess);
+  const entitlementState = useMemo(
+    () => ({
+      isAdmin: adminModeActive,
+      nelDemoIsPremium,
+      viewerPremiumExpiresAt,
+      viewerProfileIsPro,
+      viewerProExpiresAt,
+    }),
+    [
+      adminModeActive,
+      nelDemoIsPremium,
+      viewerPremiumExpiresAt,
+      viewerProfileIsPro,
+      viewerProExpiresAt,
+    ],
+  );
   const [sub, setSub] = useState<SubTab>("messages");
   const [userSearchOpen, setUserSearchOpen] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState("");
@@ -457,9 +477,18 @@ export function ChatPage() {
   );
 
   const dailyFriendRequestLimitReached = useMemo(
-    () => hasReachedDailyFriendRequestLimit(friendRequestDailySentDateKey),
-    [friendRequestDailySentDateKey],
+    () =>
+      hasReachedDailyFriendRequestLimit(
+        friendRequestDailySentDateKey,
+        entitlementState,
+      ),
+    [friendRequestDailySentDateKey, entitlementState],
   );
+
+  const dailyFriendRequestLimitLabel = useMemo(() => {
+    const key = friendRequestDailyLimitTranslationKey(entitlementState);
+    return key ? t(key) : t("friendRequestDailyLimit");
+  }, [entitlementState, t]);
 
   const isFriendRequestBlocked = useCallback(
     (profilId: string) =>
@@ -860,7 +889,7 @@ export function ChatPage() {
                               : hasSentFriendRequest(v.id)
                                 ? t("requestSent")
                                 : dailyFriendRequestLimitReached
-                                  ? t("friendRequestDailyLimit")
+                                  ? dailyFriendRequestLimitLabel
                                   : t("sendFriendRequest")
                         }
                       >
@@ -918,6 +947,7 @@ export function ChatPage() {
                     hasSentFriendRequest={hasSentFriendRequest}
                     hasRejectedFriendRequest={hasRejectedFriendRequest}
                     dailyFriendRequestLimitReached={dailyFriendRequestLimitReached}
+                    dailyFriendRequestLimitLabel={dailyFriendRequestLimitLabel}
                     isFriendRequestBlocked={isFriendRequestBlocked}
                     onFriendRequest={handleFriendRequest}
                   />

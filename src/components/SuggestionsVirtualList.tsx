@@ -21,6 +21,7 @@ type SuggestionsVirtualListProps = {
   hasSentFriendRequest: (id: string) => boolean;
   hasRejectedFriendRequest: (id: string) => boolean;
   dailyFriendRequestLimitReached: boolean;
+  dailyFriendRequestLimitLabel: string;
   isFriendRequestBlocked: (id: string) => boolean;
   onFriendRequest: (e: React.MouseEvent, id: string) => void;
 };
@@ -32,6 +33,7 @@ function SuggestionPhotoCard({
   hasSentFriendRequest,
   hasRejectedFriendRequest,
   dailyFriendRequestLimitReached,
+  dailyFriendRequestLimitLabel,
   isFriendRequestBlocked,
   onFriendRequest,
 }: {
@@ -41,6 +43,7 @@ function SuggestionPhotoCard({
   hasSentFriendRequest: (id: string) => boolean;
   hasRejectedFriendRequest: (id: string) => boolean;
   dailyFriendRequestLimitReached: boolean;
+  dailyFriendRequestLimitLabel: string;
   isFriendRequestBlocked: (id: string) => boolean;
   onFriendRequest: (e: React.MouseEvent, id: string) => void;
 }) {
@@ -82,7 +85,7 @@ function SuggestionPhotoCard({
               : sent
                 ? t("requestSent")
                 : dailyFriendRequestLimitReached
-                  ? t("friendRequestDailyLimit")
+                  ? dailyFriendRequestLimitLabel
                   : t("sendFriendRequest")
         }
       >
@@ -109,6 +112,7 @@ export function SuggestionsVirtualList({
   hasSentFriendRequest,
   hasRejectedFriendRequest,
   dailyFriendRequestLimitReached,
+  dailyFriendRequestLimitLabel,
   isFriendRequestBlocked,
   onFriendRequest,
 }: SuggestionsVirtualListProps) {
@@ -169,6 +173,7 @@ export function SuggestionsVirtualList({
                 hasSentFriendRequest={hasSentFriendRequest}
                 hasRejectedFriendRequest={hasRejectedFriendRequest}
                 dailyFriendRequestLimitReached={dailyFriendRequestLimitReached}
+                dailyFriendRequestLimitLabel={dailyFriendRequestLimitLabel}
                 isFriendRequestBlocked={isFriendRequestBlocked}
                 onFriendRequest={onFriendRequest}
               />

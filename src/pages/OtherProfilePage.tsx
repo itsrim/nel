@@ -25,10 +25,9 @@ import { ProfileKarmaBadge } from '../components/ProfileKarmaBadge';
 import { HScrollRail } from '../components/HScrollRail';
 import { KARMA_DEFAULT } from '../lib/karma';
 import { syncProfessionalVerifiedFromProfile } from '../lib/proVerification';
-import { hasReachedDailyFriendRequestLimit } from '../lib/eventDateKey';
+import { hasReachedDailyFriendRequestLimit, friendRequestDailyLimitTranslationKey, isEventDateBeforeToday } from '../lib/eventDateKey';
 import { hasViewerPremiumAccess } from '../lib/viewerEntitlements';
 import { useTranslation } from '../i18n/useTranslation';
-import { isEventDateBeforeToday } from '../lib/eventDateKey';
 import { formatBadgeCount } from '../data/mockData';
 import type { Event } from '../data/mockData';
 import './ProfilePage.css';
@@ -73,6 +72,10 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
     friendRequestRejectedProfilIds,
     friendRequestDailySentDateKey,
     isAdmin,
+    nelDemoIsPremium,
+    viewerPremiumExpiresAt,
+    viewerProfileIsPro,
+    viewerProExpiresAt,
     events,
     conversations,
     toggleEventFavorite,
@@ -101,6 +104,22 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
   });
 
   const showInsightTabs = useMessagingStore(hasViewerPremiumAccess);
+  const entitlementState = useMemo(
+    () => ({
+      isAdmin,
+      nelDemoIsPremium,
+      viewerPremiumExpiresAt,
+      viewerProfileIsPro,
+      viewerProExpiresAt,
+    }),
+    [
+      isAdmin,
+      nelDemoIsPremium,
+      viewerPremiumExpiresAt,
+      viewerProfileIsPro,
+      viewerProExpiresAt,
+    ],
+  );
 
   // Fiche enrichie (amis / profils) + libellé public toujours issu de viewer_settings
   // via l’annuaire suggestions (registered members).
@@ -121,7 +140,10 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
   const requestRejected = friendRequestRejectedProfilIds.includes(id);
   const dailyFriendRequestLimitReached = hasReachedDailyFriendRequestLimit(
     friendRequestDailySentDateKey,
+    entitlementState,
   );
+  const dailyFriendRequestLimitKey =
+    friendRequestDailyLimitTranslationKey(entitlementState);
 
   const p = profile as unknown as Record<string, unknown>;
   const displayName =
@@ -722,14 +744,14 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
               <UserPlus size={20} color="#8E8E93" />
               <span>Demande envoyée</span>
             </button>
-          ) : dailyFriendRequestLimitReached ? (
+          ) : dailyFriendRequestLimitReached && dailyFriendRequestLimitKey ? (
             <button
               type="button"
               className="op-btn-friend-state op-btn-friend-state--daily-limit"
               disabled
             >
               <UserPlus size={20} color="#8E8E93" />
-              <span>{t('friendRequestDailyLimit')}</span>
+              <span>{t(dailyFriendRequestLimitKey)}</span>
             </button>
           ) : (
             <button type="button" className="op-btn-friend-request" onClick={() => sendFriendRequest(id)}>

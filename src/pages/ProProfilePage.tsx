@@ -5,18 +5,24 @@ import {
   Briefcase,
   Calendar,
   ChevronLeft,
+  HeartCrack,
   MessageCircle,
   ShieldCheck,
   Tags,
+  UserMinus,
+  UserPlus,
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
+import { useAuthStore } from "../store/useAuthStore";
 import { ReportModal } from "../components/ReportModal";
 import { ProProfileDetails } from "../components/ProProfileDetails";
 import { useTranslation } from "../i18n/useTranslation";
 import { proFullName } from "../data/mockProfessionals";
 import { getProfessionalById, useProsStore } from "../store/useProsStore";
 import { adminSetProfessionalVerified } from "../lib/proVerification";
+import { hasReachedDailyFriendRequestLimit, friendRequestDailyLimitTranslationKey } from "../lib/eventDateKey";
+import { isSelfProfilId } from "../lib/friendGuards";
 import "./OtherProfilePage.css";
 import "./ProProfilePage.css";
 import "../components/ProContactLinks.css";
@@ -28,9 +34,20 @@ interface ProProfilePageProps {
 export function ProProfilePage({ id }: ProProfilePageProps) {
   const { t } = useTranslation();
   const { openDetail, setActiveTab, closeDetail } = useNavigationStore();
-  const { openOrCreateDmConversation, isAdmin } = useMessagingStore();
-  const professionals = useProsStore((s) => s.professionals);
+  const user = useAuthStore((s) => s.user);
   const {
+    openOrCreateDmConversation,
+    isAdmin,
+    friends,
+    sendFriendRequest,
+    removeMutualFriend,
+    friendRequestSentProfilIds,
+    friendRequestRejectedProfilIds,
+    friendRequestDailySentDateKey,
+    nelDemoIsPremium,
+    viewerPremiumExpiresAt,
+    viewerProfileIsPro,
+    viewerProExpiresAt,
     viewerProfileDisplayName,
     viewerProfileAvatarUrl,
     viewerProfileCity,
@@ -41,7 +58,38 @@ export function ProProfilePage({ id }: ProProfilePageProps) {
     viewerProSocialUrl,
     viewerProPhone,
   } = useMessagingStore();
+  const professionals = useProsStore((s) => s.professionals);
   const [reportOpen, setReportOpen] = useState(false);
+
+  const entitlementState = useMemo(
+    () => ({
+      isAdmin,
+      nelDemoIsPremium,
+      viewerPremiumExpiresAt,
+      viewerProfileIsPro,
+      viewerProExpiresAt,
+    }),
+    [
+      isAdmin,
+      nelDemoIsPremium,
+      viewerPremiumExpiresAt,
+      viewerProfileIsPro,
+      viewerProExpiresAt,
+    ],
+  );
+
+  const isOwnProfile = isSelfProfilId(id, user?.id);
+  const isMutualFriend = friends.some(
+    (f) => f.profilId === id && f.mutualFriend === true,
+  );
+  const requestSent = friendRequestSentProfilIds.includes(id);
+  const requestRejected = friendRequestRejectedProfilIds.includes(id);
+  const dailyFriendRequestLimitReached = hasReachedDailyFriendRequestLimit(
+    friendRequestDailySentDateKey,
+    entitlementState,
+  );
+  const dailyFriendRequestLimitKey =
+    friendRequestDailyLimitTranslationKey(entitlementState);
 
   const pro = useMemo(
     () => getProfessionalById(id),
@@ -167,14 +215,71 @@ export function ProProfilePage({ id }: ProProfilePageProps) {
           ) : null}
         </div>
 
-        <button
-          type="button"
-          className="pro-profile-contact-btn"
-          onClick={handleContact}
-        >
-          <MessageCircle size={20} aria-hidden />
-          {t("proContactButton")}
-        </button>
+        {isMutualFriend ? (
+          <button
+            type="button"
+            className="pro-profile-contact-btn"
+            onClick={handleContact}
+          >
+            <MessageCircle size={20} aria-hidden />
+            {t("proContactButton")}
+          </button>
+        ) : null}
+
+        {!isOwnProfile ? (
+          <div className="op-actions">
+            {isMutualFriend ? (
+              <button
+                type="button"
+                className="op-btn-remove"
+                onClick={() => {
+                  if (window.confirm("Retirer cette personne de vos amis ?")) {
+                    removeMutualFriend(id);
+                  }
+                }}
+              >
+                <UserMinus size={20} />
+                <span>Retirer des amis</span>
+              </button>
+            ) : requestRejected ? (
+              <button
+                type="button"
+                className="op-btn-friend-state op-btn-friend-state--rejected"
+                disabled
+              >
+                <HeartCrack size={20} color="#FF9F0A" />
+                <span>Demande d’ami refusée</span>
+              </button>
+            ) : requestSent ? (
+              <button
+                type="button"
+                className="op-btn-friend-state op-btn-friend-state--sent"
+                disabled
+              >
+                <UserPlus size={20} color="#8E8E93" />
+                <span>Demande envoyée</span>
+              </button>
+            ) : dailyFriendRequestLimitReached && dailyFriendRequestLimitKey ? (
+              <button
+                type="button"
+                className="op-btn-friend-state op-btn-friend-state--daily-limit"
+                disabled
+              >
+                <UserPlus size={20} color="#8E8E93" />
+                <span>{t(dailyFriendRequestLimitKey)}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="op-btn-friend-request"
+                onClick={() => sendFriendRequest(id)}
+              >
+                <UserPlus size={20} />
+                <span>Demande d’ami</span>
+              </button>
+            )}
+          </div>
+        ) : null}
 
         {isAdmin ? (
           <div className="pro-verify-admin">

@@ -29,13 +29,14 @@ import { withUrlUploadVersion } from "../lib/versionRemoteAssetUrl";
 import { listAllAppProfiles } from "../lib/eventInvites";
 import { hasViewerProAccess } from "../lib/viewerEntitlements";
 import {
-  KARMA_ORGANIZE_COST,
-  KARMA_ORGANIZE_SUCCESS_REWARD,
-} from "../lib/karma";
-import {
   EVENT_PARTICIPANT_MIN_MAX,
   getEventParticipantMaxCap,
 } from "../lib/eventParticipantLimits";
+import { hasEventScheduleGapConflict } from "../lib/eventScheduleGap";
+import {
+  KARMA_ORGANIZE_COST,
+  KARMA_ORGANIZE_SUCCESS_REWARD,
+} from "../lib/karma";
 import {
   DEFAULT_EVENT_COVER_THEMES,
   findDefaultCoverThemeByImageUrl,
@@ -133,6 +134,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     viewerProExpiresAt,
     getEventById,
     friends,
+    events,
   } = useMessagingStore();
   const viewerProAccess = useMessagingStore(hasViewerProAccess);
   const entitlementState = useMemo(
@@ -410,6 +412,20 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
       return;
     }
 
+    if (
+      !isAdmin &&
+      hasEventScheduleGapConflict({
+        candidateStart: parsed,
+        events,
+        viewerId: user?.id,
+        viewerDisplayName: user?.displayName,
+        excludeEventId: isEditMode ? formEventId : null,
+      })
+    ) {
+      reportSubmitError(t("createEventErrorScheduleGap"));
+      return;
+    }
+
     const priceLabel = formatEventPriceLabel(isFreeEvent, priceAmount);
     if (!priceLabel) {
       reportSubmitError(t("createEventErrorPrice"));
@@ -529,6 +545,8 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     inviteProfilToEvent,
     reportSubmitError,
     getEventById,
+    events,
+    user,
   ]);
 
   const handleCancelSortie = useCallback(() => {

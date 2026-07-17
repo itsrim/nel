@@ -405,6 +405,8 @@ export const translations = {
     createEventErrorLocation: "Indiquez un lieu ou un point de rendez-vous.",
     createEventErrorPrice: "Indiquez un prix valide (nombre entier supérieur à 0) ou choisissez Gratuit.",
     createEventErrorNotFound: "Cette sortie est introuvable.",
+    createEventErrorScheduleGap:
+      "Laissez au moins 1 heure d’écart avec vos autres sorties.",
     createEventErrorGeneric:
       "Impossible de créer la sortie. Vérifiez les champs et réessayez.",
     createEventKarmaEnrollmentHint:
@@ -746,6 +748,8 @@ export const translations = {
     sentRequest: "Envoyée",
     addFriendButton: "Ajouter",
     friendRequestDailyLimit: "Une demande d'ami par jour",
+    friendRequestDailyLimitPremium: "5 demandes d'ami par jour",
+    friendRequestDailyLimitPro: "10 demandes d'ami par jour",
 
     // ChatRoomPage - Missing strings
     membersCount: "membres",
@@ -1217,6 +1221,8 @@ export const translations = {
     createEventErrorLocation: "Enter a location or meeting point.",
     createEventErrorPrice: "Enter a valid price (whole number greater than 0) or choose Free.",
     createEventErrorNotFound: "This event could not be found.",
+    createEventErrorScheduleGap:
+      "Leave at least a 1-hour gap with your other events.",
     createEventErrorGeneric:
       "Could not create the event. Check the fields and try again.",
     createEventKarmaEnrollmentHint:
@@ -1552,6 +1558,8 @@ export const translations = {
     sentRequest: "Sent",
     addFriendButton: "Add",
     friendRequestDailyLimit: "One friend request per day",
+    friendRequestDailyLimitPremium: "5 friend requests per day",
+    friendRequestDailyLimitPro: "10 friend requests per day",
 
     // ChatRoomPage - Missing strings
     membersCount: "members",

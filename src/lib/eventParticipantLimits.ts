@@ -10,8 +10,8 @@ export const EVENT_PARTICIPANT_MIN_MAX = 5;
 export const EVENT_PARTICIPANT_CAP_NORMAL = 9;
 export const EVENT_PARTICIPANT_CAP_PREMIUM = 20;
 export const EVENT_PARTICIPANT_CAP_PRO = 50;
-/** Admin : pas de plafond pratique (cap technique élevé). */
-export const EVENT_PARTICIPANT_CAP_ADMIN = 150;
+/** Admin : pas de plafond pratique. */
+export const EVENT_PARTICIPANT_CAP_ADMIN = 9999;
 
 export function getEventParticipantMaxCap(state: ViewerEntitlementState): number {
   if (state.isAdmin) return EVENT_PARTICIPANT_CAP_ADMIN;

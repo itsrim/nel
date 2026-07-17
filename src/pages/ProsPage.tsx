@@ -191,19 +191,17 @@ export function ProsPage() {
         ) : filtered.length === 0 ? (
           <p className="pros-empty">{t("proNoResults")}</p>
         ) : viewMode === "list" ? (
-          <>
+          <div className="pros-grid">
             {prosLoading ? (
               <div className="pros-refresh-bar" role="status" aria-live="polite">
                 <Loader2 size={16} className="pros-spinner" aria-hidden />
                 <span>{t("loading")}</span>
               </div>
             ) : null}
-            <div className="pros-grid">
-              {filtered.map((pro) => (
-                <ProListCard key={pro.id} pro={pro} onOpen={openProProfile} />
-              ))}
-            </div>
-          </>
+            {filtered.map((pro) => (
+              <ProListCard key={pro.id} pro={pro} onOpen={openProProfile} />
+            ))}
+          </div>
         ) : (
           <>
             {prosLoading ? (

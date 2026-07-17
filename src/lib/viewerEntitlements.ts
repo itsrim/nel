@@ -8,10 +8,21 @@ export type ViewerEntitlementState = {
   viewerProExpiresAt: number | null;
 };
 
-/** Accès aux fonctionnalités Premium (mode admin et abonnement Pro inclus). */
-export function hasViewerPremiumAccess(state: ViewerEntitlementState): boolean {
-  if (state.isAdmin) return true;
-  if (hasViewerProAccess(state)) return true;
+/** Abonnement Pro actif (hors mode admin). */
+export function isViewerProSubscriptionActive(
+  state: ViewerEntitlementState,
+): boolean {
+  if (!state.viewerProfileIsPro) return false;
+  if (state.viewerProExpiresAt != null) {
+    return isSubscriptionStillValid(state.viewerProExpiresAt);
+  }
+  return true;
+}
+
+/** Abonnement Premium actif (hors Pro / admin). */
+export function isViewerPremiumSubscriptionActive(
+  state: ViewerEntitlementState,
+): boolean {
   if (!state.nelDemoIsPremium) return false;
   if (state.viewerPremiumExpiresAt != null) {
     return isSubscriptionStillValid(state.viewerPremiumExpiresAt);
@@ -19,12 +30,15 @@ export function hasViewerPremiumAccess(state: ViewerEntitlementState): boolean {
   return true;
 }
 
+/** Accès aux fonctionnalités Premium (mode admin et abonnement Pro inclus). */
+export function hasViewerPremiumAccess(state: ViewerEntitlementState): boolean {
+  if (state.isAdmin) return true;
+  if (hasViewerProAccess(state)) return true;
+  return isViewerPremiumSubscriptionActive(state);
+}
+
 /** Accès aux fonctionnalités Pro (mode admin inclus). */
 export function hasViewerProAccess(state: ViewerEntitlementState): boolean {
   if (state.isAdmin) return true;
-  if (!state.viewerProfileIsPro) return false;
-  if (state.viewerProExpiresAt != null) {
-    return isSubscriptionStillValid(state.viewerProExpiresAt);
-  }
-  return true;
+  return isViewerProSubscriptionActive(state);
 }
