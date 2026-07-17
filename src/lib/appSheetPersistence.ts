@@ -69,6 +69,11 @@ import {
   parseNotificationInbox,
 } from "./notificationInbox";
 import {
+  DEFAULT_VIEWER_GENDER,
+  normalizeViewerGender,
+  type ViewerGender,
+} from "./viewerGender";
+import {
   filterOutModerationDeletedConversations,
   isModerationDeletedConversation,
 } from "./moderationTombstones";
@@ -787,6 +792,7 @@ export function viewerSettingsToRow(
     age?: string;
     bio?: string;
     language?: string;
+    gender?: ViewerGender;
     isPro: boolean;
     isPremium?: boolean;
     premiumExpiresAt?: number | null;
@@ -858,6 +864,7 @@ export function viewerSettingsToRow(
     ...(data.lastLoginIp != null ? { lastLoginIp: str(data.lastLoginIp) } : {}),
     ...(data.lastLoginAt != null ? { lastLoginAt: str(data.lastLoginAt) } : {}),
     deleted: "false",
+    gender: normalizeViewerGender(data.gender),
   };
 }
 
@@ -1105,6 +1112,7 @@ export interface LoadedAppSheetState {
     age?: string;
     bio?: string;
     language?: string;
+    gender?: ViewerGender;
     isPro: boolean;
     isPremium?: boolean;
     premiumExpiresAt?: number | null;
@@ -1155,6 +1163,7 @@ function parseViewerSettingsFromRow(
     age: str(viewerRow.age) || undefined,
     bio: str(viewerRow.bio) || undefined,
     language: str(viewerRow.language) || undefined,
+    gender: normalizeViewerGender(viewerRow.gender),
     isPro: boolFromSheet(viewerRow.isPro),
     isPremium: boolFromSheet(viewerRow.isPremium),
     premiumExpiresAt: viewerRow.premiumExpiresAt
@@ -1710,6 +1719,7 @@ export function mergeLoadedAppState(
   viewerProfileCity?: string;
   viewerProfileAge?: string;
   viewerProfileBio?: string;
+  viewerGender?: ViewerGender;
   viewerPreferredLanguage?: "fr" | "en";
   viewerProWebsiteUrl?: string;
   viewerProSocialUrl?: string;
@@ -1788,6 +1798,7 @@ export function mergeLoadedAppState(
     if (vs.displayName) patch.viewerProfileDisplayName = vs.displayName;
     if (vs.age != null) patch.viewerProfileAge = vs.age;
     if (vs.bio != null) patch.viewerProfileBio = vs.bio;
+    if (vs.gender != null) patch.viewerGender = normalizeViewerGender(vs.gender);
     if (vs.language === "fr" || vs.language === "en") {
       patch.viewerPreferredLanguage = vs.language;
     }
@@ -1996,6 +2007,10 @@ export function syncViewerSettingsToSheets(data: {
   emailVerified?: boolean;
   avatarUrl: string;
   displayName: string;
+  age?: string;
+  bio?: string;
+  language?: string;
+  gender?: ViewerGender;
   isPro: boolean;
   isPremium?: boolean;
   premiumExpiresAt?: number | null;
@@ -2144,6 +2159,7 @@ export function syncAllViewerStateFromStore(state: {
   viewerProfileAge?: string;
   viewerProfileBio?: string;
   language?: string;
+  viewerGender?: ViewerGender;
   viewerProfileIsPro: boolean;
   nelDemoIsPremium?: boolean;
   viewerPremiumExpiresAt?: number | null;
@@ -2155,9 +2171,6 @@ export function syncAllViewerStateFromStore(state: {
   userBadgeCountsJson?: string;
   userBadgeLastSeenJson?: string;
   viewerProfileCity?: string;
-  viewerProfileAge?: string;
-  viewerProfileBio?: string;
-  viewerPreferredLanguage?: "fr" | "en";
   viewerProWebsiteUrl?: string;
   viewerProSocialUrl?: string;
   viewerProPhone?: string;
@@ -2181,6 +2194,7 @@ export function syncAllViewerStateFromStore(state: {
     age: state.viewerProfileAge,
     bio: state.viewerProfileBio,
     language: state.language,
+    gender: normalizeViewerGender(state.viewerGender),
     isPro: state.viewerProfileIsPro,
     isPremium: state.nelDemoIsPremium,
     premiumExpiresAt: state.viewerPremiumExpiresAt,
@@ -2217,7 +2231,12 @@ export async function persistPendingSignupToSheets(
   isPro: boolean,
   auth: ViewerSettingsAuthFields & { emailVerified: boolean; passwordHash: string },
   signupIp?: string,
-  profileExtras?: { age?: string; bio?: string; language?: string },
+  profileExtras?: {
+    age?: string;
+    bio?: string;
+    language?: string;
+    gender?: ViewerGender;
+  },
 ): Promise<void> {
   const viewerRow = viewerSettingsToRow(userId, {
     email,
@@ -2232,6 +2251,7 @@ export async function persistPendingSignupToSheets(
     age: profileExtras?.age ?? "",
     bio: profileExtras?.bio ?? "",
     language: profileExtras?.language ?? "fr",
+    gender: normalizeViewerGender(profileExtras?.gender),
     isPro,
     signupIp,
     lastLoginAt: String(Date.now()),
@@ -2262,7 +2282,12 @@ export function syncPendingSignupToSheets(
   isPro: boolean,
   auth: ViewerSettingsAuthFields & { emailVerified: boolean; passwordHash: string },
   signupIp?: string,
-  profileExtras?: { age?: string; bio?: string; language?: string },
+  profileExtras?: {
+    age?: string;
+    bio?: string;
+    language?: string;
+    gender?: ViewerGender;
+  },
 ): void {
   syncLater(() =>
     persistPendingSignupToSheets(
@@ -2379,6 +2404,7 @@ export async function persistEmailVerifiedToSheets(
   socialUrl?: string,
   phone?: string,
   signupIp?: string,
+  gender?: ViewerGender,
 ): Promise<void> {
   await upsertSheetRow(
     "viewer_settings",
@@ -2398,6 +2424,7 @@ export async function persistEmailVerifiedToSheets(
       phone,
       signupIp,
       lastLoginIp: signupIp,
+      gender: normalizeViewerGender(gender),
       friendRequestSentProfilIds: [],
       friendRequestRejectedProfilIds: [],
       favoriteConversationIds: [],
@@ -2418,6 +2445,7 @@ export function syncEmailVerifiedToSheets(
   socialUrl?: string,
   phone?: string,
   signupIp?: string,
+  gender?: ViewerGender,
 ): void {
   syncLater(() =>
     persistEmailVerifiedToSheets(
@@ -2430,6 +2458,7 @@ export function syncEmailVerifiedToSheets(
       socialUrl,
       phone,
       signupIp,
+      gender,
     ),
   );
 }

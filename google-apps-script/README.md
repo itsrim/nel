@@ -47,7 +47,7 @@ userId,id,pseudo,age,imageUrl,aspectRatio,deleted
 
 ### `viewer_settings` (profil connecté + auth)
 ```
-userId,id,email,emailVerified,passwordHash,verificationToken,verificationExpiresAt,passwordResetToken,passwordResetExpiresAt,avatarUrl,displayName,isPro,isPremium,premiumExpiresAt,proExpiresAt,premiumPaymentValidated,premiumMonths,premiumLastPaymentAt,premiumLastTransactionId,proPaymentValidated,proMonths,proLastPaymentAt,proLastTransactionId,city,websiteUrl,socialUrl,phone,proAddress,proLat,proLng,karma,badgesJson,friendRequestSentJson,friendRequestRejectedJson,friendRequestDailySentDateKey,profileBadgeSuggestionsJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,signupIp,lastLoginIp,deleted
+userId,id,email,emailVerified,passwordHash,verificationToken,verificationExpiresAt,passwordResetToken,passwordResetExpiresAt,avatarUrl,displayName,isPro,isPremium,premiumExpiresAt,proExpiresAt,premiumPaymentValidated,premiumMonths,premiumLastPaymentAt,premiumLastTransactionId,proPaymentValidated,proMonths,proLastPaymentAt,proLastTransactionId,city,websiteUrl,socialUrl,phone,proAddress,proLat,proLng,karma,badgesJson,friendRequestSentJson,friendRequestRejectedJson,friendRequestDailySentDateKey,profileBadgeSuggestionsJson,favoriteConversationIdsJson,moderationHiddenEventIdsJson,moderationHiddenProfilIdsJson,signupIp,lastLoginIp,deleted,gender
 ```
 
 > Colonnes auth (`passwordHash`, tokens) : écrites par le front à l'inscription / vérif email / reset mot de passe.

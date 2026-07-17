@@ -22,6 +22,7 @@ import {
   shouldSkipEmailVerificationFromSheets,
   type SheetAuthUser,
 } from "../lib/sheetAuth";
+import { normalizeViewerGender } from "../lib/viewerGender";
 import { shutdownGlobalChatSync } from "../lib/chatSync";
 import { useMessagingStore } from "./useMessagingStore";
 import { useLanguageStore } from "./useLanguageStore";
@@ -120,6 +121,7 @@ interface AuthState {
     age?: string,
     bio?: string,
     isPro?: boolean,
+    gender?: string,
   ) => Promise<void>;
   verifyEmail: (token: string) => Promise<void>;
   resendVerification: (email?: string) => Promise<void>;
@@ -140,13 +142,14 @@ function applySignupProEntitlement(isPro: boolean): void {
 }
 
 function applySheetProfileToStores(
-  sheetUser: Pick<SheetAuthUser, "age" | "bio" | "language" | "avatarUrl">,
+  sheetUser: Pick<SheetAuthUser, "age" | "bio" | "language" | "avatarUrl" | "gender">,
 ): void {
   clearNelProfileImageKitBrowserKey();
   const msg = useMessagingStore.getState();
   msg.hydrateViewerProfileFields({
     age: sheetUser.age,
     bio: sheetUser.bio,
+    gender: sheetUser.gender,
   });
   const rawAvatar = sheetUser.avatarUrl?.trim();
   if (rawAvatar) {
@@ -322,6 +325,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           bio: row?.bio?.trim() || "",
           language: row?.language?.trim() || "",
           avatarUrl: row?.avatarUrl?.trim() || "",
+          gender: row?.gender?.trim() || "",
         };
       } else {
         try {
@@ -340,6 +344,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 age: row.age?.trim() || "",
                 bio: row.bio?.trim() || "",
                 language: row.language?.trim() || "",
+                avatarUrl: row.avatarUrl?.trim() || "",
+                gender: row.gender?.trim() || "",
               };
             } else {
               throw verifyErr;
@@ -377,6 +383,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
       const proContact = readViewerProContact();
+      const verifiedGender = normalizeViewerGender(
+        (extras as { gender?: string }).gender ??
+          sheetUser.gender ??
+          useMessagingStore.getState().viewerGender,
+      );
+      useMessagingStore.getState().setViewerGender(verifiedGender);
       await persistEmailVerifiedToSheets(
         loggedInUser.id,
         loggedInUser.email,
@@ -387,6 +399,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         proContact.socialUrl,
         proContact.phone,
         ipCheck.currentIp || undefined,
+        verifiedGender,
       );
       if (isChatApiConfigured()) {
         await trySetSessionToken(loggedInUser);
@@ -615,6 +628,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     age?: string,
     bio?: string,
     isPro?: boolean,
+    gender?: string,
   ) => {
     set({ isLoading: true, error: null });
 
@@ -640,9 +654,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           set({ isLoading: false, error: "Cet email est déjà utilisé" });
           return;
         }
+        const normalizedGender =
+          gender?.trim().toLowerCase() === "femme" ? "femme" : "homme";
         sessionStorage.setItem(
           "nel_signup_extras",
-          JSON.stringify({ age: age ?? "", bio: bio ?? "", isPro: !!isPro }),
+          JSON.stringify({
+            age: age ?? "",
+            bio: bio ?? "",
+            isPro: !!isPro,
+            gender: normalizedGender,
+          }),
         );
         const skipVerify = await shouldSkipEmailVerificationFromSheets();
         const localAuth = buildLocalSignupAuth({ skipEmailVerification: skipVerify });
@@ -665,6 +686,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               age: age ?? "",
               bio: bio ?? "",
               language: useLanguageStore.getState().language,
+              gender: normalizedGender,
             },
           );
         } catch (sheetErr) {
@@ -709,6 +731,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({ isLoading: false, error: ipCheck.message });
             return;
           }
+          setAuthToken(result.token);
           if (isChatApiConfigured()) {
             await trySetSessionToken(loggedInUser);
           }
@@ -719,6 +742,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             age: age ?? "",
             bio: bio ?? "",
             language: useLanguageStore.getState().language,
+          });
+          useMessagingStore.getState().setViewerGender(normalizedGender);
+          useMessagingStore.getState().hydrateViewerProfileFields({
+            age: age ?? "",
+            bio: bio ?? "",
+            gender: normalizedGender,
           });
           applySignupProEntitlement(!!loggedInUser.isPro);
           const proContact = readViewerProContact();
@@ -732,6 +761,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             proContact.socialUrl,
             proContact.phone,
             ipCheck.currentIp || undefined,
+            normalizedGender,
           );
           sessionStorage.removeItem("nel_signup_extras");
           set({
@@ -796,6 +826,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const normalizedGender =
+        gender?.trim().toLowerCase() === "femme" ? "femme" : "homme";
       offlineSignupUsers[email.trim().toLowerCase()] = {
         email,
         password,
@@ -830,6 +862,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       localStorage.setItem(LS_USER, JSON.stringify(newUser));
       useMessagingStore.getState().resetData();
+      useMessagingStore.getState().setViewerGender(normalizedGender);
+      useMessagingStore.getState().hydrateViewerProfileFields({
+        age: age || "",
+        bio: bio || "",
+        gender: normalizedGender,
+      });
       syncEmailVerifiedToSheets(
         newUser.id,
         newUser.email,
@@ -840,6 +878,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         undefined,
         undefined,
         ipCheck.currentIp || undefined,
+        normalizedGender,
       );
       applySignupProEntitlement(!!newUser.isPro);
       set({ user: newUser, isLoading: false });

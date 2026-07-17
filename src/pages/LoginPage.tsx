@@ -27,6 +27,10 @@ import {
   recordLoginFailure,
   resetLoginAttempts,
 } from "../lib/loginAttemptGuard";
+import {
+  DEFAULT_VIEWER_GENDER,
+  type ViewerGender,
+} from "../lib/viewerGender";
 import "./LoginPage.css";
 
 function readVerifyTokenFromUrl(): string | null {
@@ -81,6 +85,7 @@ export function LoginPage() {
   const [age, setAge] = useState("");
   const [bio, setBio] = useState("");
   const [isPro, setIsPro] = useState(false);
+  const [gender, setGender] = useState<ViewerGender>(DEFAULT_VIEWER_GENDER);
   const [localError, setLocalError] = useState("");
   const [verifyingLink, setVerifyingLink] = useState(false);
   const [captcha, setCaptcha] = useState<MathCaptcha>(() => createMathCaptcha());
@@ -296,7 +301,7 @@ export function LoginPage() {
 
     try {
       if (view === "signup") {
-        await signup(email, password, displayName, age, bio, isPro);
+        await signup(email, password, displayName, age, bio, isPro, gender);
       } else {
         await login(email, password);
         const authState = useAuthStore.getState();
@@ -594,6 +599,36 @@ export function LoginPage() {
                     disabled={isLoading || isSigninLocked}
                     rows={3}
                   />
+                </div>
+
+                <div className="login-field">
+                  <span className="login-label" id="login-gender-label">
+                    {t("loginGenderLabel")}
+                  </span>
+                  <div
+                    className="login-gender-toggle"
+                    role="group"
+                    aria-labelledby="login-gender-label"
+                  >
+                    <button
+                      type="button"
+                      className={`login-gender-toggle-btn${gender === "homme" ? " login-gender-toggle-btn--active" : ""}`}
+                      onClick={() => setGender("homme")}
+                      aria-pressed={gender === "homme"}
+                      disabled={isLoading || isSigninLocked}
+                    >
+                      {t("loginGenderMale")}
+                    </button>
+                    <button
+                      type="button"
+                      className={`login-gender-toggle-btn${gender === "femme" ? " login-gender-toggle-btn--active" : ""}`}
+                      onClick={() => setGender("femme")}
+                      aria-pressed={gender === "femme"}
+                      disabled={isLoading || isSigninLocked}
+                    >
+                      {t("loginGenderFemale")}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="login-field login-field--checkbox">

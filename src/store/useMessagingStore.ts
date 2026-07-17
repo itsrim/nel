@@ -145,6 +145,11 @@ import {
   shouldAwardOrganizerKarma,
   shouldFinalizeOrganizerKarma,
 } from "../lib/karma";
+import {
+  DEFAULT_VIEWER_GENDER,
+  normalizeViewerGender,
+  type ViewerGender,
+} from "../lib/viewerGender";
 import { DEFAULT_AVATAR_URL, resolveAvatarUrl } from "../lib/avatarUrl";
 import {
   markForceReloadAckRevision,
@@ -314,6 +319,7 @@ const LS_VIEWER_AVATAR = "nel_viewer_profile_avatar_url";
 const LS_VIEWER_NAME = "nel_viewer_profile_display_name";
 const LS_VIEWER_AGE = "nel_viewer_profile_age";
 const LS_VIEWER_BIO = "nel_viewer_profile_bio";
+const LS_VIEWER_GENDER = "nel_viewer_gender";
 const LS_VIEWER_IS_PRO = "nel_viewer_profile_is_pro";
 const LS_VIEWER_CITY = "nel_viewer_profile_city";
 const LS_VIEWER_PRO_WEBSITE = "nel_viewer_pro_website_url";
@@ -552,6 +558,7 @@ const VIEWER_SESSION_LS_KEYS = [
   LS_VIEWER_NAME,
   LS_VIEWER_AGE,
   LS_VIEWER_BIO,
+  LS_VIEWER_GENDER,
   LS_VIEWER_IS_PRO,
   LS_VIEWER_CITY,
   LS_VIEWER_PRO_WEBSITE,
@@ -612,6 +619,7 @@ function syncViewerSettingsFromState(state: MessagingState) {
     viewerProfileAge: state.viewerProfileAge,
     viewerProfileBio: state.viewerProfileBio,
     language: useLanguageStore.getState().language,
+    viewerGender: state.viewerGender,
     viewerProWebsiteUrl: state.viewerProWebsiteUrl,
     viewerProSocialUrl: state.viewerProSocialUrl,
     viewerProPhone: state.viewerProPhone,
@@ -657,6 +665,9 @@ interface MessagingState {
   /** Âge (inscription — non modifiable par l'utilisateur). */
   viewerProfileAge: string;
   setViewerProfileAge: (age: string) => void;
+  /** Genre (inscription — non affiché / non modifiable). */
+  viewerGender: ViewerGender;
+  setViewerGender: (gender: ViewerGender) => void;
   /** Bio affichée sur le profil. */
   viewerProfileBio: string;
   setViewerProfileBio: (bio: string) => void;
@@ -683,7 +694,11 @@ interface MessagingState {
   /** Admin : supprime un utilisateur (profil, suggestions, visites, fils DM). */
   adminDeleteProfile: (profilId: string) => void;
   persistViewerSettingsToSheets: () => void;
-  hydrateViewerProfileFields: (fields: { age?: string; bio?: string }) => void;
+  hydrateViewerProfileFields: (fields: {
+    age?: string;
+    bio?: string;
+    gender?: ViewerGender | string;
+  }) => void;
   viewerProfileCity: string;
   setViewerProfileCity: (city: string) => void;
   viewerProWebsiteUrl: string;
@@ -1186,6 +1201,20 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       syncViewerSettingsFromState(get());
     },
 
+    viewerGender: normalizeViewerGender(
+      readViewerStorage(LS_VIEWER_GENDER, DEFAULT_VIEWER_GENDER),
+    ),
+    setViewerGender: (gender) => {
+      const v = normalizeViewerGender(gender);
+      try {
+        localStorage.setItem(LS_VIEWER_GENDER, v);
+      } catch {
+        /* ignore */
+      }
+      set({ viewerGender: v });
+      syncViewerSettingsFromState(get());
+    },
+
     viewerProfileBio: readViewerStorage(LS_VIEWER_BIO, ""),
     setViewerProfileBio: (bio) => {
       const v = bio.trim();
@@ -1537,7 +1566,10 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
     hydrateViewerProfileFields: (fields) => {
       const patch: Partial<
-        Pick<MessagingState, "viewerProfileAge" | "viewerProfileBio">
+        Pick<
+          MessagingState,
+          "viewerProfileAge" | "viewerProfileBio" | "viewerGender"
+        >
       > = {};
       if (fields.age !== undefined) {
         const v = fields.age.trim();
@@ -1556,6 +1588,15 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
           /* ignore */
         }
         patch.viewerProfileBio = v;
+      }
+      if (fields.gender !== undefined) {
+        const v = normalizeViewerGender(fields.gender);
+        try {
+          localStorage.setItem(LS_VIEWER_GENDER, v);
+        } catch {
+          /* ignore */
+        }
+        patch.viewerGender = v;
       }
       if (Object.keys(patch).length > 0) set(patch);
     },
@@ -3440,6 +3481,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         viewerProfileAvatarUrl: DEFAULT_AVATAR_URL,
         viewerProfileDisplayName: DEFAULT_VIEWER_NAME,
         viewerProfileAge: "",
+        viewerGender: DEFAULT_VIEWER_GENDER,
         viewerProfileBio: "",
         viewerProfileIsPro: false,
         viewerProfileCity: "",

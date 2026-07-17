@@ -114,6 +114,13 @@ export function applySheetsLoadedState(loaded: LoadedAppSheetState): void {
       /* ignore */
     }
   }
+  if ("viewerGender" in changed && changed.viewerGender != null) {
+    try {
+      localStorage.setItem("nel_viewer_gender", changed.viewerGender);
+    } catch {
+      /* ignore */
+    }
+  }
   if ("viewerProfileBio" in changed && changed.viewerProfileBio != null) {
     try {
       localStorage.setItem("nel_viewer_profile_bio", changed.viewerProfileBio);

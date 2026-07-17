@@ -20,6 +20,7 @@ export interface SheetAuthUser {
   bio: string;
   language: string;
   avatarUrl: string;
+  gender?: string;
 }
 
 const CONFIRM_EMAIL_MSG =
@@ -96,6 +97,7 @@ function rowToAuthUser(row: Record<string, string>): SheetAuthUser {
     bio: row.bio?.trim() || "",
     language: row.language?.trim() || "",
     avatarUrl: row.avatarUrl?.trim() || "",
+    gender: row.gender?.trim() || "",
   };
 }
 
