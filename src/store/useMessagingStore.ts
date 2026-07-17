@@ -131,6 +131,7 @@ import {
 import {
   KARMA_ATTENDANCE_REWARD,
   KARMA_DEFAULT,
+  KARMA_FRIEND_REQUEST_COST,
   KARMA_JOIN_COST,
   KARMA_ORGANIZE_COST,
   KARMA_ORGANIZE_SUCCESS_REWARD,
@@ -1751,9 +1752,12 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       if (isSelfProfilId(id, viewerId)) return;
       const {
         friends,
+        suggestions,
+        profileVisits,
         friendRequestSentProfilIds,
         friendRequestRejectedProfilIds,
         friendRequestDailySentDateKey,
+        viewerKarma,
         isAdmin,
         nelDemoIsPremium,
         viewerPremiumExpiresAt,
@@ -1788,6 +1792,12 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         );
         return;
       }
+      if (viewerKarma <= 0) {
+        get().showToast(
+          "Karma insuffisant : il faut plus de 0 karma pour envoyer une demande d’ami.",
+        );
+        return;
+      }
       const incoming = get().profileVisits.find(
         (v) => v.id === id && v.friendRequest,
       );
@@ -1795,6 +1805,12 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         get().acceptFriendRequest(id);
         return;
       }
+
+      const targetName =
+        friends.find((f) => f.profilId === id)?.name?.trim() ||
+        suggestions.find((s) => s.id === id)?.pseudo?.trim() ||
+        profileVisits.find((v) => v.id === id)?.name?.trim() ||
+        id;
 
       const sender = useAuthStore.getState().user;
       const senderId = sender?.id?.trim() ?? "";
@@ -1834,14 +1850,28 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         });
       }
 
-      set({
-        friendRequestSentProfilIds: [...friendRequestSentProfilIds, id],
+      applyViewerKarma(-KARMA_FRIEND_REQUEST_COST);
+
+      const spentNotif: AppNotification = {
+        id: `n_fr_sent_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        createdAt: Date.now(),
+        kind: "friend_request_sent",
+        inviteeProfilId: id,
+        inviteeName: targetName,
+        senderName: targetName,
+      };
+      set((state) => ({
+        friendRequestSentProfilIds: [...state.friendRequestSentProfilIds, id],
         friendRequestDailySentDateKey: nextDailyFriendRequestSentState(
-          friendRequestDailySentDateKey,
+          state.friendRequestDailySentDateKey,
         ),
-      });
+        appNotifications: [spentNotif, ...state.appNotifications],
+      }));
+      syncNotificationToSheets(spentNotif);
       syncViewerSettingsFromState(get());
-      get().showToast("Demande d’ami envoyée.");
+      get().showToast(
+        `Demande d’ami envoyée (−${KARMA_FRIEND_REQUEST_COST} karma).`,
+      );
     },
     acceptFriendRequest: (profilId) => {
       const id = profilId.trim();

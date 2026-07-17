@@ -1691,6 +1691,52 @@ export function ProfilePage() {
                   );
                 }
 
+                if (n.kind === "friend_request_sent") {
+                  const targetAv =
+                    friends.find((f) => f.profilId === n.inviteeProfilId)
+                      ?.imageUrl ??
+                    profileVisits.find((v) => v.id === n.inviteeProfilId)
+                      ?.avatarUrl ??
+                    suggestions.find((s) => s.id === n.inviteeProfilId)
+                      ?.imageUrl ??
+                    "";
+                  const targetName =
+                    n.inviteeName?.trim() || n.senderName?.trim() || "Quelqu'un";
+                  const notifTitle = t("notifFriendRequestSentTitle");
+                  const notifBody = t("notifFriendRequestSentBody")
+                    .replace("{name}", targetName)
+                    .replace("{cost}", String(1));
+
+                  return (
+                    <button
+                      key={n.id}
+                      type="button"
+                      className={`notification-card${n.readAt == null ? " notification-card--unread" : ""}`}
+                      onMouseDown={(ev) => ev.preventDefault()}
+                      onClick={() => {
+                        markNotificationRead(n.id);
+                        selectProfileTab("friends");
+                      }}
+                    >
+                      {targetAv ? (
+                        <img src={targetAv} alt="" className="notification-av" />
+                      ) : (
+                        <div
+                          className="notification-av notification-av--placeholder"
+                          aria-hidden
+                        >
+                          <Users size={22} color="#8E8E93" />
+                        </div>
+                      )}
+                      <div className="notification-texts">
+                        <div className="notification-title">{notifTitle}</div>
+                        <div className="notification-body">{notifBody}</div>
+                        <div className="notification-meta">{when}</div>
+                      </div>
+                    </button>
+                  );
+                }
+
                 if (
                   n.kind === "friend_request_accepted" ||
                   n.kind === "friend_request_rejected"

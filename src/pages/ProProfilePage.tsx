@@ -48,6 +48,7 @@ export function ProProfilePage({ id }: ProProfilePageProps) {
     viewerPremiumExpiresAt,
     viewerProfileIsPro,
     viewerProExpiresAt,
+    viewerKarma,
     viewerProfileDisplayName,
     viewerProfileAvatarUrl,
     viewerProfileCity,
@@ -267,6 +268,15 @@ export function ProProfilePage({ id }: ProProfilePageProps) {
               >
                 <UserPlus size={20} color="#8E8E93" />
                 <span>{t(dailyFriendRequestLimitKey)}</span>
+              </button>
+            ) : viewerKarma <= 0 ? (
+              <button
+                type="button"
+                className="op-btn-friend-state op-btn-friend-state--daily-limit"
+                disabled
+              >
+                <UserPlus size={20} color="#8E8E93" />
+                <span>{t("friendRequestKarmaRequired")}</span>
               </button>
             ) : (
               <button

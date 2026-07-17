@@ -399,6 +399,7 @@ export function ChatPage() {
     viewerPremiumExpiresAt,
     viewerProfileIsPro,
     viewerProExpiresAt,
+    viewerKarma,
     getEventByConversationId,
     chatLoading,
     userBadgeCounts,
@@ -495,12 +496,14 @@ export function ChatPage() {
       isMutualFriend(profilId) ||
       hasSentFriendRequest(profilId) ||
       hasRejectedFriendRequest(profilId) ||
+      viewerKarma <= 0 ||
       (dailyFriendRequestLimitReached && !hasSentFriendRequest(profilId)),
     [
       isMutualFriend,
       hasSentFriendRequest,
       hasRejectedFriendRequest,
       dailyFriendRequestLimitReached,
+      viewerKarma,
     ],
   );
 
@@ -890,7 +893,9 @@ export function ChatPage() {
                                 ? t("requestSent")
                                 : dailyFriendRequestLimitReached
                                   ? dailyFriendRequestLimitLabel
-                                  : t("sendFriendRequest")
+                                  : viewerKarma <= 0
+                                    ? t("friendRequestKarmaRequired")
+                                    : t("sendFriendRequest")
                         }
                       >
                         {isMutualFriend(v.id) ? (

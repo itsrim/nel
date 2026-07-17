@@ -76,6 +76,7 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
     viewerPremiumExpiresAt,
     viewerProfileIsPro,
     viewerProExpiresAt,
+    viewerKarma,
     events,
     conversations,
     toggleEventFavorite,
@@ -752,6 +753,15 @@ export function OtherProfilePage({ id }: OtherProfilePageProps) {
             >
               <UserPlus size={20} color="#8E8E93" />
               <span>{t(dailyFriendRequestLimitKey)}</span>
+            </button>
+          ) : viewerKarma <= 0 ? (
+            <button
+              type="button"
+              className="op-btn-friend-state op-btn-friend-state--daily-limit"
+              disabled
+            >
+              <UserPlus size={20} color="#8E8E93" />
+              <span>{t('friendRequestKarmaRequired')}</span>
             </button>
           ) : (
             <button type="button" className="op-btn-friend-request" onClick={() => sendFriendRequest(id)}>

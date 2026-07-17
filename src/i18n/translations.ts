@@ -621,6 +621,9 @@ export const translations = {
     friendRequestDeclined: "Demande refusée.",
     notifFriendRequestTitle: "Demande d'ami",
     notifFriendRequestBody: "{name} souhaite vous ajouter en ami.",
+    notifFriendRequestSentTitle: "Demande d'ami envoyée",
+    notifFriendRequestSentBody:
+      "Demande envoyée à {name}. −{cost} karma dépensé.",
     notifFriendRequestAcceptedTitle: "Demande acceptée",
     notifFriendRequestAcceptedBody: "{name} a accepté votre demande d'ami.",
     notifFriendRequestRejectedTitle: "Demande refusée",
@@ -750,6 +753,7 @@ export const translations = {
     friendRequestDailyLimit: "Une demande d'ami par jour",
     friendRequestDailyLimitPremium: "5 demandes d'ami par jour",
     friendRequestDailyLimitPro: "10 demandes d'ami par jour",
+    friendRequestKarmaRequired: "Karma insuffisant (> 0 requis)",
 
     // ChatRoomPage - Missing strings
     membersCount: "membres",
@@ -1434,6 +1438,9 @@ export const translations = {
     friendRequestDeclined: "Request declined.",
     notifFriendRequestTitle: "Friend request",
     notifFriendRequestBody: "{name} wants to add you as a friend.",
+    notifFriendRequestSentTitle: "Friend request sent",
+    notifFriendRequestSentBody:
+      "Request sent to {name}. −{cost} karma spent.",
     notifFriendRequestAcceptedTitle: "Request accepted",
     notifFriendRequestAcceptedBody: "{name} accepted your friend request.",
     notifFriendRequestRejectedTitle: "Request declined",
@@ -1560,6 +1567,7 @@ export const translations = {
     friendRequestDailyLimit: "One friend request per day",
     friendRequestDailyLimitPremium: "5 friend requests per day",
     friendRequestDailyLimitPro: "10 friend requests per day",
+    friendRequestKarmaRequired: "Not enough karma (> 0 required)",
 
     // ChatRoomPage - Missing strings
     membersCount: "members",

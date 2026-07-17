@@ -86,7 +86,9 @@ function SuggestionPhotoCard({
                 ? t("requestSent")
                 : dailyFriendRequestLimitReached
                   ? dailyFriendRequestLimitLabel
-                  : t("sendFriendRequest")
+                  : isFriendRequestBlocked(item.id)
+                    ? t("friendRequestKarmaRequired")
+                    : t("sendFriendRequest")
         }
       >
         {mutual ? (
