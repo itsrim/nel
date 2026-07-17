@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { LayoutGrid, Map, MapPin, Search, ShieldCheck } from "lucide-react";
+import { LayoutGrid, Loader2, Map, MapPin, Search, ShieldCheck } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useProsStore } from "../store/useProsStore";
 import { useMessagingStore } from "../store/useMessagingStore";
@@ -73,6 +73,7 @@ export function ProsPage() {
   const { t } = useTranslation();
   const { openDetail } = useNavigationStore();
   const professionals = useProsStore((s) => s.professionals);
+  const prosLoading = useProsStore((s) => s.prosLoading);
   const { viewerProfileCity } = useMessagingStore();
   const user = useAuthStore((s) => s.user);
   const mapCenter = useMemo(
@@ -109,6 +110,7 @@ export function ProsPage() {
   }, [filtered, selectedMapId]);
 
   const openProProfile = (id: string) => openDetail("pro", id);
+  const showFullLoading = prosLoading && filtered.length === 0;
 
   return (
     <div className="pros-page">
@@ -181,16 +183,35 @@ export function ProsPage() {
       </header>
 
       <div className="pros-body">
-        {filtered.length === 0 ? (
+        {showFullLoading ? (
+          <div className="pros-loading-container" role="status" aria-live="polite">
+            <Loader2 size={36} className="pros-spinner" aria-hidden />
+            <p className="pros-loading-text">{t("loading")}</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <p className="pros-empty">{t("proNoResults")}</p>
         ) : viewMode === "list" ? (
-          <div className="pros-grid">
-            {filtered.map((pro) => (
-              <ProListCard key={pro.id} pro={pro} onOpen={openProProfile} />
-            ))}
-          </div>
+          <>
+            {prosLoading ? (
+              <div className="pros-refresh-bar" role="status" aria-live="polite">
+                <Loader2 size={16} className="pros-spinner" aria-hidden />
+                <span>{t("loading")}</span>
+              </div>
+            ) : null}
+            <div className="pros-grid">
+              {filtered.map((pro) => (
+                <ProListCard key={pro.id} pro={pro} onOpen={openProProfile} />
+              ))}
+            </div>
+          </>
         ) : (
           <>
+            {prosLoading ? (
+              <div className="pros-refresh-bar" role="status" aria-live="polite">
+                <Loader2 size={16} className="pros-spinner" aria-hidden />
+                <span>{t("loading")}</span>
+              </div>
+            ) : null}
             <div className="pros-map-wrap">
               <ProsMapView
                 professionals={filtered}

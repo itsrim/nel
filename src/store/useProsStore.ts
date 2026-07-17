@@ -7,6 +7,7 @@ import { useMessagingStore } from "./useMessagingStore";
 
 interface ProsState {
   professionals: MockProfessional[];
+  prosLoading: boolean;
   hydrateProfessionals: (remote: MockProfessional[]) => void;
   upsertProfessional: (pro: MockProfessional) => void;
   getById: (id: string) => MockProfessional | undefined;
@@ -14,6 +15,7 @@ interface ProsState {
 
 export const useProsStore = create<ProsState>((set, get) => ({
   professionals: [],
+  prosLoading: false,
 
   hydrateProfessionals: (remote) => {
     if (remote.length === 0) return;

@@ -5,6 +5,7 @@ import {
   type DetailState,
 } from "./store/useNavigationStore";
 import { useMessagingStore } from "./store/useMessagingStore";
+import { useProsStore } from "./store/useProsStore";
 import { useAuthStore } from "./store/useAuthStore";
 import { updateAllBadges } from "./lib/appBadge";
 import { isChatApiConfigured } from "./lib/chatConfig";
@@ -179,6 +180,7 @@ function App() {
     void (async () => {
       try {
         useMessagingStore.setState({ eventsLoading: true, chatLoading: true });
+        useProsStore.setState({ prosLoading: true });
         const isAdmin = resolveSheetsAdminScope(user);
         const loaded = await loadAppStateFromSheets(user.id, isAdmin);
         applySheetsLoadedState(loaded);
@@ -190,6 +192,7 @@ function App() {
           eventsLoading: false,
           chatLoading: false,
         });
+        useProsStore.setState({ prosLoading: false });
       }
     })();
   }, [user?.id, user?.isAdmin]);
@@ -200,6 +203,7 @@ function App() {
     void (async () => {
       try {
         useMessagingStore.setState({ eventsLoading: true, chatLoading: true });
+        useProsStore.setState({ prosLoading: true });
         const isAdmin = resolveSheetsAdminScope(user);
         const loaded = await loadAppStateFromSheets(user.id, isAdmin);
         applySheetsLoadedState(loaded);
@@ -211,6 +215,7 @@ function App() {
           eventsLoading: false,
           chatLoading: false,
         });
+        useProsStore.setState({ prosLoading: false });
       }
     })();
   }, [user?.id, user?.isAdmin, adminModeActive]);
@@ -233,6 +238,8 @@ function App() {
           useMessagingStore.setState({ eventsLoading: true });
         } else if (tab === "chat") {
           useMessagingStore.setState({ chatLoading: true });
+        } else if (tab === "pro") {
+          useProsStore.setState({ prosLoading: true });
         }
         const isAdmin = resolveSheetsAdminScope(user);
         const loaded = await loadTabStateFromSheets(tab, user.id, isAdmin);
@@ -247,6 +254,8 @@ function App() {
           useMessagingStore.setState({ eventsLoading: false });
         } else if (tab === "chat") {
           useMessagingStore.setState({ chatLoading: false });
+        } else if (tab === "pro") {
+          useProsStore.setState({ prosLoading: false });
         }
       }
     })();
