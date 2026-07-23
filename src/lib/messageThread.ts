@@ -33,8 +33,10 @@ export function isThreadActive(anchorMs: number, now = Date.now()): boolean {
 export function canWriteToConversationThread(input: {
   messages: readonly MessageThreadEntry[];
   eventDateKey?: string;
+  messagingBlocked?: boolean;
   now?: number;
 }): boolean {
+  if (input.messagingBlocked) return false;
   const anchor = threadAnchorMs(input.messages, input.eventDateKey);
   return isThreadActive(anchor, input.now);
 }

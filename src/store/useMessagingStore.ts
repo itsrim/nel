@@ -29,7 +29,7 @@ import {
   resolveMessageAccessFromStores,
   userIsAppAdmin,
 } from "../lib/accessScope";
-import { saveHistory, buildEventDateKeyByConversationId, removeConversationFromLocalHistory, type PersistedMessage } from "../lib/chatPersistence";
+import { saveHistory, buildEventDateKeyByConversationId, removeConversationFromLocalHistory, invalidateMessageThreadSyncCache, type PersistedMessage } from "../lib/chatPersistence";
 import { canWriteToConversationThread } from "../lib/messageThread";
 import { useAuthStore } from "./useAuthStore";
 import {
@@ -775,6 +775,11 @@ interface MessagingState {
   getEventById: (id: string) => Event | undefined;
   getEventByConversationId: (conversationId: string) => Event | undefined;
   sendMessage: (conversationId: string, text: string) => void;
+  /** Organisateur / admin : supprimer un ou plusieurs messages du fil. */
+  deleteMessagesFromConversation: (
+    conversationId: string,
+    messageIds: string[],
+  ) => void;
   /** Crée ou réutilise un fil DM avec un profil (ami, pro, etc.). */
   openOrCreateDmConversation: (params: {
     profilId: string;
@@ -797,7 +802,11 @@ interface MessagingState {
   ensureEventConversationRoster: (conversationId: string) => void;
   updateConversationSettings: (
     conversationId: string,
-    settings: { muteSounds?: boolean; blockNotifications?: boolean },
+    settings: {
+      muteSounds?: boolean;
+      blockNotifications?: boolean;
+      messagingBlocked?: boolean;
+    },
   ) => void;
   joinEvent: (eventId: string) => void;
   markEventJoinPaymentPaid: (eventId: string) => void;
@@ -2526,15 +2535,23 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
       const linkedEvent = state.events.find(
         (e) => e.conversationId === conversationId,
       );
+      const conversation = state.conversations.find((c) => c.id === conversationId);
       const threadMessages = state.messagesByConversation[conversationId] ?? [];
+      const messagingBlocked = !!conversation?.messagingBlocked;
+      const canBypassMessagingBlock =
+        !!linkedEvent &&
+        (hostedByCurrentViewer(linkedEvent) || state.isAdmin);
       if (
         !canWriteToConversationThread({
           messages: threadMessages,
           eventDateKey: linkedEvent?.dateKey,
+          messagingBlocked: messagingBlocked && !canBypassMessagingBlock,
         })
       ) {
         get().showToast(
-          "Cette discussion est fermée (plus de 7 jours). Consultation seule.",
+          messagingBlocked && !canBypassMessagingBlock
+            ? "La messagerie est temporairement bloquée par l'organisateur."
+            : "Cette discussion est fermée (plus de 7 jours). Consultation seule.",
         );
         return;
       }
@@ -2610,6 +2627,56 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         };
         syncNotificationToSheetsForUser(chatNotif, peerId);
       }
+    },
+
+    deleteMessagesFromConversation: (conversationId, messageIds) => {
+      const ids = [...new Set(messageIds.map((id) => id.trim()).filter(Boolean))];
+      if (ids.length === 0) return;
+
+      const state = get();
+      const linkedEvent = state.events.find(
+        (e) => e.conversationId === conversationId,
+      );
+      const canManage =
+        state.isAdmin ||
+        (!!linkedEvent && hostedByCurrentViewer(linkedEvent));
+      if (!canManage) return;
+
+      const idSet = new Set(ids);
+      const prev = state.messagesByConversation[conversationId] ?? [];
+      const nextList = prev.filter((m) => !idSet.has(m.id));
+      if (nextList.length === prev.length) return;
+
+      const last = nextList[nextList.length - 1];
+      const preview = last?.text?.slice(0, 120) ?? "";
+
+      invalidateMessageThreadSyncCache(conversationId);
+      set((s) => {
+        const next = {
+          ...s.messagesByConversation,
+          [conversationId]: nextList,
+        };
+        persistLocalMessages(next);
+        return {
+          messagesByConversation: next,
+          conversations: s.conversations.map((c) =>
+            c.id === conversationId
+              ? {
+                  ...c,
+                  lastMessagePreview: preview,
+                  updatedAt: Date.now(),
+                }
+              : c,
+          ),
+        };
+      });
+
+      if (nextList.length === 0) {
+        syncMessageThreadDeleteToSheets(conversationId);
+      }
+
+      const updatedConv = get().conversations.find((c) => c.id === conversationId);
+      if (updatedConv) syncConversationToSheets(updatedConv);
     },
 
     openOrCreateDmConversation: ({

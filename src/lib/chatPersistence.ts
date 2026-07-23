@@ -39,6 +39,13 @@ const LEGACY_STORAGE_KEY_PREFIX = "nel_chat_history_csv";
 /** conversationId → dernier updatedAt synchronisé vers Sheets. */
 const syncedThreadUpdatedAt = new Map<string, number>();
 
+/** Force une re-sync Sheets du fil (ex. après suppression de messages). */
+export function invalidateMessageThreadSyncCache(conversationId: string): void {
+  const cid = conversationId.trim();
+  if (!cid) return;
+  syncedThreadUpdatedAt.delete(cid);
+}
+
 function getCurrentUserIdForSheets(): string {
   try {
     const raw = localStorage.getItem("nel_auth_user");

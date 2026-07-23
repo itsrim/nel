@@ -766,11 +766,24 @@ export const translations = {
     chatThreadClosedHint:
       "Cette discussion est fermée (plus de 7 jours). Consultation seule.",
     chatThreadClosedPlaceholder: "Discussion fermée",
+    chatMessagingBlockedHint:
+      "La messagerie est temporairement bloquée par l'organisateur.",
+    chatMessagingBlockedPlaceholder: "Messagerie bloquée",
+    chatSelectMessages: "Sélectionner des messages",
+    chatSelectCancel: "Annuler la sélection",
+    chatSelectAll: "Tout sélectionner",
+    chatDeselectAll: "Tout désélectionner",
+    chatSelectedCount: "sélectionné(s)",
+    chatDeleteSelected: "Supprimer",
+    chatDeleteOneMessageConfirm: "Supprimer ce message ?",
+    chatDeleteMessagesConfirm: "Supprimer les {count} messages sélectionnés ?",
+    chatDeleteAllMessagesConfirm: "Supprimer tous les messages de cette discussion ?",
 
     // ChatSettingsPage - Missing strings
     chatSettingsTitle: "PARAMÈTRES DE DISCUSSION",
     muteSoundsLabel: "Couper les sons",
     blockNotificationsLabel: "Bloquer les notifications",
+    blockMessagingLabel: "Bloquer la messagerie",
     membersTitle: "MEMBRES",
     addMemberHint: "+ un membre",
     inviteMembersTitle: "Inviter un ami",
@@ -1583,11 +1596,24 @@ export const translations = {
     chatThreadClosedHint:
       "This conversation is closed (over 7 days old). Read-only.",
     chatThreadClosedPlaceholder: "Conversation closed",
+    chatMessagingBlockedHint:
+      "Messaging is temporarily blocked by the organizer.",
+    chatMessagingBlockedPlaceholder: "Messaging blocked",
+    chatSelectMessages: "Select messages",
+    chatSelectCancel: "Cancel selection",
+    chatSelectAll: "Select all",
+    chatDeselectAll: "Deselect all",
+    chatSelectedCount: "selected",
+    chatDeleteSelected: "Delete",
+    chatDeleteOneMessageConfirm: "Delete this message?",
+    chatDeleteMessagesConfirm: "Delete the {count} selected messages?",
+    chatDeleteAllMessagesConfirm: "Delete all messages in this conversation?",
 
     // ChatSettingsPage - Missing strings
     chatSettingsTitle: "CHAT SETTINGS",
     muteSoundsLabel: "Mute sounds",
     blockNotificationsLabel: "Block notifications",
+    blockMessagingLabel: "Block messaging",
     membersTitle: "MEMBERS",
     addMemberHint: "+ Add member",
     inviteMembersTitle: "Invite a friend",

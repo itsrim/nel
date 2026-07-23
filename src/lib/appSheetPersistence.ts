@@ -496,6 +496,7 @@ export function conversationToRow(conv: Conversation, userId: string): Record<st
     memberCount: String(conv.memberCount ?? conv.members.length),
     muteSounds: boolToSheet(conv.muteSounds),
     blockNotifications: boolToSheet(conv.blockNotifications),
+    messagingBlocked: boolToSheet(conv.messagingBlocked),
     membersJson: jsonToSheet(conv.members),
     deleted: "false",
   };
@@ -519,6 +520,7 @@ export function rowToConversation(row: Record<string, string>): Conversation {
     memberCount: numFromSheet(row.memberCount, members.length),
     muteSounds: boolFromSheet(row.muteSounds),
     blockNotifications: boolFromSheet(row.blockNotifications),
+    messagingBlocked: boolFromSheet(row.messagingBlocked),
     members,
   };
 }

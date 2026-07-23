@@ -7,6 +7,10 @@ import {
   Settings,
   Image as ImageIcon,
   UserPlus,
+  CheckSquare,
+  Square,
+  Trash2,
+  X,
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
@@ -17,6 +21,7 @@ import { buildEventGroupMembers } from "../lib/eventGroupMembers";
 import { getProfessionalById } from "../store/useProsStore";
 import { getChatSocket, setActiveChatConversationId } from "../lib/chatSync";
 import { canWriteToConversationThread } from "../lib/messageThread";
+import { eventHostedByViewer } from "../lib/eventHost";
 import { ChatMessageText } from "../components/ChatMessageText";
 import "./ChatRoomPage.css";
 
@@ -31,6 +36,7 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
     conversations,
     messagesByConversation,
     sendMessage,
+    deleteMessagesFromConversation,
     markAsRead,
     recordConversationOpened,
     toggleConversationFavorite,
@@ -40,6 +46,7 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
     viewerProfileDisplayName,
     viewerProfileAvatarUrl,
     ensureEventConversationRoster,
+    isAdmin,
   } = useMessagingStore();
   const user = useAuthStore((s) => s.user);
 
@@ -48,6 +55,8 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
   const linkedEvent = getEventByConversationId(id);
 
   const [draft, setDraft] = useState("");
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -79,6 +88,11 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
   }, [id, messages.length]);
+
+  useEffect(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }, [id]);
 
   // Conversation disparue (quittée / supprimée) : retirer la salle + couches au-dessus
   // (sinon overlay full-screen transparent → plus de clics, footer masqué).
@@ -118,13 +132,67 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
     },
   );
 
-  const canWrite = canWriteToConversationThread({
+  const threadStillOpen = canWriteToConversationThread({
     messages,
     eventDateKey: linkedEvent?.dateKey,
   });
+  const messagingBlocked = !!conversation.messagingBlocked;
+  const isOrganizer = !!(
+    linkedEvent &&
+    eventHostedByViewer(linkedEvent, {
+      id: user?.id ?? "",
+      displayName: viewerProfileDisplayName,
+    })
+  );
+  const canManageMessages = isAdmin || isOrganizer;
+  const canBypassMessagingBlock = canManageMessages;
+  const canWrite =
+    threadStillOpen && (!messagingBlocked || canBypassMessagingBlock);
+
+  const allSelected =
+    messages.length > 0 && selectedIds.size === messages.length;
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelectMessage = (messageId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(messageId)) next.delete(messageId);
+      else next.add(messageId);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(messages.map((m) => m.id)));
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    const confirmMsg =
+      count === messages.length
+        ? t("chatDeleteAllMessagesConfirm")
+        : count === 1
+          ? t("chatDeleteOneMessageConfirm")
+          : t("chatDeleteMessagesConfirm").replace(
+              "{count}",
+              String(count),
+            );
+    if (!window.confirm(confirmMsg)) return;
+    deleteMessagesFromConversation(id, [...selectedIds]);
+    exitSelectMode();
+  };
 
   const handleSend = () => {
-    if (!canWrite || !draft.trim()) return;
+    if (!canWrite || !draft.trim() || selectMode) return;
     sendMessage(id, draft);
     setDraft("");
   };
@@ -241,22 +309,32 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
       <div className="cr-texts">
         <h3 className="cr-title">{conversation.title}</h3>
         <p className="cr-subtitle">
-          {isGroup
-            ? `${conversation.memberCount ?? memberN} ${t("membersCount")}`
-            : t("directMessageLabel")}
+          {selectMode
+            ? `${selectedIds.size} ${t("chatSelectedCount")}`
+            : isGroup
+              ? `${conversation.memberCount ?? memberN} ${t("membersCount")}`
+              : t("directMessageLabel")}
         </p>
       </div>
     </>
   );
 
   return (
-    <div className="chat-room-page">
+    <div className={`chat-room-page${selectMode ? " chat-room-page--select" : ""}`}>
       <header className="cr-header">
-        <button className="cr-back-btn" onClick={closeDetail}>
-          <ChevronLeft size={28} color="currentColor" />
+        <button
+          className="cr-back-btn"
+          onClick={selectMode ? exitSelectMode : closeDetail}
+          aria-label={selectMode ? t("chatSelectCancel") : undefined}
+        >
+          {selectMode ? (
+            <X size={24} color="currentColor" />
+          ) : (
+            <ChevronLeft size={28} color="currentColor" />
+          )}
         </button>
 
-        {canOpenHeaderTarget ? (
+        {canOpenHeaderTarget && !selectMode ? (
           <button
             type="button"
             className="cr-header-info cr-header-info--clickable"
@@ -270,102 +348,215 @@ export function ChatRoomPage({ id }: ChatRoomPageProps) {
         )}
 
         <div className="cr-header-actions">
-          <button
-            type="button"
-            className="cr-icon-btn"
-            onClick={() => toggleConversationFavorite(id)}
-          >
-            <Heart
-              size={24}
-              fill={conversation.isFavorite ? "#FF4081" : "none"}
-              color={conversation.isFavorite ? "#FF4081" : "currentColor"}
-            />
-          </button>
+          {selectMode ? (
+            <>
+              <button
+                type="button"
+                className="cr-icon-btn"
+                onClick={handleSelectAll}
+                aria-label={
+                  allSelected ? t("chatDeselectAll") : t("chatSelectAll")
+                }
+                title={allSelected ? t("chatDeselectAll") : t("chatSelectAll")}
+              >
+                {allSelected ? (
+                  <CheckSquare size={22} color="#7C9EFF" />
+                ) : (
+                  <Square size={22} color="#7C9EFF" />
+                )}
+              </button>
+              <button
+                type="button"
+                className="cr-icon-btn cr-icon-btn--danger"
+                onClick={handleDeleteSelected}
+                disabled={selectedIds.size === 0}
+                aria-label={t("chatDeleteSelected")}
+                title={t("chatDeleteSelected")}
+              >
+                <Trash2 size={22} color="#FF453A" />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="cr-icon-btn"
+                onClick={() => toggleConversationFavorite(id)}
+              >
+                <Heart
+                  size={24}
+                  fill={conversation.isFavorite ? "#FF4081" : "none"}
+                  color={conversation.isFavorite ? "#FF4081" : "currentColor"}
+                />
+              </button>
 
-          {linkedEvent && (
-            <button
-              type="button"
-              className="cr-event-btn"
-              onClick={() => openDetail("event", linkedEvent.id)}
-            >
-              <Eye size={18} />
-              <span>{t("viewEventButton")}</span>
-            </button>
+              {linkedEvent && (
+                <button
+                  type="button"
+                  className="cr-event-btn"
+                  onClick={() => openDetail("event", linkedEvent.id)}
+                >
+                  <Eye size={18} />
+                  <span>{t("viewEventButton")}</span>
+                </button>
+              )}
+
+              {canManageMessages && messages.length > 0 ? (
+                <button
+                  type="button"
+                  className="cr-icon-btn"
+                  onClick={() => setSelectMode(true)}
+                  aria-label={t("chatSelectMessages")}
+                  title={t("chatSelectMessages")}
+                >
+                  <CheckSquare size={22} color="#7C9EFF" />
+                </button>
+              ) : null}
+
+              {isGroup && !linkedEvent ? (
+                <button
+                  type="button"
+                  className="cr-icon-btn"
+                  onClick={() => openDetail("chat_settings", id)}
+                  aria-label={t("addMemberHint")}
+                >
+                  <UserPlus size={24} color="#7C9EFF" />
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                className="cr-icon-btn"
+                onClick={() => openDetail("chat_settings", id)}
+              >
+                <Settings size={24} />
+              </button>
+            </>
           )}
-
-          {isGroup && !linkedEvent ? (
-            <button
-              type="button"
-              className="cr-icon-btn"
-              onClick={() => openDetail("chat_settings", id)}
-              aria-label={t("addMemberHint")}
-            >
-              <UserPlus size={24} color="#7C9EFF" />
-            </button>
-          ) : null}
-
-          <button
-            type="button"
-            className="cr-icon-btn"
-            onClick={() => openDetail("chat_settings", id)}
-          >
-            <Settings size={24} />
-          </button>
         </div>
       </header>
 
       <div className="cr-message-list" ref={listRef}>
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`cr-bubble-wrap ${m.isOwn ? "own" : "other"}`}
-          >
-            {!m.isOwn && <span className="cr-author">{m.authorName}</span>}
-            <div className="cr-bubble">
-              <ChatMessageText text={m.text} />
-              <span className="cr-time">
-                {new Date(m.sentAt).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
+        {messages.map((m) => {
+          const selected = selectedIds.has(m.id);
+          return (
+            <div
+              key={m.id}
+              className={`cr-bubble-wrap ${m.isOwn ? "own" : "other"}${
+                selectMode ? " cr-bubble-wrap--selectable" : ""
+              }${selected ? " cr-bubble-wrap--selected" : ""}`}
+              onClick={
+                selectMode
+                  ? () => toggleSelectMessage(m.id)
+                  : undefined
+              }
+              role={selectMode ? "button" : undefined}
+              tabIndex={selectMode ? 0 : undefined}
+              onKeyDown={
+                selectMode
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleSelectMessage(m.id);
+                      }
+                    }
+                  : undefined
+              }
+              aria-pressed={selectMode ? selected : undefined}
+            >
+              {selectMode ? (
+                <span
+                  className={`cr-select-check${selected ? " cr-select-check--on" : ""}`}
+                  aria-hidden
+                >
+                  {selected ? (
+                    <CheckSquare size={18} color="#7C9EFF" />
+                  ) : (
+                    <Square size={18} color="#8E8E93" />
+                  )}
+                </span>
+              ) : null}
+              <div className="cr-bubble-col">
+                {!m.isOwn && <span className="cr-author">{m.authorName}</span>}
+                <div className="cr-bubble">
+                  <ChatMessageText text={m.text} />
+                  <span className="cr-time">
+                    {new Date(m.sentAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <footer className={`cr-input-bar${canWrite ? "" : " cr-input-bar--locked"}`}>
-        {!canWrite ? (
-          <p className="cr-thread-closed-hint">{t("chatThreadClosedHint")}</p>
-        ) : null}
-        <button className="cr-attach-btn" disabled={!canWrite}>
-          <ImageIcon size={24} />
-        </button>
-        <textarea
-          className="cr-input"
-          rows={1}
-          placeholder={
-            canWrite ? t("messageInputHint") : t("chatThreadClosedPlaceholder")
-          }
-          value={draft}
-          disabled={!canWrite}
-          readOnly={!canWrite}
-          onChange={(e) => canWrite && setDraft(e.target.value)}
-          onKeyDown={(e) =>
-            canWrite &&
-            e.key === "Enter" &&
-            !e.shiftKey &&
-            (e.preventDefault(), handleSend())
-          }
-        />
-        <button
-          className="cr-send-btn"
-          onClick={handleSend}
-          disabled={!canWrite || !draft.trim()}
-        >
-          <Send size={20} />
-        </button>
-      </footer>
+      {selectMode ? (
+        <footer className="cr-select-bar">
+          <button
+            type="button"
+            className="cr-select-bar-btn"
+            onClick={handleSelectAll}
+          >
+            {allSelected ? t("chatDeselectAll") : t("chatSelectAll")}
+          </button>
+          <button
+            type="button"
+            className="cr-select-bar-btn cr-select-bar-btn--danger"
+            onClick={handleDeleteSelected}
+            disabled={selectedIds.size === 0}
+          >
+            <Trash2 size={18} />
+            <span>
+              {t("chatDeleteSelected")}
+              {selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
+            </span>
+          </button>
+        </footer>
+      ) : (
+        <footer className={`cr-input-bar${canWrite ? "" : " cr-input-bar--locked"}`}>
+          {!canWrite ? (
+            <p className="cr-thread-closed-hint">
+              {messagingBlocked
+                ? t("chatMessagingBlockedHint")
+                : t("chatThreadClosedHint")}
+            </p>
+          ) : null}
+          <button className="cr-attach-btn" disabled={!canWrite}>
+            <ImageIcon size={24} />
+          </button>
+          <textarea
+            className="cr-input"
+            rows={1}
+            placeholder={
+              canWrite
+                ? t("messageInputHint")
+                : messagingBlocked
+                  ? t("chatMessagingBlockedPlaceholder")
+                  : t("chatThreadClosedPlaceholder")
+            }
+            value={draft}
+            disabled={!canWrite}
+            readOnly={!canWrite}
+            onChange={(e) => canWrite && setDraft(e.target.value)}
+            onKeyDown={(e) =>
+              canWrite &&
+              e.key === "Enter" &&
+              !e.shiftKey &&
+              (e.preventDefault(), handleSend())
+            }
+          />
+          <button
+            className="cr-send-btn"
+            onClick={handleSend}
+            disabled={!canWrite || !draft.trim()}
+          >
+            <Send size={20} />
+          </button>
+        </footer>
+      )}
     </div>
   );
 }

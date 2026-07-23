@@ -10,13 +10,15 @@ import {
   UserMinus,
   LogOut,
   Trash2,
+  MessageSquareOff,
+  MessageSquare,
 } from "lucide-react";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { useMessagingStore } from "../store/useMessagingStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { resolveMemberPhotoUrl } from "../lib/conversationMiniSlots";
-import { eventOrganizerUserId } from "../lib/eventHost";
+import { eventHostedByViewer, eventOrganizerUserId } from "../lib/eventHost";
 import { buildEventGroupMembers } from "../lib/eventGroupMembers";
 import type { GroupMember } from "../data/mockData";
 import "./ChatSettingsPage.css";
@@ -88,9 +90,18 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
 
   const isGroup = conversation.type === "group";
   const isEventGroup = !!linkedEvent;
+  const isOrganizer = !!(
+    linkedEvent &&
+    eventHostedByViewer(linkedEvent, {
+      id: user?.id ?? "",
+      displayName: viewerProfileDisplayName,
+    })
+  );
+  const canManageMessaging = isEventGroup && (isOrganizer || isAdmin);
 
   const muteSounds = !!conversation.muteSounds;
   const blockNotifications = !!conversation.blockNotifications;
+  const messagingBlocked = !!conversation.messagingBlocked;
 
   const handleLeave = () => {
     const confirmMessage = isGroup
@@ -191,6 +202,32 @@ export function ChatSettingsPage({ id }: ChatSettingsPageProps) {
                 <div className="cs-toggle-thumb" />
               </div>
             </button>
+
+            {canManageMessaging ? (
+              <button
+                type="button"
+                className="cs-toggle-row"
+                onClick={() =>
+                  updateConversationSettings(id, {
+                    messagingBlocked: !messagingBlocked,
+                  })
+                }
+              >
+                {messagingBlocked ? (
+                  <MessageSquareOff size={22} color="#8E8E93" />
+                ) : (
+                  <MessageSquare size={22} color="#8E8E93" />
+                )}
+                <span className="cs-toggle-label">
+                  {t("blockMessagingLabel")}
+                </span>
+                <div
+                  className={`cs-toggle-switch ${messagingBlocked ? "on" : ""}`}
+                >
+                  <div className="cs-toggle-thumb" />
+                </div>
+              </button>
+            ) : null}
           </div>
 
           <div className="cs-section cs-members-section">

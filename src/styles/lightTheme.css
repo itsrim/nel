@@ -85,6 +85,7 @@
 
 [data-theme="light"] .cr-header,
 [data-theme="light"] .cr-input-bar,
+[data-theme="light"] .cr-select-bar,
 [data-theme="light"] .cs-panel {
   background-color: var(--surface-elevated);
   border-color: var(--border-subtle);
@@ -94,8 +95,9 @@
   border-bottom-color: var(--border-subtle);
 }
 
-[data-theme="light"] .other .cr-bubble {
+[data-theme="light"] .cr-select-bar-btn {
   background: var(--surface-muted);
+  border-color: var(--border-subtle);
   color: var(--text-primary);
 }
 

@@ -32,7 +32,7 @@ userId,id,conversationId,title,location,dateKey,timeShort,dateLabel,sectionDateL
 
 ### `conversations`
 ```
-userId,id,title,type,lastMessagePreview,avatarGradient0,avatarGradient1,unreadCount,updatedAt,lastOpenedAt,isFavorite,memberCount,muteSounds,blockNotifications,membersJson,deleted
+userId,id,title,type,lastMessagePreview,avatarGradient0,avatarGradient1,unreadCount,updatedAt,lastOpenedAt,isFavorite,memberCount,muteSounds,blockNotifications,messagingBlocked,membersJson,deleted
 ```
 
 ### `profiles` (amis — inclut `imageUrl`)

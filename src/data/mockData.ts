@@ -147,6 +147,8 @@ export interface Conversation {
   memberCount?: number;
   muteSounds?: boolean;
   blockNotifications?: boolean;
+  /** Organisateur / admin : messagerie temporairement fermée. */
+  messagingBlocked?: boolean;
 }
 
 export interface Message {
