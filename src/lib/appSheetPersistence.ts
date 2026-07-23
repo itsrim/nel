@@ -134,6 +134,42 @@ function isSynced(table: SheetTableName, id: string): boolean {
   return syncedRowKeys.has(rowKey(table, id));
 }
 
+/** Sérialise les upserts concurrents pour une même ligne (évite les doublons POST). */
+const upsertInFlight = new Map<string, Promise<void>>();
+
+function enqueueUpsert(key: string, task: () => Promise<void>): Promise<void> {
+  const prev = upsertInFlight.get(key) ?? Promise.resolve();
+  const next = prev
+    .catch(() => undefined)
+    .then(task)
+    .finally(() => {
+      if (upsertInFlight.get(key) === next) upsertInFlight.delete(key);
+    });
+  upsertInFlight.set(key, next);
+  return next;
+}
+
+/** Conserve la ligne la plus récente par id (doublons Sheets). */
+function dedupeRowsByIdKeepLatest(
+  rows: Record<string, string>[],
+  idColumn = "id",
+): Record<string, string>[] {
+  const best = new Map<string, Record<string, string>>();
+  for (const row of rows) {
+    const id = row[idColumn]?.trim();
+    if (!id) continue;
+    const prev = best.get(id);
+    if (!prev) {
+      best.set(id, row);
+      continue;
+    }
+    const prevAt = numFromSheet(prev.updatedAt ?? prev.lastOpenedAt, 0);
+    const nextAt = numFromSheet(row.updatedAt ?? row.lastOpenedAt, 0);
+    if (nextAt >= prevAt) best.set(id, row);
+  }
+  return [...best.values()];
+}
+
 function saveLocalCache(table: SheetTableName, userId: string, rows: Record<string, string>[]): void {
   try {
     localStorage.setItem(cacheKey(table, userId), JSON.stringify(rows));
@@ -291,7 +327,7 @@ async function readTable(table: SheetTableName, userId: string): Promise<Record<
         const id = r.id ?? r.profilId ?? r.userId;
         if (id) markSynced(table, id);
       });
-      return mine;
+      return table === "conversations" ? dedupeRowsByIdKeepLatest(mine) : mine;
     } catch (err) {
       console.error(`Sheets read [${table}] failed, fallback cache:`, err);
     }
@@ -303,7 +339,7 @@ async function readTable(table: SheetTableName, userId: string): Promise<Record<
   return cached;
 }
 
-/** POST si nouvelle ligne, PUT si déjà synchronisée (ou déjà présente côté Sheet). */
+/** POST si nouvelle ligne, PUT si déjà présente — sérialisé par id pour éviter les doublons. */
 export async function upsertSheetRow(
   table: SheetTableName,
   id: string,
@@ -325,32 +361,40 @@ export async function upsertSheetRow(
 
   if (!isGoogleSheetsWriteConfigured()) return;
 
-  const writePost = () => sheetPost(table, fullRow);
+  return enqueueUpsert(rowKey(table, id), () =>
+    writeUpsertToSheets(table, id, fullRow),
+  );
+}
+
+async function writeUpsertToSheets(
+  table: SheetTableName,
+  id: string,
+  fullRow: Record<string, string>,
+): Promise<void> {
   const writePut = () => sheetPut(table, id, fullRow);
 
   try {
+    // PUT d'abord : si la ligne existe déjà (cache sync perdu / reload), pas de nouveau POST.
     if (isSynced(table, id)) {
       await writePut();
       return;
     }
+    try {
+      await writePut();
+      markSynced(table, id);
+      return;
+    } catch {
+      /* absente → POST ci-dessous */
+    }
+
     const postResult = await sheetMutate("post", table, { row: fullRow });
     if (postResult.skipped) {
       await writePut();
     }
     markSynced(table, id);
-  } catch (firstErr) {
-    try {
-      await writePost();
-      markSynced(table, id);
-    } catch (postErr) {
-      try {
-        await writePut();
-        markSynced(table, id);
-      } catch (putErr) {
-        console.error(`Sheets upsert [${table}] ${id}:`, firstErr, postErr, putErr);
-        throw putErr;
-      }
-    }
+  } catch (err) {
+    console.error(`Sheets upsert [${table}] ${id}:`, err);
+    throw err;
   }
 }
 
@@ -1435,7 +1479,7 @@ export async function loadTabStateFromSheets(
       return attachRegisteredMemberSuggestions(
         {
           ...emptyLoadedState(),
-          conversations: convRows.map(rowToConversation),
+          conversations: dedupeConversationsById(convRows.map(rowToConversation)),
           suggestions: [],
           friends: friendsFromProfileRows(profileRows, userId),
           profileVisits,
@@ -1581,9 +1625,11 @@ async function readGlobalTable(table: SheetTableName): Promise<Record<string, st
     try {
       const rows = await sheetGet<Record<string, string>>(table);
       const active = rows.filter((r) => !isDeletedFromSheet(r.deleted));
-      saveLocalCache(table, GLOBAL_CACHE_USER, active);
-      markActiveRows(active);
-      return active;
+      const deduped =
+        table === "conversations" ? dedupeRowsByIdKeepLatest(active) : active;
+      saveLocalCache(table, GLOBAL_CACHE_USER, deduped);
+      markActiveRows(deduped);
+      return deduped;
     } catch (err) {
       console.error(`Sheets read [${table}] failed, fallback cache:`, err);
     }
@@ -1672,7 +1718,7 @@ export async function loadAppStateFromSheets(
   return attachRegisteredMemberSuggestions(
     {
       events: eventRows.map(rowToEvent),
-      conversations: convRows.map(rowToConversation),
+      conversations: dedupeConversationsById(convRows.map(rowToConversation)),
       friends: friendsFromProfileRows(profileRows, userId),
       suggestions: [],
       profileVisits: visitRows.map(rowToVisit),

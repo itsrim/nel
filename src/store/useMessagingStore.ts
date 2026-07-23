@@ -815,7 +815,7 @@ interface MessagingState {
   leaveWaitlist: (eventId: string) => void;
   approveWaitlistEntry: (eventId: string, entryId: string) => void;
   rejectWaitlistEntry: (eventId: string, entryId: string) => void;
-  /** Organisateur : invite un ami (notif in-app + message système dans le chat de la sortie). */
+  /** Organisateur : invite un ami (notif in-app uniquement, pas de message chat). */
   inviteFriendToEvent: (eventId: string, friend: Friend) => void;
   /** Invite un profil (ami, suggestion ou annuaire) par `profilId`. */
   inviteProfilToEvent: (eventId: string, profilId: string) => void;
@@ -3391,8 +3391,6 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
 
       const hostName =
         state.viewerProfileDisplayName.trim() || "L’organisateur";
-      const firstName = friend.name.trim().split(/\s+/)[0] || friend.name;
-      const systemText = `${hostName} a invité ${firstName} — une notification lui a été envoyée pour « ${event.title} ».`;
 
       const organizerNotif: AppNotification = {
         id: `n_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
@@ -3416,24 +3414,7 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         senderName: hostName,
       };
 
-      const msg: Message = {
-        id: `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-        conversationId: event.conversationId,
-        authorName: "Système",
-        text: systemText,
-        sentAt: Date.now(),
-        isOwn: false,
-      };
-
       set((s) => {
-        const nextMsgs = {
-          ...s.messagesByConversation,
-          [event.conversationId]: [
-            ...(s.messagesByConversation[event.conversationId] ?? []),
-            msg,
-          ],
-        };
-        persistLocalMessages(nextMsgs);
         const nextEvent = {
           ...event,
           invitedProfilIds: [
@@ -3451,23 +3432,8 @@ export const useMessagingStore = create<MessagingState>((set, get) => {
         return {
           events: s.events.map((e) => (e.id === eventId ? nextEvent : e)),
           appNotifications: [organizerNotif, ...s.appNotifications],
-          messagesByConversation: nextMsgs,
-          conversations: s.conversations.map((c) =>
-            c.id === event.conversationId
-              ? {
-                  ...c,
-                  lastMessagePreview: systemText.slice(0, 120),
-                  updatedAt: Date.now(),
-                }
-              : c,
-          ),
         };
       });
-      const updatedConv = get().conversations.find(
-        (c) => c.id === event.conversationId,
-      );
-      if (updatedConv) syncConversationToSheets(updatedConv);
-      pushMessageRemote(msg, dmRecipientUserIds(updatedConv));
       const inviteeFirst =
         friend.name.trim().split(/\s+/)[0] || friend.name.trim() || friend.name;
       get().showToast(`Invitation envoyée à ${inviteeFirst}`);
