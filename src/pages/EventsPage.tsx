@@ -91,6 +91,23 @@ const EVENTS_LAYOUT_NARROW_PX = 640;
 const EVENTS_CARD_GAP = 12;
 const EVENTS_CARD_PAD = 24;
 const EVENTS_MIN_CARD_W = 168;
+const LS_EVENTS_FILTER_LOCATION = "nel_events_filter_location";
+
+function readStoredEventsLocationFilter(): string | null {
+  try {
+    return localStorage.getItem(LS_EVENTS_FILTER_LOCATION);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredEventsLocationFilter(value: string): void {
+  try {
+    localStorage.setItem(LS_EVENTS_FILTER_LOCATION, value);
+  } catch {
+    /* ignore quota */
+  }
+}
 
 const WEEK_LETTERS = ["L", "M", "M", "J", "V", "S", "D"] as const;
 
@@ -166,12 +183,16 @@ export function EventsPage() {
   const [searchFilterPanelOpen, setSearchFilterPanelOpen] = useState(false);
   const [filterDate, setFilterDate] = useState("");
   const profileLocationDefault = defaultEventsLocationFilter(viewerProfileCity);
-  const [locationTouched, setLocationTouched] = useState(false);
-  const [filterLocation, setFilterLocation] = useState(() =>
-    defaultEventsLocationFilter(
-      useMessagingStore.getState().viewerProfileCity,
-    ),
+  const [locationTouched, setLocationTouched] = useState(
+    () => readStoredEventsLocationFilter() !== null,
   );
+  const [filterLocation, setFilterLocation] = useState(() => {
+    const stored = readStoredEventsLocationFilter();
+    if (stored !== null) return stored;
+    return defaultEventsLocationFilter(
+      useMessagingStore.getState().viewerProfileCity,
+    );
+  });
   const [filterTag, setFilterTag] = useState("");
   const [locationAnchor, setLocationAnchor] = useState<LatLng | null>(null);
   const [coordsByEventId, setCoordsByEventId] = useState<
@@ -179,6 +200,10 @@ export function EventsPage() {
   >({});
   const [geoReady, setGeoReady] = useState(false);
   const eventsContentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    writeStoredEventsLocationFilter(filterLocation);
+  }, [filterLocation]);
 
   useEffect(() => {
     if (locationTouched) return;
@@ -399,11 +424,9 @@ export function EventsPage() {
     setSearchDraft("");
     setCommittedSearch("");
     setFilterDate("");
-    setLocationTouched(false);
-    setFilterLocation(defaultEventsLocationFilter(viewerProfileCity));
     setFilterTag("");
     setSearchFilterPanelOpen(false);
-  }, [headerMode, viewerProfileCity]);
+  }, [headerMode]);
 
   useEffect(() => {
     if (isAdmin) return;
