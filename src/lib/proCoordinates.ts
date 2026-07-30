@@ -20,15 +20,24 @@ const FRANCE_CENTER: [number, number] = [46.603354, 1.888334];
 export const DEFAULT_MAP_CITY = "Toulouse";
 export const DEFAULT_MAP_ZOOM = 11;
 
+/** Lat/lng connus pour une libellé contenant une ville (sinon null). */
+export function lookupCityLatLng(
+  cityLabel?: string | null,
+): { lat: number; lng: number } | null {
+  const label = cityLabel?.trim();
+  if (!label) return null;
+  const cityKey = Object.keys(CITY_LATLNG).find((k) =>
+    label.toLowerCase().includes(k.toLowerCase()),
+  );
+  if (!cityKey) return null;
+  const [lat, lng] = CITY_LATLNG[cityKey];
+  return { lat, lng };
+}
+
 /** Centre carte : ville du profil si reconnue, sinon Toulouse. */
 export function mapCenterForCity(cityLabel?: string | null): [number, number] {
-  const label = cityLabel?.trim();
-  if (label) {
-    const cityKey = Object.keys(CITY_LATLNG).find((k) =>
-      label.toLowerCase().includes(k.toLowerCase()),
-    );
-    if (cityKey) return CITY_LATLNG[cityKey];
-  }
+  const found = lookupCityLatLng(cityLabel);
+  if (found) return [found.lat, found.lng];
   return CITY_LATLNG[DEFAULT_MAP_CITY];
 }
 

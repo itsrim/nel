@@ -385,6 +385,8 @@ export const translations = {
     createEventAriaLabel: "Créer un événement",
     topWeeklyEvents: "Top 5 de la semaine",
     noEventsThisWeek: "Aucun événement sur cette semaine.",
+    eventsNearbySection: "À proximité (≤ {km} km)",
+    noNearbyEvents: "Aucune sortie dans un rayon de 50 km autour de ce lieu.",
     noSearchResults: "Aucune activité ne correspond à votre recherche.",
     eventsSearchLoadingMore: "Chargement des sorties suivantes…",
     searchEvents: "Recherche",
@@ -425,7 +427,7 @@ export const translations = {
     deleteEventConfirmation:
       "Annuler définitivement cette sortie ? Elle disparaîtra de la liste et le groupe de discussion sera supprimé.",
     eventTitleInput: "Titre de l'événement",
-    locationExample: "Ex: Parc Monceau",
+    locationExample: "Ex: Salle des fêtes, Blagnac",
     descriptionPlaceholder:
       "Ajoutez des détails, le déroulé, le matériel à prévoir...",
 
@@ -1221,6 +1223,8 @@ export const translations = {
     createEventAriaLabel: "Create an event",
     topWeeklyEvents: "Top 5 of the week",
     noEventsThisWeek: "No events this week.",
+    eventsNearbySection: "Nearby (≤ {km} km)",
+    noNearbyEvents: "No events within 50 km of this location.",
     noSearchResults: "No activities match your search.",
     eventsSearchLoadingMore: "Loading more events…",
     searchEvents: "Search",
@@ -1261,7 +1265,7 @@ export const translations = {
     deleteEventConfirmation:
       "Permanently cancel this event? It will disappear from the list and the discussion group will be deleted.",
     eventTitleInput: "Event title",
-    locationExample: "Ex: Central Park",
+    locationExample: "Ex: Central Park, New York",
     descriptionPlaceholder: "Add details, schedule, materials to prepare...",
 
     // LoginPage

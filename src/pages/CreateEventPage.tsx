@@ -34,6 +34,12 @@ import {
 } from "../lib/eventParticipantLimits";
 import { hasEventScheduleGapConflict } from "../lib/eventScheduleGap";
 import {
+  searchLocationSuggestions,
+  formatLocationOnCommit,
+  ensureLocationIncludesCity,
+  type LocationSuggestion,
+} from "../lib/geoCommunes";
+import {
   KARMA_ORGANIZE_COST,
   KARMA_ORGANIZE_SUCCESS_REWARD,
 } from "../lib/karma";
@@ -47,7 +53,7 @@ import "./CreateEventPage.css";
 
 const MAX_TITLE_LEN = 50;
 const MAX_DESCRIPTION_LEN = 300;
-const MAX_LOCATION_LEN = 99;
+const MAX_LOCATION_LEN = 120;
 
 function foldNorm(s: string): string {
   return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
@@ -135,6 +141,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
     getEventById,
     friends,
     events,
+    viewerProfileCity,
   } = useMessagingStore();
   const viewerProAccess = useMessagingStore(hasViewerProAccess);
   const entitlementState = useMemo(
@@ -163,6 +170,11 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState<
+    LocationSuggestion[]
+  >([]);
+  const [locationSuggestOpen, setLocationSuggestOpen] = useState(false);
+  const locationBlurTimerRef = useRef<number | null>(null);
   const [description, setDescription] = useState("");
   const [maxParticipants, setMaxParticipants] = useState(
     String(EVENT_PARTICIPANT_MIN_MAX),
@@ -201,6 +213,50 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const clearInviteFriends = useCallback(() => {
     setSelectedInviteProfilIds([]);
   }, []);
+
+  useEffect(() => {
+    const q = location.trim();
+    if (q.length < 2) {
+      setLocationSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void searchLocationSuggestions(q, 7)
+        .then((rows) => {
+          if (!cancelled) setLocationSuggestions(rows);
+        })
+        .catch(() => {
+          if (!cancelled) setLocationSuggestions([]);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [location]);
+
+  useEffect(() => {
+    return () => {
+      if (locationBlurTimerRef.current != null) {
+        window.clearTimeout(locationBlurTimerRef.current);
+      }
+    };
+  }, []);
+
+  const applyLocationSuggestion = useCallback((suggestion: LocationSuggestion) => {
+    setLocation(suggestion.label.slice(0, MAX_LOCATION_LEN));
+    setLocationSuggestions([]);
+    setLocationSuggestOpen(false);
+  }, []);
+
+  const commitLocationFormat = useCallback(() => {
+    setLocationSuggestOpen(false);
+    void formatLocationOnCommit(location, viewerProfileCity).then((formatted) => {
+      setLocation(formatted.slice(0, MAX_LOCATION_LEN));
+    });
+  }, [location, viewerProfileCity]);
+
   /** Coché = sortie privée (hors agenda public sauf admins / organisateur / inscrits). */
   const [isPrivate, setIsPrivate] = useState(false);
   const [manualApproval, setManualApproval] = useState(false);
@@ -382,7 +438,12 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   const submit = useCallback(() => {
     setSubmitError(null);
     const titleTrim = title.trim().slice(0, MAX_TITLE_LEN);
-    const locationTrim = location.trim().slice(0, MAX_LOCATION_LEN);
+    const locationTrim = ensureLocationIncludesCity(
+      location,
+      viewerProfileCity,
+    )
+      .trim()
+      .slice(0, MAX_LOCATION_LEN);
     const parsed = eventDate;
     const timeShortStr = eventDate.toLocaleTimeString("fr-FR", {
       hour: "2-digit",
@@ -516,6 +577,7 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
   }, [
     title,
     location,
+    viewerProfileCity,
     description,
     maxParticipants,
     eventDate,
@@ -711,13 +773,51 @@ export function CreateEventPage({ formEventId }: CreateEventPageProps) {
               <MapPin size={18} color="#fff" aria-hidden />
               <span className="ce-inline-label">{t("locationLabel")}</span>
             </div>
-            <input
-              className="ce-lieu-field"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder={t("locationExample")}
-              maxLength={MAX_LOCATION_LEN}
-            />
+            <div className="ce-lieu-suggest-wrap">
+              <input
+                className="ce-lieu-field"
+                value={location}
+                onChange={(e) => {
+                  setLocation(e.target.value.slice(0, MAX_LOCATION_LEN));
+                  setLocationSuggestOpen(true);
+                }}
+                onFocus={() => setLocationSuggestOpen(true)}
+                onBlur={() => {
+                  if (locationBlurTimerRef.current != null) {
+                    window.clearTimeout(locationBlurTimerRef.current);
+                  }
+                  locationBlurTimerRef.current = window.setTimeout(() => {
+                    commitLocationFormat();
+                  }, 180);
+                }}
+                placeholder={t("locationExample")}
+                maxLength={MAX_LOCATION_LEN}
+                autoComplete="off"
+                aria-autocomplete="list"
+                aria-expanded={
+                  locationSuggestOpen && locationSuggestions.length > 0
+                }
+              />
+              {locationSuggestOpen && locationSuggestions.length > 0 ? (
+                <ul className="ce-lieu-suggest-list" role="listbox">
+                  {locationSuggestions.map((s) => (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        className="ce-lieu-suggest-item"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => applyLocationSuggestion(s)}
+                      >
+                        <span className="ce-lieu-suggest-label">{s.label}</span>
+                        {s.detail ? (
+                          <span className="ce-lieu-suggest-detail">{s.detail}</span>
+                        ) : null}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
           </div>
           <div className="ce-max-col">
             <div className="ce-inline-label-row">

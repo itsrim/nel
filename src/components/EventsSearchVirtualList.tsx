@@ -5,6 +5,7 @@ import { EventCard } from "./EventCard";
 import {
   EVENT_SEARCH_PAGE_SIZE,
   buildEventSearchSections,
+  buildFlatSearchSection,
   buildEventSearchVirtualRows,
   estimateEventSearchRowHeight,
 } from "../lib/eventSearchListing";
@@ -19,6 +20,8 @@ type EventsSearchVirtualListProps = {
   emptyMessage: string;
   loadingMoreLabel: string;
   listResetKey: string;
+  /** Si fourni, une seule section avec ce titre (liste déjà triée). */
+  flatSectionTitle?: string;
 };
 
 export function EventsSearchVirtualList({
@@ -30,6 +33,7 @@ export function EventsSearchVirtualList({
   emptyMessage,
   loadingMoreLabel,
   listResetKey,
+  flatSectionTitle,
 }: EventsSearchVirtualListProps) {
   const [loadedCount, setLoadedCount] = useState(EVENT_SEARCH_PAGE_SIZE);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
@@ -44,9 +48,11 @@ export function EventsSearchVirtualList({
   );
 
   const rows = useMemo(() => {
-    const sections = buildEventSearchSections(pagedEvents);
+    const sections = flatSectionTitle
+      ? buildFlatSearchSection(pagedEvents, flatSectionTitle)
+      : buildEventSearchSections(pagedEvents);
     return buildEventSearchVirtualRows(sections);
-  }, [pagedEvents]);
+  }, [pagedEvents, flatSectionTitle]);
 
   const hasMore = loadedCount < events.length;
 

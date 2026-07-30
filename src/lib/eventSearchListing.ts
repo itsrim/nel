@@ -108,6 +108,15 @@ export function buildEventSearchSections(events: Event[]): EventSearchSection[] 
     }));
 }
 
+/** Une seule section : liste déjà triée (ex. par distance). */
+export function buildFlatSearchSection(
+  events: Event[],
+  title: string,
+): EventSearchSection[] {
+  if (events.length === 0) return [];
+  return [{ dateKey: "_nearby", title, items: events }];
+}
+
 export type EventSearchVirtualRow =
   | { kind: "header"; dateKey: string; title: string }
   | { kind: "cards"; events: Event[] };

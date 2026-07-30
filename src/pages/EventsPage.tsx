@@ -30,6 +30,13 @@ import {
   filterUpcomingSearchEvents,
   pickTopUpcomingEvents,
 } from "../lib/eventSearchListing";
+import {
+  defaultEventsLocationFilter,
+  EVENT_NEARBY_RADIUS_KM,
+  filterAndSortEventsByDistance,
+  resolveLocationCoords,
+  type LatLng,
+} from "../lib/eventLocationDistance";
 import "./EventsPage.css";
 
 /* ── Date helpers ── */
@@ -133,6 +140,7 @@ export function EventsPage() {
     isAdmin,
     moderationHiddenEventIds,
     viewerProfileDisplayName,
+    viewerProfileCity,
     eventsLoading,
   } = useMessagingStore();
   const { t } = useTranslation();
@@ -157,9 +165,70 @@ export function EventsPage() {
   const [committedSearch, setCommittedSearch] = useState("");
   const [searchFilterPanelOpen, setSearchFilterPanelOpen] = useState(false);
   const [filterDate, setFilterDate] = useState("");
-  const [filterLocation, setFilterLocation] = useState("");
+  const profileLocationDefault = defaultEventsLocationFilter(viewerProfileCity);
+  const [locationTouched, setLocationTouched] = useState(false);
+  const [filterLocation, setFilterLocation] = useState(() =>
+    defaultEventsLocationFilter(
+      useMessagingStore.getState().viewerProfileCity,
+    ),
+  );
   const [filterTag, setFilterTag] = useState("");
+  const [locationAnchor, setLocationAnchor] = useState<LatLng | null>(null);
+  const [coordsByEventId, setCoordsByEventId] = useState<
+    Record<string, LatLng | null>
+  >({});
+  const [geoReady, setGeoReady] = useState(false);
   const eventsContentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (locationTouched) return;
+    setFilterLocation(profileLocationDefault);
+  }, [profileLocationDefault, locationTouched]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const label = filterLocation.trim();
+    if (!label) {
+      setLocationAnchor(null);
+      setGeoReady(true);
+      return;
+    }
+    setGeoReady(false);
+    void resolveLocationCoords(label).then((coords) => {
+      if (cancelled) return;
+      setLocationAnchor(coords);
+      setGeoReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [filterLocation]);
+
+  useEffect(() => {
+    if (headerMode !== "search") return;
+    let cancelled = false;
+    const locations = [
+      ...new Set(
+        events.map((e) => e.location.trim()).filter((loc) => loc.length > 0),
+      ),
+    ];
+    void (async () => {
+      const next: Record<string, LatLng | null> = {};
+      const byLocation = new Map<string, LatLng | null>();
+      for (const loc of locations) {
+        byLocation.set(loc, await resolveLocationCoords(loc));
+      }
+      if (cancelled) return;
+      for (const e of events) {
+        const loc = e.location.trim();
+        next[e.id] = loc ? (byLocation.get(loc) ?? null) : null;
+      }
+      setCoordsByEventId(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [events, headerMode]);
 
   const monthTitle = useMemo(
     () => formatWeekMonthTitle(weekStartMonday),
@@ -207,12 +276,13 @@ export function EventsPage() {
 
   const allSearchEvents = useMemo(() => {
     if (headerMode !== "search") return [];
-    return filterUpcomingSearchEvents(
+    const base = filterUpcomingSearchEvents(
       events,
       {
         fromDateKey: searchFromDateKey,
         searchQuery: committedSearch,
-        locationQuery: filterLocation,
+        // Le filtre lieu est géo (rayon 50 km), pas un includes texte.
+        locationQuery: "",
         tagQuery: filterTag,
       },
       {
@@ -221,16 +291,28 @@ export function EventsPage() {
         viewerProfileDisplayName,
       },
     );
+    // Champ lieu vide → toutes les sorties (sans rayon).
+    if (!filterLocation.trim()) return base;
+    if (!geoReady || !locationAnchor) return [];
+    return filterAndSortEventsByDistance(
+      base,
+      locationAnchor,
+      coordsByEventId,
+      EVENT_NEARBY_RADIUS_KM,
+    ).map((row) => row.event);
   }, [
     headerMode,
     events,
     searchFromDateKey,
     committedSearch,
-    filterLocation,
     filterTag,
+    filterLocation,
     isAdmin,
     moderationHiddenEventIds,
     viewerProfileDisplayName,
+    geoReady,
+    locationAnchor,
+    coordsByEventId,
   ]);
 
   const topSearchEvents = useMemo(
@@ -291,30 +373,37 @@ export function EventsPage() {
     setSearchDraft("");
     setCommittedSearch("");
     setFilterDate("");
-    setFilterLocation("");
+    setLocationTouched(false);
+    setFilterLocation(defaultEventsLocationFilter(viewerProfileCity));
     setFilterTag("");
     setSearchFilterPanelOpen(false);
-  }, []);
+  }, [viewerProfileCity]);
 
   const searchListResetKey = useMemo(
     () =>
-      `${searchFromDateKey}|${committedSearch}|${filterLocation}|${filterTag}`,
-    [searchFromDateKey, committedSearch, filterLocation, filterTag],
+      `${searchFromDateKey}|${committedSearch}|${filterLocation}|${filterTag}|${locationAnchor?.lat ?? ""}|${locationAnchor?.lng ?? ""}`,
+    [
+      searchFromDateKey,
+      committedSearch,
+      filterLocation,
+      filterTag,
+      locationAnchor?.lat,
+      locationAnchor?.lng,
+    ],
   );
 
-  const filterChipsActive = Boolean(
-    filterDate || filterLocation.trim(),
-  );
+  const filterChipsActive = Boolean(filterDate || filterLocation.trim());
 
   useEffect(() => {
     if (headerMode !== "calendar") return;
     setSearchDraft("");
     setCommittedSearch("");
     setFilterDate("");
-    setFilterLocation("");
+    setLocationTouched(false);
+    setFilterLocation(defaultEventsLocationFilter(viewerProfileCity));
     setFilterTag("");
     setSearchFilterPanelOpen(false);
-  }, [headerMode]);
+  }, [headerMode, viewerProfileCity]);
 
   useEffect(() => {
     if (isAdmin) return;
@@ -443,7 +532,10 @@ export function EventsPage() {
                     className="events-filter-field events-filter-field--grow"
                     placeholder="Lieu"
                     value={filterLocation}
-                    onChange={(e) => setFilterLocation(e.target.value)}
+                    onChange={(e) => {
+                      setLocationTouched(true);
+                      setFilterLocation(e.target.value);
+                    }}
                     aria-label="Filtrer par lieu"
                   />
                 </>
@@ -548,9 +640,23 @@ export function EventsPage() {
             eventCardW={eventCardW}
             onOpenEvent={(id) => openDetail("event", id)}
             onToggleFavorite={toggleEventFavorite}
-            emptyMessage={t("noSearchResults")}
+            emptyMessage={
+              filterLocation.trim()
+                ? geoReady
+                  ? t("noNearbyEvents")
+                  : t("loading")
+                : t("noSearchResults")
+            }
             loadingMoreLabel={t("eventsSearchLoadingMore")}
             listResetKey={searchListResetKey}
+            flatSectionTitle={
+              filterLocation.trim()
+                ? t("eventsNearbySection").replace(
+                    "{km}",
+                    String(EVENT_NEARBY_RADIUS_KM),
+                  )
+                : undefined
+            }
           />
         ) : sections.length === 0 ? (
           <p className="events-empty">{t("noEventsThisWeek")}</p>
